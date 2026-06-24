@@ -1,0 +1,276 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Design system — Tailwind v4 (CSS-first)
+
+   Two layers:
+     1. RAW SCALES (@theme)         — accent + neutral ramps (50→950) and other
+                                       fixed tokens. Reference only when you need
+                                       a specific shade.
+     2. SEMANTIC TOKENS (@theme inline) — background / surface / border / fg / …
+                                       resolve to runtime CSS vars (:root = light,
+                                       .dark = dark) so the theme flips at runtime.
+                                       Components should use THESE:
+                                       bg-surface, text-muted, border-border, …
+
+   The app boots dark (<html class="dark">); the Figma design is dark-first.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Layer 1: raw scales + non-color tokens ──────────────────────────────── */
+@theme {
+  /* Accent — periwinkle blue, anchored on the Figma design's #7C9CFF */
+  --color-accent-50: #eff2ff;
+  --color-accent-100: #e1e7ff;
+  --color-accent-200: #c9d3ff;
+  --color-accent-300: #a7b6ff;
+  --color-accent-400: #8a9fff;
+  --color-accent-500: #7c9cff;
+  --color-accent-600: #5b78f5;
+  --color-accent-700: #4759da;
+  --color-accent-800: #3a48ae;
+  --color-accent-900: #343f89;
+  --color-accent-950: #1f2552;
+
+  /* Neutral — very slightly cool, sits under the accent */
+  --color-neutral-50: #f7f7f8;
+  --color-neutral-100: #e9e9eb;
+  --color-neutral-200: #d1d1d5;
+  --color-neutral-300: #b2b2b8;
+  --color-neutral-400: #8b8b92;
+  --color-neutral-500: #6c6c73;
+  --color-neutral-600: #4e4e55;
+  --color-neutral-700: #38383d;
+  --color-neutral-800: #27272b;
+  --color-neutral-850: #1d1d20;
+  --color-neutral-900: #161618;
+  --color-neutral-950: #0e0e10;
+
+  /* Functional / status */
+  --color-success: #3fb950;
+  --color-warning: #febc2e;
+  --color-danger: #ff5f57;
+
+  /* macOS window controls */
+  --color-traffic-red: #ff5f57;
+  --color-traffic-amber: #febc2e;
+  --color-traffic-green: #28c840;
+
+  /* Typography */
+  --font-sans: "Figtree", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: '"JetBrains Mono"', "SF Mono", ui-monospace, Menlo, monospace;
+
+  --text-2xs: 11px;
+  --text-2xs--line-height: 14px;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 14.5px;
+  --text-base--line-height: 23px;
+  --text-md: 15px;
+  --text-md--line-height: 22px;
+  --text-lg: 17px;
+  --text-lg--line-height: 24px;
+
+  /* Z-index scale */
+  --z-base: 1;
+  --z-dropdown: 10;
+  --z-sticky: 15;
+  --z-overlay: 20;
+  --z-modal: 25;
+  --z-toast: 30;
+  --z-tooltip: 35;
+
+  /* Radius / shadow */
+  --radius-card: 14px;
+  --radius-bubble: 16px;
+  --shadow-input: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-pop: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
+
+  /* Motion */
+  --animate-fade-in: fade-in 0.15s ease-out;
+  --animate-fade-in-up: fade-in-up 0.15s ease-out;
+  --animate-shimmer: shimmer 1.8s linear infinite;
+}
+
+/* ─── Layer 2: semantic tokens (inline → resolve to runtime vars below) ────── */
+@theme inline {
+  --color-background: var(--bg);
+  --color-panel: var(--panel);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-elevated: var(--elevated);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-subtle: var(--fg-subtle);
+  --color-brand: var(--accent);
+  --color-brand-hover: var(--accent-hover);
+  --color-brand-foreground: var(--accent-fg);
+  --color-user-bubble: var(--user-bubble);
+  --color-user-bubble-foreground: var(--user-bubble-fg);
+  --color-ring: var(--ring);
+}
+
+/* ─── Runtime themes ──────────────────────────────────────────────────────── */
+:root {
+  /* Light */
+  --bg: #ffffff;
+  --panel: #fcfcfc;
+  --surface: #f3f3f5;
+  --surface-hover: #ececef;
+  --elevated: #ffffff;
+  --border: rgb(0 0 0 / 0.08);
+  --border-strong: rgb(0 0 0 / 0.14);
+  --fg: #18181b;
+  --fg-muted: #52525a;
+  --fg-subtle: #8b8b92;
+  --accent: var(--fg);
+  --accent-hover: var(--fg-muted);
+  --accent-fg: #ffffff;
+  --user-bubble: #e7ecff;
+  --user-bubble-fg: #1b2340;
+  --ring: rgb(71 89 218 / 0.4);
+}
+
+.dark {
+  /* Dark — the Figma design */
+  --bg: #0e0e10;
+  --panel: #131315;
+  --surface: #1a1a1d;
+  --surface-hover: #212125;
+  --elevated: #202024;
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.14);
+  --fg: #e9e9eb;
+  --fg-muted: #b2b2b8;
+  --fg-subtle: #76767c;
+  --accent: #7c9cff;
+  --accent-hover: #93acff;
+  --accent-fg: #ffffff;
+  --user-bubble: #2a3040;
+  --user-bubble-fg: #e9e9eb;
+  --ring: rgb(124 156 255 / 0.5);
+}
+
+/* ─── Keyframes ───────────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0% {
+    background-position: 200% center;
+  }
+
+  100% {
+    background-position: -200% center;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Base ────────────────────────────────────────────────────────────────── */
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 14.5px;
+    line-height: 1.5;
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+    text-rendering: geometricPrecision;
+  }
+
+  svg {
+    shape-rendering: geometricPrecision;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+
+  /* Thin, theme-aware scrollbars */
+  button,
+  a,
+  [role="button"] {
+    cursor: pointer;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--fg-subtle);
+    background-clip: content-box;
+  }
+}
+
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    var(--fg-subtle) 20%,
+    var(--fg-muted) 50%,
+    var(--fg-subtle) 80%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shimmer 1.8s linear infinite;
+}
+
+/* Electrobun drag regions — no text cursor or selection while dragging */
+.electrobun-webkit-app-region-drag {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
