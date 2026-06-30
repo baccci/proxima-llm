@@ -128,7 +128,12 @@ export function createRPC() {
         listMessages: ({ chatId }) => chatService.listMessages(chatId),
         getCompactionInfo: ({ chatId }) => {
           const snapshot = compactionService.getLatestSnapshot(chatId);
-          return snapshot ? { coveredThroughAt: snapshot.coveredThroughAt } : null;
+          return snapshot
+            ? {
+                coveredThroughAt: snapshot.coveredThroughAt,
+                displayThroughAt: snapshot.displayThroughAt,
+              }
+            : null;
         },
         compactNow: async ({ chatId }) => {
           const chat = chatService.getChat(chatId);

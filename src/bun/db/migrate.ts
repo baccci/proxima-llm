@@ -93,6 +93,7 @@ export function setupSchema() {
       created_at                 INTEGER NOT NULL,
       covered_through_at         INTEGER NOT NULL,
       covered_through_message_id TEXT NOT NULL,
+      display_through_at         INTEGER,
       summary_text               TEXT NOT NULL,
       tokens_saved               INTEGER
     );
@@ -132,6 +133,15 @@ export function setupSchema() {
   const hasComposer = chatCols.some((c) => c.name === 'composer');
   if (!hasComposer) {
     sqlite.exec(`ALTER TABLE chats ADD COLUMN composer TEXT NOT NULL DEFAULT '{}'`);
+  }
+
+  // Add display_through_at column if it doesn't exist (existing DBs)
+  const compactionCols: { name: string }[] = sqlite
+    .query(`PRAGMA table_info(compaction_snapshots)`)
+    .all() as { name: string }[];
+  const hasDisplayThrough = compactionCols.some((c) => c.name === 'display_through_at');
+  if (!hasDisplayThrough) {
+    sqlite.exec(`ALTER TABLE compaction_snapshots ADD COLUMN display_through_at INTEGER`);
   }
 
   // Add stop_reason column if it doesn't exist (existing DBs)

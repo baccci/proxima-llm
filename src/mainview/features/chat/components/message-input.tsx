@@ -89,7 +89,10 @@ export function MessageInput({
     }
     try {
       const result = await chat.compactNow(chatId)
-      if (result.status === 'noop') {
+      if (result.status === 'ok') {
+        const n = result.summarized
+        showNote(`Summarized ${n} earlier message${n === 1 ? '' : 's'} to save context`)
+      } else {
         showNote(
           result.reason === 'nothing-to-summarize'
             ? 'Already compact — nothing older to summarize'

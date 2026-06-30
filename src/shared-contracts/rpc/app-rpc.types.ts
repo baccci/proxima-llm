@@ -96,7 +96,7 @@ export type AppRPC = {
       listMessages: { params: { chatId: string }; response: MessageDTO[] }
       getCompactionInfo: {
         params: { chatId: string }
-        response: { coveredThroughAt: string } | null
+        response: { coveredThroughAt: string; displayThroughAt: string } | null
       }
       compactNow: {
         params: { chatId: string }

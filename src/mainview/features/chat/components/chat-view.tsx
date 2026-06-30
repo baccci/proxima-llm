@@ -129,7 +129,7 @@ export function ChatView() {
         key={selectedChatId}
         messages={messages}
         chatItem={chat}
-        compactedThroughAt={compaction?.coveredThroughAt}
+        compactedThroughAt={compaction?.displayThroughAt}
       />
 
       {/* Input */}
