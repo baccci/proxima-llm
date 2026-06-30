@@ -42,7 +42,11 @@ function buildCompactionPrompt(
 }
 
 export type CompactionSnapshot = {
+  // Boundary the model summarizes through — messages newer than this are sent in full.
   coveredThroughAt: string;
+  // Chat tail at compaction time — where the UI divider renders (bottom). Falls back
+  // to coveredThroughAt for pre-existing rows that predate the column.
+  displayThroughAt: string;
   summaryText: string;
 };
 
@@ -55,8 +59,12 @@ export function getLatestSnapshot(chatId: string): CompactionSnapshot | undefine
     .limit(1)
     .get();
   if (!row) return undefined;
+  const coveredThroughAt = (row.coveredThroughAt as Date).toISOString();
   return {
-    coveredThroughAt: (row.coveredThroughAt as Date).toISOString(),
+    coveredThroughAt,
+    displayThroughAt: row.displayThroughAt
+      ? (row.displayThroughAt as Date).toISOString()
+      : coveredThroughAt,
     summaryText: row.summaryText,
   };
 }
@@ -88,6 +96,9 @@ export async function compact(
   if (toSummarize.length === 0) return { status: 'noop', reason: 'nothing-to-summarize' };
 
   const boundary = toSummarize.at(-1)!;
+  // Chat tail at compaction time — divider display anchor (kept-full recent messages
+  // sit between `boundary` and this, above the line).
+  const displayBoundary = since.at(-1)!;
   const titleModelId = resolveTitleModel(model.provider);
   if (!titleModelId) return { status: 'noop', reason: 'no-title-model' };
 
@@ -114,6 +125,7 @@ export async function compact(
       createdAt: new Date(),
       coveredThroughAt: new Date(boundary.createdAt),
       coveredThroughMessageId: boundary.id,
+      displayThroughAt: new Date(displayBoundary.createdAt),
       summaryText,
       tokensSaved: null,
     })
