@@ -15,9 +15,9 @@ export function AttachmentChip({ attachment, onRemove }: Props) {
   return (
     <div className="flex items-center gap-1.5 bg-surface border border-border rounded-lg px-2.5 py-1.5 text-xs text-muted max-w-[180px]">
       {isImage ? (
-        <IconImage width={13} className="text-accent-400 shrink-0" />
+        <IconImage width={13} className="text-selected-foreground shrink-0" />
       ) : (
-        <IconFileText width={13} className="text-accent-400 shrink-0" />
+        <IconFileText width={13} className="text-selected-foreground shrink-0" />
       )}
       <span className="truncate flex-1">{attachment.relPath.split('/').pop()}</span>
       <span className="text-subtle shrink-0">{sizeKb}KB</span>

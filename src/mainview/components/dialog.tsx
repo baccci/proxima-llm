@@ -23,12 +23,14 @@ export function DialogContent({
 }: DialogContentProps) {
   return (
     <Dialog.Portal>
-      <Dialog.Backdrop className="fixed inset-0 bg-black/50 z-overlay animate-fade-in" />
+      <Dialog.Backdrop className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm z-overlay data-starting-style:opacity-0 data-ending-style:opacity-0 transition-opacity duration-200" />
       <Dialog.Popup
         className={cn(
           'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-modal',
-          'rounded-xl border border-border bg-panel shadow-pop outline-none',
-          'animate-fade-in-up',
+          'rounded-xl border border-border bg-panel shadow-modal outline-none',
+          'data-starting-style:opacity-0 data-starting-style:scale-[0.96]',
+          'data-ending-style:opacity-0 data-ending-style:scale-[0.96]',
+          'transition-[opacity,scale] duration-200 ease-out',
           wide ? 'w-[640px]' : 'w-[480px]',
           className,
         )}

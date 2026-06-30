@@ -32,3 +32,6 @@ native/*.dylib
 
 # Bun
 .bun-cache/
+
+# Eval artifacts
+evals/*.sqlite

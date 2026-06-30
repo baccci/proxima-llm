@@ -1,12 +1,24 @@
 import type { AttachmentDTO } from '../schemas/attachment.schema'
 import type { ChatComposerState, ChatDTO, CreateChatInput } from '../schemas/chat.schema'
+import type {
+  DeleteMemorySliceInput,
+  ListMemorySlicesInput,
+  MemorySliceDTO,
+  UpsertMemorySliceInput,
+} from '../schemas/memory-slice.schema'
 import type { MessageDTO } from '../schemas/message.schema'
 import type { ModelDTO } from '../schemas/model.schema'
 import type { CreateProjectInput, ProjectDTO, UpdateProjectInput } from '../schemas/project.schema'
+import type {
+  AddProjectFileInput,
+  ProjectFileDTO,
+  ReadProjectFileInput,
+} from '../schemas/project-file.schema'
 import type { SettingsDTO, UpdateSettingsInput } from '../schemas/settings.schema'
 
 export type StreamChunk =
   | { kind: 'start'; assistantMessageId: string }
+  | { kind: 'compacting'; active: boolean }
   | { kind: 'text-delta'; delta: string }
   | { kind: 'reasoning-delta'; delta: string }
   | { kind: 'source'; url: string; title?: string }
@@ -22,7 +34,18 @@ export type SendMessageInput = {
   content: string
   thinking?: boolean
   webSearch?: boolean
+  effort?: string | null
   attachmentIds?: string[]
+}
+
+export type RetryMessageInput = {
+  chatId: string
+  modelId: string
+  userMessageId: string
+  content?: string
+  thinking?: boolean
+  webSearch?: boolean
+  effort?: string | null
 }
 
 export type AppRPC = {
@@ -42,6 +65,18 @@ export type AppRPC = {
       updateProject: { params: UpdateProjectInput & { id: string }; response: ProjectDTO }
       deleteProject: { params: { id: string }; response: void }
 
+      // Memory slices
+      listMemorySlices: { params: ListMemorySlicesInput; response: MemorySliceDTO[] }
+      upsertMemorySlice: { params: UpsertMemorySliceInput; response: MemorySliceDTO }
+      deleteMemorySlice: { params: DeleteMemorySliceInput; response: void }
+      getMemorySummary: { params: { projectId: string }; response: { summary: string | null } }
+
+      // Project files
+      listProjectFiles: { params: { projectId: string }; response: ProjectFileDTO[] }
+      addProjectFile: { params: AddProjectFileInput; response: ProjectFileDTO }
+      readProjectFile: { params: ReadProjectFileInput; response: string }
+      deleteProjectFile: { params: { id: string }; response: void }
+
       // Chats
       listChats: { params: { projectId: string | null }; response: ChatDTO[] }
       createChat: { params: CreateChatInput; response: ChatDTO }
@@ -59,9 +94,23 @@ export type AppRPC = {
 
       // Messages
       listMessages: { params: { chatId: string }; response: MessageDTO[] }
+      getCompactionInfo: {
+        params: { chatId: string }
+        response: { coveredThroughAt: string } | null
+      }
+      compactNow: {
+        params: { chatId: string }
+        response:
+          | { status: 'ok'; summarized: number }
+          | { status: 'noop'; reason: 'nothing-to-summarize' | 'no-title-model' | 'empty-summary' }
+      }
       sendMessage: {
         params: SendMessageInput
         response: { streamId: string; userMessageId: string; assistantMessageId: string }
+      }
+      retryFromMessage: {
+        params: RetryMessageInput
+        response: { streamId: string; assistantMessageId: string }
       }
       cancelStream: { params: { streamId: string }; response: void }
       resolveToolApproval: {
@@ -134,9 +183,30 @@ export type AppRPC = {
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
       getModelSyncInfo: { params: {}; response: { lastSyncAt: number | null } }
 
+      // Logs
+      // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
+      getLogInfo: { params: {}; response: { dir: string; sizeBytes: number; fileCount: number } }
+      // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
+      openLogsFolder: { params: {}; response: void }
+      // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
+      openLogFile: { params: {}; response: void }
+      // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
+      clearLogs: { params: {}; response: void }
+      logClientError: {
+        params: { msg: string; stack?: string; context?: Record<string, unknown> }
+        response: void
+      }
+
       // App
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
       quit: { params: {}; response: void }
+
+      // Dev tools (TWEAK=1 only — handlers are no-ops in prod)
+      devSetOverride: {
+        params: { key: string; value: number | string | boolean | null }
+        response: void
+      }
+      devForceCompact: { params: { chatId: string }; response: void }
     }
     // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
     messages: {}
@@ -150,6 +220,7 @@ export type AppRPC = {
       modelsUpdated: {}
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
       chatsUpdated: {}
+      memoryChanged: { scope: 'global' | 'project'; projectId: string | null }
       controlNavigate: {
         chatId: string
         streamId: string

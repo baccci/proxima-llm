@@ -18,7 +18,7 @@ export function SidebarPinnedChats({ chats }: Props) {
 
   return (
     <CollapsibleRoot open={!pinnedCollapsed} onOpenChange={() => togglePinned()}>
-      <div className="flex items-center px-3 py-2">
+      <div className="flex items-center px-4 py-2">
         <CollapsibleTrigger className="flex items-center gap-1.5 text-2xs font-semibold text-subtle uppercase tracking-wider hover:text-muted transition-colors">
           <IconChevronRight
             width={12}
@@ -29,7 +29,7 @@ export function SidebarPinnedChats({ chats }: Props) {
       </div>
 
       <CollapsiblePanel>
-        <ul className="pb-1">
+        <ul className="px-2 pb-1">
           {chats.map((c) => (
             <ChatRow
               key={c.id}

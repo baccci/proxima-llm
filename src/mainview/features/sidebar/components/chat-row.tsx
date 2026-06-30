@@ -54,8 +54,7 @@ export function ChatRow({ chatItem, selected, onSelect, pinned }: Props) {
           onChange={(e) => setRenameText(e.target.value)}
           onKeyDown={handleRenameKeyDown}
           onBlur={commitRename}
-          className="w-full mx-1 px-3 py-1.5 text-sm rounded-lg bg-surface-hover text-foreground outline-none border border-brand"
-          style={{ width: 'calc(100% - 8px)' }}
+          className="w-full px-2 h-8 text-sm rounded-lg bg-surface-hover text-foreground outline-none border border-selected-border"
         />
       </li>
     )
@@ -66,17 +65,17 @@ export function ChatRow({ chatItem, selected, onSelect, pinned }: Props) {
       <button
         onClick={onSelect}
         className={cn(
-          'flex items-center w-full ml-1 mb-0.5 p-1.5 text-sm rounded-lg transition-colors cursor-pointer text-left',
+          'flex items-center w-full mb-0.5 pl-2 pr-1 h-8 text-sm rounded-lg transition-colors cursor-pointer text-left',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:bg-surface-hover focus-visible:text-foreground',
           selected
             ? 'bg-surface-hover text-foreground'
             : 'text-muted group-hover:bg-surface-hover group-hover:text-foreground',
         )}
-        style={{ width: 'calc(100% - 8px)' }}
       >
         {pinned && <IconPin width={13} className="text-subtle shrink-0 mr-2" />}
         <span
-          className="relative flex-1 min-w-0 overflow-hidden pr-5 whitespace-nowrap"
-          style={{ maskImage: 'linear-gradient(to right, black 75%, transparent 95%)' }}
+          className="relative flex-1 min-w-0 overflow-hidden pr-9 whitespace-nowrap"
+          style={{ maskImage: 'linear-gradient(to right, black 70%, transparent 90%)' }}
         >
           {chatTitle(chatItem)}
         </span>
@@ -85,8 +84,10 @@ export function ChatRow({ chatItem, selected, onSelect, pinned }: Props) {
       {/* ⋯ trigger — sibling to button, revealed on hover or while menu open */}
       <div
         className={cn(
-          'absolute right-2 top-1/2 -translate-y-1/2 transition-opacity',
-          menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+          'absolute right-1 top-1/2 -translate-y-1/2 transition-opacity',
+          menuOpen
+            ? 'opacity-100'
+            : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
         )}
       >
         <ChatActionsMenu

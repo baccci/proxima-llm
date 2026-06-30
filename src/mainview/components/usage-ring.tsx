@@ -20,6 +20,8 @@ export function UsageRing({ fraction, size = 20 }: UsageRingProps) {
         strokeWidth={strokeWidth}
         className="text-surface-hover"
       />
+      {/* Arc has no text-* class so it inherits the parent's currentColor
+          (e.g. text-accent-500 in the composer), instead of forcing gray. */}
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -29,7 +31,6 @@ export function UsageRing({ fraction, size = 20 }: UsageRingProps) {
         strokeWidth={strokeWidth}
         strokeDasharray={`${filled} ${circumference}`}
         strokeLinecap="round"
-        className="text-subtle"
       />
     </svg>
   )

@@ -27,14 +27,14 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="flex flex-col w-[280px] h-full rounded-lg border border-border bg-panel shadow-lg shrink-0 overflow-hidden z-base">
+    <aside className="flex flex-col w-(--layout-sidebar-w) h-full rounded-lg border border-border bg-panel shadow-modal shrink-0 overflow-hidden z-base">
       {/* Native traffic lights appear here via hiddenInset + trafficLightOffset */}
       <div className="h-8 shrink-0 electrobun-webkit-app-region-drag" />
 
       {/* Search */}
       <div className="px-2 pb-2 shrink-0">
-        <div className="flex items-center gap-2 bg-surface border border-border rounded-lg px-3 h-8">
-          <IconSearch width={13} className="text-subtle shrink-0" />
+        <div className="flex items-center gap-2 bg-surface border border-border rounded-lg px-2 h-8">
+          <IconSearch width={14} className="text-subtle shrink-0" />
           <input
             type="text"
             placeholder="Search chats…"
@@ -50,19 +50,19 @@ export function Sidebar() {
         <button
           onClick={handleNewChat}
           disabled={false}
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors cursor-pointer"
+          className="flex items-center gap-2 w-full px-2 h-8 rounded-lg text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <IconPlus width={15} className="shrink-0" />
           <span>New chat</span>
         </button>
       </div>
 
-      <div className="h-px bg-border shrink-0 mx-3 mb-1" />
+      <div className="h-px bg-border shrink-0 mx-4 my-1" />
 
       {/* Projects */}
       <SidebarProjects />
 
-      <div className="h-px bg-border shrink-0 mx-3 my-1" />
+      <div className="h-px bg-border shrink-0 mx-4 my-1" />
 
       {/* Pinned chats */}
       <SidebarPinnedChats chats={pinned} />

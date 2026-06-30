@@ -1,7 +1,9 @@
+import { TOOL_CATALOG } from '@shared/tools/tool-catalog'
 import { cn } from '@utils/tailwind-class-merge'
-import { AnimatePresence, motion } from 'motion/react'
 import React from 'react'
 import { IconChevronRight } from '@/components/icons/icon-chevron-right'
+import { IconTerminal } from '@/components/icons/icon-terminal'
+import { getToolSummary } from '../lib/tool-summary'
 
 interface Props {
   toolName: string
@@ -10,6 +12,16 @@ interface Props {
   awaitingApproval?: boolean
   onApprove?: (remember: boolean) => void
   onDeny?: (remember: boolean) => void
+}
+
+type ToolPhrases = { running: string; done: string }
+
+const PHRASE_MAP = new Map<string, ToolPhrases>(
+  TOOL_CATALOG.map((t) => [t.name, { running: t.runningLabel, done: t.doneLabel }]),
+)
+
+function getPhrases(toolName: string): ToolPhrases {
+  return PHRASE_MAP.get(toolName) ?? { running: `Calling ${toolName}…`, done: toolName }
 }
 
 export function ToolCallBlock({
@@ -24,61 +36,42 @@ export function ToolCallBlock({
   const [remember, setRemember] = React.useState(false)
 
   const pending = output === undefined && !awaitingApproval
-  const label = awaitingApproval
-    ? `Allow ${toolName}?`
-    : pending
-      ? `Calling ${toolName}…`
-      : toolName
+  const phrases = getPhrases(toolName)
 
-  return (
-    <div className="my-2 rounded-card border border-border bg-elevated text-sm overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 bg-panel">
-        <span className="text-xs font-mono text-muted">{label}</span>
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="ml-auto flex items-center gap-1 text-subtle hover:text-foreground transition-colors"
-        >
-          <IconChevronRight
-            width={11}
-            className={cn('transition-transform duration-200', expanded && 'rotate-90')}
-          />
-        </button>
-      </div>
-
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="overflow-hidden"
+  if (awaitingApproval) {
+    return (
+      <div className="my-2 rounded-card border border-border bg-elevated text-sm overflow-hidden">
+        <div className="flex items-center gap-2 px-3 py-2 bg-panel">
+          <span className="text-xs font-mono text-muted">{`Allow ${toolName}?`}</span>
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="ml-auto flex items-center gap-1 text-subtle hover:text-foreground transition-colors"
           >
-            <div className="px-3 py-2 border-t border-border space-y-2">
-              <div>
-                <p className="text-2xs font-semibold text-subtle uppercase tracking-wider mb-1">
-                  Input
-                </p>
-                <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap wrap-break-word">
-                  {JSON.stringify(input, null, 2)}
-                </pre>
-              </div>
-              {output !== undefined && (
-                <div>
-                  <p className="text-2xs font-semibold text-subtle uppercase tracking-wider mb-1">
-                    Output
-                  </p>
-                  <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap wrap-break-word">
-                    {typeof output === 'string' ? output : JSON.stringify(output, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <IconChevronRight
+              width={11}
+              className={cn('transition-transform duration-200', expanded && 'rotate-90')}
+            />
+          </button>
+        </div>
 
-      {awaitingApproval && (
+        <div
+          className={cn(
+            'grid transition-[grid-template-rows] duration-200 ease-out overflow-hidden',
+            expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+          )}
+        >
+          <div className="overflow-hidden">
+            <div className="px-3 py-2 border-t border-border">
+              <p className="text-2xs font-semibold text-subtle uppercase tracking-wider mb-1">
+                Input
+              </p>
+              <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap wrap-break-word">
+                {JSON.stringify(input, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+
         <div className="px-3 py-2.5 border-t border-border flex items-center gap-3 flex-wrap">
           <label className="flex items-center gap-1.5 text-xs text-subtle cursor-pointer select-none">
             <input
@@ -98,13 +91,90 @@ export function ToolCallBlock({
             </button>
             <button
               onClick={() => onApprove?.(remember)}
-              className="px-3 py-1 rounded-md text-xs bg-brand text-white hover:bg-brand-hover transition-colors"
+              className="px-3 py-1 rounded-md text-xs bg-brand text-brand-foreground hover:bg-brand-hover transition-colors"
             >
               Allow
             </button>
           </div>
         </div>
-      )}
+      </div>
+    )
+  }
+
+  if (pending) {
+    return (
+      <div className="my-2 text-sm flex items-center gap-1.5">
+        <IconTerminal width={12} className="shrink-0 text-subtle" />
+        <span className="shimmer-text">{phrases.running}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="my-2 text-sm">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="group flex items-center gap-1.5 text-subtle hover:text-foreground transition-colors"
+      >
+        <IconTerminal width={12} className="shrink-0" />
+        <span>{phrases.done}</span>
+        <IconChevronRight
+          width={10}
+          className={cn(
+            'opacity-0 group-hover:opacity-60 transition-[opacity,transform] duration-150',
+            expanded && 'opacity-60 rotate-90',
+          )}
+        />
+      </button>
+
+      <div
+        className={cn(
+          'grid transition-[grid-template-rows] duration-200 ease-out overflow-hidden',
+          expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="mt-1 ml-2 pl-3 border-l border-border py-1">
+            {(() => {
+              const summary = getToolSummary(toolName, input, output)
+              if (!summary) {
+                return (
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-2xs font-semibold text-subtle uppercase tracking-wider mb-1">
+                        Input
+                      </p>
+                      <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap wrap-break-word">
+                        {JSON.stringify(input, null, 2)}
+                      </pre>
+                    </div>
+                    {output !== undefined && (
+                      <div>
+                        <p className="text-2xs font-semibold text-subtle uppercase tracking-wider mb-1">
+                          Output
+                        </p>
+                        <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap wrap-break-word">
+                          {typeof output === 'string' ? output : JSON.stringify(output, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+              return (
+                <div>
+                  <p className="text-xs font-medium text-foreground/80">{summary.heading}</p>
+                  {summary.preview && (
+                    <p className="mt-1 text-xs text-foreground/80 line-clamp-3 whitespace-pre-wrap">
+                      {summary.preview}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

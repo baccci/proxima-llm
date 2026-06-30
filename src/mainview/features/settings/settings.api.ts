@@ -42,3 +42,23 @@ export const settings = {
 
   syncModels: () => req().syncModels({}),
 }
+
+export const logs = {
+  getInfo: () =>
+    queryClient.fetchQuery({
+      queryKey: queryKeys.logInfo(),
+      queryFn: () => req().getLogInfo({}),
+    }),
+
+  openFolder: () => req().openLogsFolder({}),
+
+  openFile: () => req().openLogFile({}),
+
+  clear: async () => {
+    await req().clearLogs({})
+    queryClient.invalidateQueries({ queryKey: queryKeys.logInfo() })
+  },
+
+  logClientError: (input: { msg: string; stack?: string; context?: Record<string, unknown> }) =>
+    req().logClientError(input),
+}

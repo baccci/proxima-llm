@@ -3,13 +3,16 @@ import { IconPanelLeftClose } from '@/components/icons/icon-panel-left-close'
 import { IconPanelLeftOpen } from '@/components/icons/icon-panel-left-open'
 import { TooltipProvider, TooltipWrapper } from '@/components/tooltip'
 import { useChatStore } from '@/features/chat/store/chat.store'
+import { DevPanel } from '@/features/devtools/components/dev-panel'
 import { queryClient } from '@/lib/query-client'
 import { MainPane } from './layout/main-pane'
 import { Sidebar } from './layout/sidebar'
 import { useApplyTheme } from './use-apply-theme'
+import { useWebkitTabFocus } from './use-webkit-tab-focus'
 
 function AppShell() {
   useApplyTheme()
+  useWebkitTabFocus()
   const sidebarOpen = useChatStore((s) => s.sidebarOpen)
   const toggleSidebar = useChatStore((s) => s.toggleSidebar)
 
@@ -34,6 +37,8 @@ function AppShell() {
       </TooltipWrapper>
 
       <MainPane />
+
+      {import.meta.env.VITE_TWEAK === '1' && <DevPanel />}
     </div>
   )
 }

@@ -36,14 +36,13 @@ export function CollapsiblePanel({ className = '', children, ...props }: Collaps
   return (
     <Collapsible.Panel
       className={cn(
-        'overflow-hidden',
-        'data-starting-style:h-0 data-ending-style:h-0',
-        'transition-[height] duration-200 ease-out',
+        'grid grid-rows-[1fr] transition-[grid-template-rows] duration-200 ease-out',
+        'data-starting-style:grid-rows-[0fr] data-ending-style:grid-rows-[0fr]',
         className,
       )}
       {...props}
     >
-      {children}
+      <div className="overflow-hidden">{children}</div>
     </Collapsible.Panel>
   )
 }

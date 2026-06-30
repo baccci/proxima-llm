@@ -25,6 +25,12 @@ export const rpc = Electroview.defineRPC<AppRPC>({
       chatsUpdated: () => {
         queryClient.invalidateQueries({ queryKey: ['chats'] })
       },
+      memoryChanged: ({ scope, projectId }) => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.memorySlices(scope, projectId) })
+        if (scope === 'project' && projectId) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.memorySummary(projectId) })
+        }
+      },
       controlNavigate: (payload) => {
         onControlNavigate(payload)
       },

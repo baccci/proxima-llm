@@ -2,12 +2,12 @@ import { formatTokens } from '@utils/format-tokens'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { IconMaximize } from '@/components/icons/icon-maximize'
-import { TooltipWrapper } from '@/components/tooltip'
-import { UsageRing } from '@/components/usage-ring'
 import { getContextUsage } from '@/features/chat/entities/context-usage'
 import { useChats } from '@/features/chat/hooks/use-chats'
+import { useCompaction } from '@/features/chat/hooks/use-compaction'
 import { useMessages } from '@/features/chat/hooks/use-messages'
 import { useChatStore } from '@/features/chat/store/chat.store'
+import { useDevtoolsStore } from '@/features/devtools/store/devtools.store'
 import { groupIntoExchanges } from '@/features/focus-mode/entities/group-into-exchanges'
 import { useModels } from '@/features/models/hooks/use-models'
 import { useProjects } from '@/features/projects/hooks/use-projects'
@@ -24,6 +24,7 @@ export function ChatView() {
   const { data: allChats = [] } = useChats(null)
   const { data: projects = [] } = useProjects()
   const { data: messages = [] } = useMessages(selectedChatId)
+  const { data: compaction } = useCompaction(selectedChatId)
   const { data: allModels = [] } = useModels()
 
   const chat = allChats.find((c) => c.id === selectedChatId)
@@ -31,7 +32,23 @@ export function ChatView() {
   const model = allModels.find((m) => m.id === chat?.modelId)
 
   const exchanges = React.useMemo(() => groupIntoExchanges(messages), [messages])
-  const ctxUsage = React.useMemo(() => getContextUsage(messages, model), [messages, model])
+  // Dev-tools token faker — null in prod (the panel that sets it never mounts).
+  const forcedTokens = useDevtoolsStore((s) => s.forcedTokens)
+  const ctxUsage = React.useMemo(() => {
+    const base = getContextUsage(messages, model)
+    if (forcedTokens == null) return base
+    // Synthesize usage when there's no real turn yet, so the faker drives the
+    // ring/counter even on a chat with no assistant reply.
+    const limit = model?.capabilities.contextWindow
+    if (!limit) return base
+    return {
+      used: forcedTokens,
+      limit,
+      fraction: Math.min(1, forcedTokens / limit),
+      cachedFraction: base?.cachedFraction ?? 0,
+      lastTurn: base?.lastTurn ?? { inputTokens: forcedTokens, outputTokens: 0 },
+    }
+  }, [messages, model, forcedTokens])
 
   const handleEnterFocusMode = React.useCallback(() => {
     setFocusModeExchangeIndex(Math.max(0, exchanges.length - 1))
@@ -70,15 +87,18 @@ export function ChatView() {
   )
 
   return (
-    <main className="flex flex-col flex-1 h-full overflow-hidden z-base">
-      {/* Header */}
+    <main className="relative isolate flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+      {/* Header — absolute overlay so messages scroll under it and fade out.
+          pointer-events-none lets clicks pass through the transparent lower
+          edge to the messages beneath; the interactive clusters re-enable them.
+          Dragging is handled by the full-width fixed handle in app.tsx. */}
       <div
         className={cn(
-          'flex items-center gap-2 h-[50px] shrink-0 electrobun-webkit-app-region-drag',
-          sidebarOpen ? 'px-6' : 'pl-[276px] pr-6',
+          'absolute inset-x-0 top-0 z-20 flex items-center gap-2 pt-2 pb-4 pointer-events-none electrobun-webkit-app-region-drag bg-linear-to-b from-background via-background via-60% to-transparent',
+          sidebarOpen ? 'px-6' : 'pl-(--layout-header-inset) pr-6',
         )}
       >
-        <div className="flex items-center gap-1.5 min-w-0 electrobun-webkit-app-region-no-drag">
+        <div className="flex items-center gap-1.5 min-w-0 pointer-events-auto ">
           {project && (
             <>
               <span className="text-subtle text-sm truncate max-w-[120px]">{project.name}</span>
@@ -92,14 +112,7 @@ export function ChatView() {
         <div className="flex-1" />
         {/* relative z-sticky raises this above the full-width fixed drag overlay in app.tsx (h-14),
             which otherwise intercepts the click — same pattern as the sidebar-toggle button. */}
-        <div className="relative z-sticky electrobun-webkit-app-region-no-drag flex items-center gap-1">
-          {ctxUsage && ctxUsage.fraction >= 0.6 && (
-            <TooltipWrapper content={ringTooltip} side="bottom">
-              <button className="flex items-center justify-center h-8 w-8 rounded-lg text-subtle hover:text-foreground hover:bg-surface-hover transition-colors">
-                <UsageRing fraction={ctxUsage.fraction} size={18} />
-              </button>
-            </TooltipWrapper>
-          )}
+        <div className="relative z-10 pointer-events-auto electrobun-webkit-app-region-no-drag flex items-center gap-1">
           <button
             onClick={handleEnterFocusMode}
             className="flex items-center justify-center h-8 w-8 rounded-lg text-subtle hover:text-foreground hover:bg-surface-hover transition-colors"
@@ -112,13 +125,20 @@ export function ChatView() {
       </div>
 
       {/* Messages */}
-      <MessageList messages={messages} />
+      <MessageList
+        key={selectedChatId}
+        messages={messages}
+        chatItem={chat}
+        compactedThroughAt={compaction?.coveredThroughAt}
+      />
 
       {/* Input */}
       <MessageInput
         chatItem={chat}
         contextUsed={ctxUsage?.used}
         contextCached={ctxUsage?.cachedFraction}
+        contextFraction={ctxUsage?.fraction}
+        contextRingTooltip={ringTooltip}
       />
     </main>
   )

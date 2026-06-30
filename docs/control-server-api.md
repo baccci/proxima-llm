@@ -1,6 +1,6 @@
-# LLM Chat — Control Server API
+# Proxima — Control Server API
 
-The control server lets a **local** program drive LLM Chat by injecting prompts or streaming responses back
+The control server lets a **local** program drive Proxima by injecting prompts or streaming responses back
 over the wire. Injected prompts run through the app's normal pipeline and render in the app UI.
 
 Two modes:

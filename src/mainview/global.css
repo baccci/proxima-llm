@@ -20,18 +20,18 @@
 
 /* ─── Layer 1: raw scales + non-color tokens ──────────────────────────────── */
 @theme {
-  /* Accent — periwinkle blue, anchored on the Figma design's #7C9CFF */
-  --color-accent-50: #eff2ff;
-  --color-accent-100: #e1e7ff;
-  --color-accent-200: #c9d3ff;
-  --color-accent-300: #a7b6ff;
-  --color-accent-400: #8a9fff;
-  --color-accent-500: #7c9cff;
-  --color-accent-600: #5b78f5;
-  --color-accent-700: #4759da;
-  --color-accent-800: #3a48ae;
-  --color-accent-900: #343f89;
-  --color-accent-950: #1f2552;
+  /* Accent — iris, anchored on #5E22EF */
+  --color-accent-50: #f2f2ff;
+  --color-accent-100: #e8e7ff;
+  --color-accent-200: #d4d1ff;
+  --color-accent-300: #b5adff;
+  --color-accent-400: #917eff;
+  --color-accent-500: #6e4aff;
+  --color-accent-600: #5c25ff;
+  --color-accent-700: #5b25ef;
+  --color-accent-800: #4110c7;
+  --color-accent-900: #370fa3;
+  --color-accent-950: #1e066f;
 
   /* Neutral — very slightly cool, sits under the accent */
   --color-neutral-50: #f7f7f8;
@@ -58,8 +58,8 @@
   --color-traffic-green: #28c840;
 
   /* Typography */
-  --font-sans: "Figtree", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: '"JetBrains Mono"', "SF Mono", ui-monospace, Menlo, monospace;
+  --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", "SF Mono", ui-monospace, Menlo, monospace;
 
   --text-2xs: 11px;
   --text-2xs--line-height: 14px;
@@ -69,10 +69,12 @@
   --text-sm--line-height: 18px;
   --text-base: 14.5px;
   --text-base--line-height: 23px;
-  --text-md: 15px;
-  --text-md--line-height: 22px;
+  --text-md: 16px;
+  --text-md--line-height: 23px;
   --text-lg: 17px;
   --text-lg--line-height: 24px;
+  --text-xl: 20px;
+  --text-xl--line-height: 26px;
 
   /* Z-index scale */
   --z-base: 1;
@@ -80,18 +82,28 @@
   --z-sticky: 15;
   --z-overlay: 20;
   --z-modal: 25;
+  /* popovers/menus opened from within a modal — must clear --z-modal */
+  --z-popover: 28;
   --z-toast: 30;
   --z-tooltip: 35;
+
+  /* Layout — single source for repeated structural widths so they can't drift
+     across files. Referenced via arbitrary values, e.g. max-w-[var(--layout-content-w)]. */
+  --layout-content-w: 740px;
+  /* chat message column + composer */
+  --layout-sidebar-w: 280px;
+  --layout-header-inset: 276px;
+  /* collapsed-sidebar header left pad — clears window controls + toggle */
 
   /* Radius / shadow */
   --radius-card: 14px;
   --radius-bubble: 16px;
-  --shadow-input: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
-  --shadow-pop: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
 
   /* Motion */
-  --animate-fade-in: fade-in 0.15s ease-out;
-  --animate-fade-in-up: fade-in-up 0.15s ease-out;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --animate-fade-in: fade-in 0.15s var(--ease-out);
+  --animate-fade-in-up: fade-in-up 0.15s var(--ease-out);
   --animate-shimmer: shimmer 1.8s linear infinite;
 }
 
@@ -104,6 +116,7 @@
   --color-elevated: var(--elevated);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-toggle-on: var(--toggle-on);
   --color-foreground: var(--fg);
   --color-muted: var(--fg-muted);
   --color-subtle: var(--fg-subtle);
@@ -113,6 +126,58 @@
   --color-user-bubble: var(--user-bubble);
   --color-user-bubble-foreground: var(--user-bubble-fg);
   --color-ring: var(--ring);
+  --color-floating: var(--floating);
+  --color-floating-foreground: var(--floating-fg);
+  --color-floating-hover: var(--floating-hover);
+  --color-floating-border: var(--floating-border);
+  /* Selection / active accent — legible iris on each theme (NOT the deep brand,
+     which goes muddy as a thin border/low-opacity fill on dark). Use for
+     selected cards, active segmented tabs, inline code, edit fields. */
+  --color-selected-border: var(--selected-border);
+  --color-selected-surface: var(--selected-surface);
+  --color-selected-foreground: var(--selected-fg);
+  /* Code surface — always dark, both themes (Shiki = one-dark-pro). */
+  --color-code: var(--code-bg);
+  --color-code-header: var(--code-header);
+  --color-code-border: var(--code-border);
+  --shadow-input: var(--sh-input);
+  --shadow-modal: var(--sh-modal);
+  --shadow-pop: var(--sh-pop);
+}
+
+/* ─── Z-index utilities ───────────────────────────────────────────────────────
+   z-index has no Tailwind v4 theme namespace, so the --z-* scale in @theme emits
+   CSS vars but no utilities. Bind them by hand so z-dropdown, z-modal, … work. */
+@utility z-base {
+  z-index: var(--z-base);
+}
+
+@utility z-dropdown {
+  z-index: var(--z-dropdown);
+}
+
+@utility z-sticky {
+  z-index: var(--z-sticky);
+}
+
+@utility z-overlay {
+  z-index: var(--z-overlay);
+}
+
+@utility z-modal {
+  z-index: var(--z-modal);
+}
+
+@utility z-popover {
+  z-index: var(--z-popover);
+}
+
+@utility z-toast {
+  z-index: var(--z-toast);
+}
+
+@utility z-tooltip {
+  z-index: var(--z-tooltip);
 }
 
 /* ─── Runtime themes ──────────────────────────────────────────────────────── */
@@ -120,20 +185,38 @@
   /* Light */
   --bg: #ffffff;
   --panel: #fcfcfc;
-  --surface: #f3f3f5;
+  --surface: #fff;
   --surface-hover: #ececef;
   --elevated: #ffffff;
   --border: rgb(0 0 0 / 0.08);
   --border-strong: rgb(0 0 0 / 0.14);
+  --toggle-on: rgb(0 0 0 / 0.06);
   --fg: #18181b;
   --fg-muted: #52525a;
   --fg-subtle: #8b8b92;
   --accent: var(--fg);
   --accent-hover: var(--fg-muted);
   --accent-fg: #ffffff;
-  --user-bubble: #e7ecff;
-  --user-bubble-fg: #1b2340;
-  --ring: rgb(71 89 218 / 0.4);
+  --user-bubble: #ece4ff;
+  --user-bubble-fg: #2f0f70;
+  /* Selection — mid iris reads cleanly on white */
+  --selected-border: #6e4aff;
+  --selected-surface: #f2f2ff;
+  --selected-fg: #5c25ff;
+  /* Code — dark card embedded in light content; grayer/softer than the near-black
+     dark-mode surface so it doesn't slam against the white page. */
+  --code-bg: #38383d;
+  --code-header: #2b2b30;
+  --code-border: rgb(255 255 255 / 0.08);
+  --ring: rgb(94 34 239 / 0.45);
+  /* Floating overlay pill (e.g. scroll-to-bottom) — dark pill over light content */
+  --floating: rgb(22 22 24 / 0.5);
+  --floating-fg: #ffffff;
+  --floating-hover: #27272b;
+  --floating-border: transparent;
+  --sh-input: 0 0 0 1px rgb(0 0 0 / 0.06), 0 2px 8px -4px rgb(0 0 0 / 0.1);
+  --sh-modal: 0 4px 16px -4px rgb(0 0 0 / 0.1), 0 1px 4px rgb(0 0 0 / 0.06);
+  --sh-pop: none;
 }
 
 .dark {
@@ -145,15 +228,32 @@
   --elevated: #202024;
   --border: rgb(255 255 255 / 0.08);
   --border-strong: rgb(255 255 255 / 0.14);
+  --toggle-on: rgb(255 255 255 / 0.06);
   --fg: #e9e9eb;
   --fg-muted: #b2b2b8;
   --fg-subtle: #76767c;
-  --accent: #7c9cff;
-  --accent-hover: #93acff;
+  --accent: var(--color-accent-500);
+  --accent-hover: var(--color-accent-400);
   --accent-fg: #ffffff;
-  --user-bubble: #2a3040;
+  --user-bubble: #232327;
   --user-bubble-fg: #e9e9eb;
-  --ring: rgb(124 156 255 / 0.5);
+  /* Selection — bright iris so a thin border/fill reads on near-black */
+  --selected-border: #917eff;
+  --selected-surface: rgb(94 34 239 / 0.14);
+  --selected-fg: #b5adff;
+  /* Code — same dark surface as light; matches one-dark-pro syntax */
+  --code-bg: #1a1a1d;
+  --code-header: #131315;
+  --code-border: rgb(255 255 255 / 0.08);
+  --ring: rgb(145 126 255 / 0.55);
+  /* Floating overlay pill — elevated surface over dark content */
+  --floating: var(--elevated);
+  --floating-fg: var(--fg);
+  --floating-hover: var(--surface-hover);
+  --floating-border: var(--border-strong);
+  --sh-input: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --sh-modal: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
+  --sh-pop: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
 }
 
 /* ─── Keyframes ───────────────────────────────────────────────────────────── */
@@ -209,11 +309,12 @@
     background-color: var(--bg);
     color: var(--fg);
     font-family: var(--font-sans);
-    font-size: 14.5px;
-    line-height: 1.5;
-    -webkit-font-smoothing: subpixel-antialiased;
-    -moz-osx-font-smoothing: auto;
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: geometricPrecision;
+    font-feature-settings: "kern", "liga", "calt";
   }
 
   svg {
@@ -251,6 +352,26 @@
     background-color: var(--fg-subtle);
     background-clip: content-box;
   }
+
+  /* Code blocks sit on a dark surface; the default thumb is too dark to see. */
+  .code-scroll::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, white 28%, transparent);
+  }
+
+  .code-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, white 45%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
 }
 
 .shimmer-text {
@@ -273,4 +394,23 @@
   -webkit-user-select: none;
   user-select: none;
   cursor: default;
+}
+
+/* Dev-tools range slider — the native track is invisible on the dark panel */
+.dev-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.15);
+  cursor: pointer;
+}
+.dev-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: #facc15;
 }

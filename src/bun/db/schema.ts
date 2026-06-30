@@ -22,6 +22,7 @@ export const projects = sqliteTable('projects', {
   description: text('description'),
   systemPrompt: text('system_prompt'),
   memory: text('memory'),
+  memorySummary: text('memory_summary'),
   defaultModelId: text('default_model_id'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
@@ -68,4 +69,42 @@ export const attachments = sqliteTable('attachments', {
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value', { mode: 'json' }).notNull(),
+});
+
+export const memorySlices = sqliteTable('memory_slices', {
+  id: text('id').primaryKey(),
+  scope: text('scope', { enum: ['global', 'project'] }).notNull(),
+  projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  source: text('source', { enum: ['user', 'model'] })
+    .notNull()
+    .default('user'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
+export const projectFiles = sqliteTable('project_files', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  mediaType: text('media_type').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  sha256: text('sha256').notNull(),
+  relPath: text('rel_path').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
+export const compactionSnapshots = sqliteTable('compaction_snapshots', {
+  id: text('id').primaryKey(),
+  chatId: text('chat_id')
+    .notNull()
+    .references(() => chats.id, { onDelete: 'cascade' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  coveredThroughAt: integer('covered_through_at', { mode: 'timestamp_ms' }).notNull(),
+  coveredThroughMessageId: text('covered_through_message_id').notNull(),
+  summaryText: text('summary_text').notNull(),
+  tokensSaved: integer('tokens_saved'),
 });

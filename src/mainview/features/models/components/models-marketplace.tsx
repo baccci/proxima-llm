@@ -1,23 +1,34 @@
+import { getProvider, PROVIDER_IDS, type ProviderId } from '@shared/providers/registry'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { IconSearch } from '@/components/icons/icon-search'
 import { IconX } from '@/components/icons/icon-x'
 import { Modal, modal } from '@/components/modal'
+import { ModalNavBody } from '@/components/modal/modal-nav'
 import { Pagination } from '@/components/pagination'
-import { Separator } from '@/components/separator'
+import { PROVIDER_LOGOS } from '@/entities/provider'
 import { useModelSyncInfo } from '@/features/models/hooks/use-model-sync-info'
 import { useModels } from '@/features/models/hooks/use-models'
 import { settings } from '@/features/settings/settings.api'
+import { useIsDark } from '@/hooks/use-is-dark'
 import { MARKETPLACE_MODAL_ID } from './marketplace.constants'
 import { ModelCard } from './model-card'
 
-const PROVIDER_ORDER = ['anthropic', 'openrouter']
 const PAGE_SIZE = 24
 
 function prettifyProvider(provider: string): string {
-  if (provider === 'anthropic') return 'Anthropic'
-  if (provider === 'openrouter') return 'OpenRouter'
-  return provider.charAt(0).toUpperCase() + provider.slice(1)
+  try {
+    return getProvider(provider).label
+  } catch {
+    return provider.charAt(0).toUpperCase() + provider.slice(1)
+  }
+}
+
+// Brand meta + logo for a known provider; null for custom/unknown providers so
+// the tab falls back to neutral styling instead of throwing.
+function providerBrand(provider: string) {
+  if (!(PROVIDER_IDS as readonly string[]).includes(provider)) return null
+  return { meta: getProvider(provider), Logo: PROVIDER_LOGOS[provider as ProviderId] }
 }
 
 function syncedAgo(ts: number | null | undefined): string {
@@ -32,6 +43,7 @@ function syncedAgo(ts: number | null | undefined): string {
 export function ModelsMarketplace() {
   const { data: allModels = [] } = useModels()
   const { data: syncInfo } = useModelSyncInfo()
+  const isDark = useIsDark()
   const [search, setSearch] = React.useState('')
   const [activeProvider, setActiveProvider] = React.useState<string | null>(null)
   const [syncing, setSyncing] = React.useState(false)
@@ -39,14 +51,14 @@ export function ModelsMarketplace() {
   const [filterMode, setFilterMode] = React.useState<'all' | 'enabled'>('all')
 
   const providers = [
-    ...PROVIDER_ORDER.filter((p) => allModels.some((m) => m.provider === p)),
+    ...PROVIDER_IDS.filter((p) => allModels.some((m) => m.provider === p)),
     ...allModels
       .map((m) => m.provider)
-      .filter((p) => !PROVIDER_ORDER.includes(p))
+      .filter((p) => !(PROVIDER_IDS as readonly string[]).includes(p))
       .filter((p, i, arr) => arr.indexOf(p) === i),
   ]
 
-  const currentProvider = activeProvider ?? providers[0] ?? 'anthropic'
+  const currentProvider = activeProvider ?? providers[0] ?? PROVIDER_IDS[0]
 
   const filtered = allModels
     .filter((m) => {
@@ -62,6 +74,12 @@ export function ModelsMarketplace() {
   const safePage = Math.min(page, Math.max(1, pageCount))
   const visibleModels = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
+  // Split the visible page into enabled/disabled groups; only show group headings
+  // when both are present so a single-state page stays uncluttered.
+  const visibleEnabled = visibleModels.filter((m) => m.isEnabled)
+  const visibleDisabled = visibleModels.filter((m) => !m.isEnabled)
+  const showGroupHeads = visibleEnabled.length > 0 && visibleDisabled.length > 0
+
   const enabledCount = allModels.filter((m) => m.provider === currentProvider && m.isEnabled).length
 
   async function handleResync() {
@@ -75,8 +93,8 @@ export function ModelsMarketplace() {
 
   return (
     <Modal id={MARKETPLACE_MODAL_ID} label="Models" overlayClassName="bg-black/50">
-      <Modal.Content className="w-[900px] max-w-[95vw] rounded-xl border border-border bg-panel shadow-pop">
-        <div className="flex items-start justify-between p-5 pb-0">
+      <Modal.Content className="w-[900px] max-w-[95vw] rounded-xl border border-border bg-panel shadow-modal">
+        <div className="flex items-start justify-between px-5 pt-5 pb-4">
           <div>
             <h2 className="text-md font-semibold text-foreground">Models</h2>
             <p className="text-2xs text-subtle mt-0.5">
@@ -90,7 +108,7 @@ export function ModelsMarketplace() {
                 type="button"
                 onClick={handleResync}
                 disabled={syncing}
-                className="text-2xs text-brand hover:text-brand/80 transition-colors disabled:opacity-50 cursor-pointer"
+                className="text-2xs text-selected-foreground hover:text-selected-border transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {syncing ? 'Syncing…' : 'Resync'}
               </button>
@@ -106,9 +124,12 @@ export function ModelsMarketplace() {
           </div>
         </div>
 
-        <div className="flex gap-5 p-5 pt-4">
-          <nav className="w-36 shrink-0 -ml-1 flex flex-col gap-0.5">
-            {providers.map((p) => (
+        <ModalNavBody
+          nav={providers.map((p) => {
+            const selected = currentProvider === p
+            const brand = providerBrand(p)
+            const Logo = brand?.Logo
+            return (
               <button
                 key={p}
                 type="button"
@@ -117,21 +138,41 @@ export function ModelsMarketplace() {
                   setSearch('')
                   setPage(1)
                 }}
+                style={(() => {
+                  if (!selected || !brand) return undefined
+                  const c = isDark ? brand.meta.colors.dark : brand.meta.colors.light
+                  return { backgroundColor: c.accent, color: c.foreground, borderColor: c.accent }
+                })()}
                 className={cn(
-                  'flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer text-left',
-                  currentProvider === p
-                    ? 'bg-surface-hover text-foreground font-medium'
-                    : 'text-muted hover:bg-surface-hover hover:text-foreground',
+                  'flex items-center gap-2.5 w-full px-3 py-2 rounded-lg border border-transparent text-sm transition-colors cursor-pointer text-left',
+                  selected && !brand && 'bg-surface-hover text-foreground font-medium',
+                  selected && brand && 'font-medium',
+                  !selected && 'text-muted hover:bg-surface-hover hover:text-foreground',
                 )}
               >
+                {Logo && (
+                  // Wrapper span sets `color` so the currentColor-filled logo picks
+                  // up the brand accent even though the icon doesn't forward style.
+                  <span
+                    className="shrink-0"
+                    style={
+                      selected || !brand
+                        ? undefined
+                        : {
+                            color: (isDark ? brand.meta.colors.dark : brand.meta.colors.light)
+                              .accent,
+                          }
+                    }
+                  >
+                    <Logo width={16} />
+                  </span>
+                )}
                 {prettifyProvider(p)}
               </button>
-            ))}
-          </nav>
-
-          <Separator orientation="vertical" className="h-auto" />
-
-          <div className="flex-1 min-w-0 flex flex-col gap-3">
+            )
+          })}
+        >
+          <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <IconSearch
@@ -173,7 +214,7 @@ export function ModelsMarketplace() {
                     className={cn(
                       'px-3 h-8 rounded-lg border text-xs transition-colors cursor-pointer',
                       filterMode === mode
-                        ? 'border-brand bg-brand/10 text-brand'
+                        ? 'border-selected-border bg-selected-surface text-selected-foreground'
                         : 'border-border text-muted hover:bg-surface-hover hover:text-foreground',
                     )}
                   >
@@ -183,7 +224,7 @@ export function ModelsMarketplace() {
               </div>
             </div>
 
-            <div className="h-[440px] overflow-y-auto pr-1">
+            <div className="h-[440px] overflow-y-auto pr-1 pb-1">
               {filtered.length === 0 &&
               currentProvider === 'openrouter' &&
               !search &&
@@ -194,7 +235,7 @@ export function ModelsMarketplace() {
                     type="button"
                     onClick={handleResync}
                     disabled={syncing}
-                    className="text-sm text-brand hover:text-brand/80 transition-colors disabled:opacity-50 cursor-pointer"
+                    className="text-sm text-selected-foreground hover:text-selected-border transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     {syncing ? 'Syncing…' : 'Sync models now'}
                   </button>
@@ -208,17 +249,44 @@ export function ModelsMarketplace() {
                   <p className="text-sm text-muted">No models match your search.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
-                  {visibleModels.map((m) => (
-                    <ModelCard key={m.id} model={m} />
-                  ))}
+                <div className="flex flex-col gap-4">
+                  {visibleEnabled.length > 0 && (
+                    <section>
+                      {showGroupHeads && (
+                        <h3 className="mb-2 text-2xs font-semibold text-subtle uppercase tracking-wider">
+                          Enabled
+                        </h3>
+                      )}
+                      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
+                        {visibleEnabled.map((m) => (
+                          <ModelCard key={m.id} model={m} />
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                  {visibleDisabled.length > 0 && (
+                    <section>
+                      {showGroupHeads && (
+                        <h3 className="mb-2 text-2xs font-semibold text-subtle uppercase tracking-wider">
+                          Available
+                        </h3>
+                      )}
+                      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
+                        {visibleDisabled.map((m) => (
+                          <ModelCard key={m.id} model={m} />
+                        ))}
+                      </div>
+                    </section>
+                  )}
                 </div>
               )}
             </div>
 
-            <Pagination page={safePage} pageCount={pageCount} onChange={setPage} />
+            <div className="flex h-7 items-center justify-center">
+              <Pagination page={safePage} pageCount={pageCount} onChange={setPage} />
+            </div>
           </div>
-        </div>
+        </ModalNavBody>
       </Modal.Content>
     </Modal>
   )

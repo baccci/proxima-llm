@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { asc, desc, eq } from 'drizzle-orm';
+import { asc, desc, eq, inArray } from 'drizzle-orm';
 import type { SendMessageInput } from '../../shared-contracts/rpc/app-rpc.types';
 import {
   ChatComposerState,
@@ -146,6 +146,31 @@ export function createUserMessage(input: SendMessageInput): MessageDTO {
     .where(eq(chats.id, input.chatId))
     .run();
   return messageRowToDTO(db.select().from(messages).where(eq(messages.id, id)).get()!);
+}
+
+export function truncateMessagesAfter(chatId: string, messageId: string): void {
+  const all = listMessages(chatId);
+  const idx = all.findIndex((m) => m.id === messageId);
+  if (idx === -1) return;
+  const toDelete = all.slice(idx + 1).map((m) => m.id);
+  if (toDelete.length === 0) return;
+  db.delete(messages).where(inArray(messages.id, toDelete)).run();
+}
+
+export function updateUserMessageText(messageId: string, content: string): void {
+  const row = db.select().from(messages).where(eq(messages.id, messageId)).get();
+  if (!row) return;
+  const parts = (row.parts as MessagePart[]).map((p) =>
+    p.type === 'text' ? { ...p, text: content } : p,
+  );
+  // Append a text part if the message had none
+  if (!parts.some((p) => p.type === 'text')) {
+    parts.push({ type: 'text', text: content });
+  }
+  db.update(messages)
+    .set({ parts: parts as unknown as string })
+    .where(eq(messages.id, messageId))
+    .run();
 }
 
 export function saveAssistantMessage(

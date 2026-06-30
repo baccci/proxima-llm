@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { TOOL_CATALOG } from '../../shared-contracts/tools/tool-catalog';
+import { isAlwaysAllowed, TOOL_CATALOG } from '../../shared-contracts/tools/tool-catalog';
 import { db } from '../db/client';
 import { settings } from '../db/schema';
 import { BUILTIN_TOOLS, type ToolRegistryEntry } from '../llm/tools/registry';
@@ -22,6 +22,7 @@ function save(map: PolicyMap): void {
 }
 
 export function getPolicy(toolName: string): Policy {
+  if (isAlwaysAllowed(toolName)) return 'allow';
   const map = load();
   if (toolName in map) return map[toolName];
   return (
@@ -31,6 +32,7 @@ export function getPolicy(toolName: string): Policy {
 }
 
 export function setPolicy(toolName: string, policy: Policy): void {
+  if (isAlwaysAllowed(toolName)) return;
   save({ ...load(), [toolName]: policy });
 }
 

@@ -1,5 +1,6 @@
 import type { ToolCallOptions } from '@ai-sdk/provider-utils';
 import { type ModelMessage, stepCountIs, streamText, type Tool } from 'ai';
+import { providerSupportsWebSearch } from '../../shared-contracts/providers/registry';
 import type { StreamChunk } from '../../shared-contracts/rpc/app-rpc.types';
 import type {
   MessageDTO,
@@ -8,9 +9,11 @@ import type {
 } from '../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
 import type { ProjectDTO } from '../../shared-contracts/schemas/project.schema';
+import { isAlwaysAllowed } from '../../shared-contracts/tools/tool-catalog';
+import type { CompactionSnapshot } from '../services/compaction.service';
 import { getPolicy } from '../services/tool-permission.service';
-import { buildModel } from './providers/index';
-import { buildBaseSystemPrompt } from './system-prompt';
+import { buildModel, getAdapter } from './providers/index';
+import { buildBaseSystemPrompt, MEMORY_GUIDANCE } from './system-prompt';
 import { BUILTIN_TOOLS } from './tools/registry';
 
 type ApprovalResult = { decision: 'allow' | 'deny'; remember: boolean };
@@ -20,8 +23,12 @@ type StreamOptions = {
   apiKey: string;
   project: ProjectDTO | null;
   history: MessageDTO[];
+  snapshot?: CompactionSnapshot;
   thinking: boolean;
   webSearch: boolean;
+  effort?: string | null;
+  sliceTitles?: { global: string[]; project: string[] };
+  projectFileNames?: string[];
   getToolGrant: (toolName: string) => 'allow' | 'deny' | undefined;
   setToolGrant: (toolName: string, decision: 'allow' | 'deny') => void;
   onChunk: (chunk: StreamChunk) => void;
@@ -38,10 +45,46 @@ function buildSystem(
   model: ModelDTO,
   project: ProjectDTO | null,
   webSearchActive: boolean,
+  sliceTitles?: { global: string[]; project: string[] },
+  projectFileNames?: string[],
+  snapshot?: CompactionSnapshot,
 ): string {
   const parts: string[] = [buildBaseSystemPrompt(model, webSearchActive)];
-  if (project?.systemPrompt) parts.push(project.systemPrompt);
-  if (project?.memory) parts.push(`# Project memory\n${project.memory}`);
+
+  if (project?.description) parts.push(project.description);
+
+  const globalTitles = sliceTitles?.global ?? [];
+  const projectTitles = sliceTitles?.project ?? [];
+
+  const memLines: string[] = [MEMORY_GUIDANCE];
+  memLines.push(
+    globalTitles.length > 0
+      ? `Global notes: ${globalTitles.map((t) => `"${t}"`).join(', ')}`
+      : 'Global notes: none saved yet.',
+  );
+  if (project != null) {
+    memLines.push(
+      projectTitles.length > 0
+        ? `Project notes: ${projectTitles.map((t) => `"${t}"`).join(', ')}`
+        : 'Project notes: none saved yet.',
+    );
+  }
+  parts.push(memLines.join('\n'));
+
+  const fileNames = projectFileNames ?? [];
+  if (project != null && fileNames.length > 0) {
+    const lines: string[] = [
+      '# Project files',
+      'Files attached to this project. Read one with read_project_file when needed.',
+      ...fileNames.map((n) => `- ${n}`),
+    ];
+    parts.push(lines.join('\n'));
+  }
+
+  if (snapshot?.summaryText) {
+    parts.push(`## Earlier conversation summary\n${snapshot.summaryText}`);
+  }
+
   return parts.join('\n\n');
 }
 
@@ -59,10 +102,14 @@ type CoreToolResultPart = {
 function toCoreMessages(
   history: MessageDTO[],
   resolveAttachment: StreamOptions['resolveAttachment'],
+  snapshot?: CompactionSnapshot,
 ): ModelMessage[] {
   const result: ModelMessage[] = [];
+  const filtered = snapshot
+    ? history.filter((m) => m.createdAt > snapshot.coveredThroughAt)
+    : history;
 
-  for (const m of history) {
+  for (const m of filtered) {
     if (m.role === 'system') continue;
 
     if (m.role === 'user') {
@@ -113,7 +160,19 @@ function toCoreMessages(
             type: 'tool-result',
             toolCallId: p.toolCallId,
             toolName: p.toolName,
-            output: p.output,
+            output: { type: 'json', value: p.output },
+          });
+        }
+      }
+
+      const resolvedIds = new Set(toolResults.map((r) => r.toolCallId));
+      for (const p of assistantContent) {
+        if (p.type === 'tool-call' && !resolvedIds.has(p.toolCallId)) {
+          toolResults.push({
+            type: 'tool-result',
+            toolCallId: p.toolCallId,
+            toolName: p.toolName,
+            output: { type: 'json', value: { interrupted: true } },
           });
         }
       }
@@ -130,50 +189,10 @@ function toCoreMessages(
   return result;
 }
 
-// Build per-provider request options: prompt caching + thinking/reasoning controls.
-function buildProviderOptions(opts: StreamOptions, webSearchActive: boolean) {
-  const anthropicOptions: Record<string, unknown> = {};
-  const openrouterOptions: Record<string, unknown> = {};
-
-  // Cache the system block ephemerally (Anthropic only). System prompt is stable every
-  // turn, so every turn after the first is a cache read. Cache writes cost slightly more,
-  // so only apply when the model capability flag opts in.
-  if (opts.model.capabilities.promptCaching && opts.model.provider === 'anthropic') {
-    anthropicOptions.cacheControl = { type: 'ephemeral' };
-  }
-
-  if (opts.model.capabilities.thinking) {
-    if (opts.model.provider === 'anthropic') {
-      // Anthropic only reasons when explicitly enabled.
-      if (opts.thinking) {
-        anthropicOptions.thinking = {
-          type: 'enabled',
-          budgetTokens: opts.model.capabilities.defaultThinkingBudget ?? 8_000,
-        };
-      }
-    } else if (opts.model.provider === 'openrouter') {
-      // OpenRouter reasoning models reason BY DEFAULT, so we must explicitly disable it when the toggle is off.
-      // Note: some models reason unconditionally and may ignore enabled:false.
-      openrouterOptions.reasoning = { enabled: opts.thinking };
-    }
-  }
-
-  if (webSearchActive) {
-    openrouterOptions.plugins = [{ id: 'web' }];
-  }
-
-  const hasAnthropic = Object.keys(anthropicOptions).length > 0;
-  const hasOpenRouter = Object.keys(openrouterOptions).length > 0;
-  if (!hasAnthropic && !hasOpenRouter) return undefined;
-  return {
-    ...(hasAnthropic ? { anthropic: anthropicOptions } : {}),
-    ...(hasOpenRouter ? { openrouter: openrouterOptions } : {}),
-  };
-}
-
 // Wrap each registered tool's execute with the two-layer policy gate.
 // Layer 1: global per-tool policy (deny/allow/ask). Layer 2: per-chat grant (only when global is 'ask').
 function buildGatedTools(
+  projectId: string | undefined,
   onChunk: StreamOptions['onChunk'],
   awaitApproval: StreamOptions['awaitApproval'],
   getToolGrant: StreamOptions['getToolGrant'],
@@ -182,10 +201,12 @@ function buildGatedTools(
   const tools: Record<string, Tool> = {};
 
   for (const [name, entry] of Object.entries(BUILTIN_TOOLS)) {
-    const originalExecute = entry.tool.execute;
+    const resolvedTool = typeof entry.tool === 'function' ? entry.tool({ projectId }) : entry.tool;
+    const originalExecute = resolvedTool.execute;
     tools[name] = {
-      ...entry.tool,
+      ...resolvedTool,
       execute: async (input: unknown, callOpts: ToolCallOptions) => {
+        if (isAlwaysAllowed(name)) return originalExecute!(input as never, callOpts);
         const policy = getPolicy(name); // Layer 1 — global
 
         if (policy === 'deny') {
@@ -229,16 +250,34 @@ export async function runStream(opts: StreamOptions): Promise<{
   stopReason?: 'user-cancel' | 'idle-timeout';
 }> {
   const webSearchActive =
-    opts.webSearch && opts.model.provider === 'openrouter' && opts.model.capabilities.webSearch;
+    opts.webSearch &&
+    providerSupportsWebSearch(opts.model.provider) &&
+    opts.model.capabilities.webSearch;
 
   const languageModel = buildModel(opts.model, opts.apiKey);
-  const system = buildSystem(opts.model, opts.project, webSearchActive);
-  const tools = buildGatedTools(
-    opts.onChunk,
-    opts.awaitApproval,
-    opts.getToolGrant,
-    opts.setToolGrant,
+  const system = buildSystem(
+    opts.model,
+    opts.project,
+    webSearchActive,
+    opts.sliceTitles,
+    opts.projectFileNames,
+    opts.snapshot,
   );
+  const serverTools = getAdapter(opts.model.provider).buildServerTools?.(opts.model, {
+    thinking: opts.thinking,
+    effort: opts.effort ?? null,
+    webSearch: webSearchActive,
+  });
+  const tools = {
+    ...buildGatedTools(
+      opts.project?.id,
+      opts.onChunk,
+      opts.awaitApproval,
+      opts.getToolGrant,
+      opts.setToolGrant,
+    ),
+    ...(serverTools ?? {}),
+  };
 
   const idleController = new AbortController();
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -252,14 +291,16 @@ export async function runStream(opts: StreamOptions): Promise<{
   resetIdle();
   const abortSignal = AbortSignal.any([opts.signal, idleController.signal]);
 
-  const providerOptions = buildProviderOptions(opts, webSearchActive) as Parameters<
-    typeof streamText
-  >[0]['providerOptions'];
+  const providerOptions = getAdapter(opts.model.provider).buildProviderOptions(opts.model, {
+    thinking: opts.thinking,
+    effort: opts.effort ?? null,
+    webSearch: webSearchActive,
+  }) as Parameters<typeof streamText>[0]['providerOptions'];
 
   const result = streamText({
     model: languageModel,
     system,
-    messages: toCoreMessages(opts.history, opts.resolveAttachment),
+    messages: toCoreMessages(opts.history, opts.resolveAttachment, opts.snapshot),
     tools,
     stopWhen: stepCountIs(5),
     abortSignal,

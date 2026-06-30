@@ -1,4 +1,4 @@
-import type { SendMessageInput } from '@shared/rpc/app-rpc.types'
+import type { RetryMessageInput, SendMessageInput } from '@shared/rpc/app-rpc.types'
 import type { ChatComposerState, ChatDTO, CreateChatInput } from '@shared/schemas/chat.schema'
 import type { MessageDTO, MessagePart } from '@shared/schemas/message.schema'
 import { queryClient } from '@/lib/query-client'
@@ -66,6 +66,8 @@ export const chat = {
 
   sendMessage: (input: SendMessageInput) => req().sendMessage(input),
 
+  retryFromMessage: (input: RetryMessageInput) => req().retryFromMessage(input),
+
   cancelStream: (streamId: string) => req().cancelStream({ streamId }),
 
   listMessages: (chatId: string) =>
@@ -76,6 +78,16 @@ export const chat = {
 
   invalidateMessages: (chatId: string) =>
     queryClient.invalidateQueries({ queryKey: queryKeys.messages(chatId) }),
+
+  invalidateCompaction: (chatId: string) =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.compaction(chatId) }),
+
+  compactNow: async (chatId: string) => {
+    const result = await req().compactNow({ chatId })
+    queryClient.invalidateQueries({ queryKey: queryKeys.compaction(chatId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.messages(chatId) })
+    return result
+  },
 
   addOptimisticUserMessage: (
     chatId: string,

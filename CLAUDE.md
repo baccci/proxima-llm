@@ -1,4 +1,4 @@
-# llm-chat
+# Proxima
 
 A desktop LLM chat app — projects, chats, attachments, thinking — for Anthropic
 models, built to extend to other providers (OpenRouter). Electrobun (Bun main process + WebKit

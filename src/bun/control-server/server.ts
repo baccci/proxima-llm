@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from 'bun';
+import { log } from '../logging/logger';
 import { pushControlNavigate } from '../rpc';
 import * as keychain from '../secrets/keychain';
 import * as chatService from '../services/chat.service';
@@ -241,7 +242,7 @@ async function handleRequest(req: Request): Promise<Response> {
     return err('Not found', 404);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    console.error('[control-server] Unhandled error:', e);
+    log.error('[control-server] Unhandled error', e);
     return err(message, 500);
   }
 }
@@ -267,7 +268,7 @@ export function startControlServer(port: number): void {
       }
       return handleRequest(req).catch((e) => {
         const message = e instanceof Error ? e.message : String(e);
-        console.error('[control-server] Unhandled fetch error:', e);
+        log.error('[control-server] Unhandled fetch error', e);
         return err(message, 500);
       });
     },

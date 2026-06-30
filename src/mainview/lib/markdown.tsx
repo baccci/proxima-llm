@@ -31,6 +31,19 @@ const CodeBlock = React.memo(function CodeBlock({
   const [html, setHtml] = React.useState<string | null>(null)
   const [copied, setCopied] = React.useState(false)
 
+  // WebKit doesn't recompute this scroll container's horizontal scrollbar when the
+  // Shiki <pre> is injected via dangerouslySetInnerHTML (the fallback <pre> works
+  // because its child is a React text node, not injected HTML). Flush layout and
+  // force one extra render on mount so WebKit repaints the scrollbar.
+  const [, forcePaint] = React.useReducer((n: number) => n + 1, 0)
+  const forceScrollbarPaint = React.useCallback((el: HTMLDivElement | null) => {
+    if (!el) return
+    requestAnimationFrame(() => {
+      void el.scrollWidth
+      forcePaint()
+    })
+  }, [])
+
   React.useEffect(() => {
     if (streaming) return
     let cancelled = false
@@ -60,24 +73,25 @@ const CodeBlock = React.memo(function CodeBlock({
   }
 
   return (
-    <div className="my-3 rounded-card overflow-hidden border border-border bg-elevated text-sm">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-panel">
-        {lang && <span className="text-xs text-muted font-mono">{lang}</span>}
-        {filename && <span className="text-xs text-subtle font-mono">{filename}</span>}
+    <div className="my-3 rounded-card overflow-hidden border border-code-border bg-code text-sm">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-code-border bg-code-header">
+        {lang && <span className="text-xs text-neutral-400 font-mono">{lang}</span>}
+        {filename && <span className="text-xs text-neutral-500 font-mono">{filename}</span>}
         <button
           onClick={handleCopy}
-          className="ml-auto text-xs text-subtle hover:text-foreground transition-colors"
+          className="ml-auto text-xs text-neutral-400 hover:text-neutral-50 transition-colors"
         >
           {copied ? 'Copied!' : 'Copy'}
         </button>
       </div>
       {html && !streaming ? (
         <div
-          className="[&>pre]:p-4 [&>pre]:overflow-x-auto [&>pre]:m-0 [&>pre]:bg-transparent!"
+          ref={forceScrollbarPaint}
+          className="code-scroll overflow-x-auto [&>pre]:p-4 [&>pre]:m-0 [&>pre]:bg-transparent!"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : (
-        <pre className="p-4 overflow-x-auto font-mono text-sm text-foreground/90 whitespace-pre">
+        <pre className="code-scroll p-4 overflow-x-auto font-mono text-sm text-neutral-200 whitespace-pre">
           {code}
         </pre>
       )}
@@ -94,14 +108,14 @@ const STATIC_COMPONENTS: Partial<Components> = {
   code({ className, children }) {
     return (
       <code
-        className={`font-mono text-accent-400 bg-elevated px-1 py-0.5 rounded text-sm ${className ?? ''}`}
+        className={`font-mono text-selected-foreground bg-selected-surface px-1 py-0.5 rounded text-[0.85em] ${className ?? ''}`}
       >
         {children}
       </code>
     )
   },
   p({ children }) {
-    return <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>
+    return <p className="mb-3 last:mb-0 leading-relaxed overflow-x-auto">{children}</p>
   },
   a({ href, children }) {
     return (
@@ -109,7 +123,7 @@ const STATIC_COMPONENTS: Partial<Components> = {
         href={href}
         target="_blank"
         rel="noreferrer"
-        className="text-brand underline underline-offset-2 hover:text-brand-hover"
+        className="text-selected-foreground underline underline-offset-2 hover:opacity-80 transition-opacity"
       >
         {children}
       </a>
@@ -129,7 +143,7 @@ const STATIC_COMPONENTS: Partial<Components> = {
     )
   },
   h1({ children }) {
-    return <h1 className="text-lg font-bold mb-3 mt-4 first:mt-0">{children}</h1>
+    return <h1 className="text-xl font-bold mb-3 mt-4 first:mt-0">{children}</h1>
   },
   h2({ children }) {
     return <h2 className="text-md font-semibold mb-2 mt-4 first:mt-0">{children}</h2>
@@ -168,7 +182,7 @@ function makePre(streaming: boolean | undefined): Components['pre'] {
       children?: string
     }>
     if (!React.isValidElement(child)) {
-      return <pre>{children}</pre>
+      return <pre className="my-3 overflow-x-auto whitespace-pre">{children}</pre>
     }
     const langClass = child.props.className ?? ''
     const lang = langClass.replace('language-', '')

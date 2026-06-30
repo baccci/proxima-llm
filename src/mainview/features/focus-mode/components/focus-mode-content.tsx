@@ -63,6 +63,7 @@ function ResponseBlock({ message, streaming }: { message: MessageDTO | null; str
           key={i}
           part={part}
           streaming={streaming}
+          allParts={message.parts}
           textClassName="leading-relaxed"
         />
       ))}

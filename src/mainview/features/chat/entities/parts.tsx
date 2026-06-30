@@ -1,4 +1,5 @@
 import type { MessagePart } from '@shared/schemas/message.schema'
+import { isSilentTool } from '@shared/tools/tool-catalog'
 import { IconFileText } from '@/components/icons/icon-file-text'
 import { useAttachment } from '@/features/chat/attachment.api'
 import { ToolCallBlock } from '@/features/chat/components/tool-call-block'
@@ -53,7 +54,7 @@ function FilePartRenderer({ attachmentId }: { attachmentId: string }) {
 
   return (
     <div className="my-2 inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted">
-      <IconFileText width={13} className="text-accent-400 shrink-0" />
+      <IconFileText width={13} className="text-selected-foreground shrink-0" />
       <span className="truncate max-w-[160px]">{name}</span>
       {sizeKb !== null && <span className="text-subtle shrink-0 text-xs">{sizeKb}KB</span>}
     </div>
@@ -83,6 +84,7 @@ export function MessagePartRenderer({
   }
 
   if (part.type === 'tool-call') {
+    if (isSilentTool(part.toolName)) return null
     const result = allParts?.find(
       (p): p is Extract<MessagePart, { type: 'tool-result' }> =>
         p.type === 'tool-result' && p.toolCallId === part.toolCallId,

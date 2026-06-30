@@ -23,6 +23,7 @@ export interface StreamingMessage {
   reasoningEndedAt: number | null
   toolCalls: StreamingToolCall[]
   sources: StreamingSource[]
+  compacting: boolean
   done: boolean
   error: string | null
 }
@@ -35,8 +36,12 @@ interface PendingIncoming {
 
 interface ChatUIState {
   selectedChatId: string | null
+  selectedProjectId: string | null
   thinkingExpanded: Record<string, boolean>
   streaming: StreamingMessage | null
+  // Chat id currently running a manual (non-stream) compaction, so the message
+  // list can show the "Compacting…" label outside the stream pipeline.
+  compactingChatId: string | null
   settingsOpen: boolean
   sidebarOpen: boolean
   focusModeOpen: boolean
@@ -45,14 +50,17 @@ interface ChatUIState {
   pendingIncoming: PendingIncoming | null
 
   selectChat: (id: string | null) => void
+  selectProject: (id: string) => void
   setThinkingExpanded: (messageId: string, expanded: boolean) => void
   startStreaming: (streamId: string, assistantMessageId: string) => void
   appendTextDelta: (delta: string) => void
   appendReasoningDelta: (delta: string) => void
   addToolCall: (toolCallId: string, toolName: string, input: unknown) => void
   resolveToolCall: (toolCallId: string, output: unknown) => void
-  setToolCallAwaitingApproval: (toolCallId: string) => void
+  setToolCallAwaitingApproval: (toolCallId: string, toolName: string, input: unknown) => void
   addSource: (url: string, title?: string) => void
+  setCompacting: (active: boolean) => void
+  setCompactingChatId: (chatId: string | null) => void
   finishStreaming: () => void
   setStreamingError: (error: string) => void
   failStreaming: (error: string) => void
@@ -66,8 +74,10 @@ interface ChatUIState {
 
 export const useChatStore = create<ChatUIState>((set) => ({
   selectedChatId: null,
+  selectedProjectId: null,
   thinkingExpanded: {},
   streaming: null,
+  compactingChatId: null,
   settingsOpen: false,
   sidebarOpen: true,
   focusModeOpen: false,
@@ -76,6 +86,8 @@ export const useChatStore = create<ChatUIState>((set) => ({
   pendingIncoming: null,
 
   selectChat: (id) => set({ selectedChatId: id, streaming: null, pendingIncoming: null }),
+  selectProject: (id) =>
+    set({ selectedProjectId: id, selectedChatId: null, streaming: null, pendingIncoming: null }),
 
   setThinkingExpanded: (messageId, expanded) =>
     set((s) => ({ thinkingExpanded: { ...s.thinkingExpanded, [messageId]: expanded } })),
@@ -91,6 +103,7 @@ export const useChatStore = create<ChatUIState>((set) => ({
         reasoningEndedAt: null,
         toolCalls: [],
         sources: [],
+        compacting: false,
         done: false,
         error: null,
       },
@@ -122,19 +135,16 @@ export const useChatStore = create<ChatUIState>((set) => ({
     ),
 
   addToolCall: (toolCallId, toolName, input) =>
-    set((s) =>
-      s.streaming
-        ? {
-            streaming: {
-              ...s.streaming,
-              toolCalls: [
-                ...s.streaming.toolCalls,
-                { toolCallId, toolName, input, awaitingApproval: false },
-              ],
-            },
-          }
-        : {},
-    ),
+    set((s) => {
+      if (!s.streaming) return {}
+      const exists = s.streaming.toolCalls.some((tc) => tc.toolCallId === toolCallId)
+      const toolCalls = exists
+        ? s.streaming.toolCalls.map((tc) =>
+            tc.toolCallId === toolCallId ? { ...tc, toolName, input } : tc,
+          )
+        : [...s.streaming.toolCalls, { toolCallId, toolName, input, awaitingApproval: false }]
+      return { streaming: { ...s.streaming, toolCalls } }
+    }),
 
   resolveToolCall: (toolCallId, output) =>
     set((s) =>
@@ -150,19 +160,17 @@ export const useChatStore = create<ChatUIState>((set) => ({
         : {},
     ),
 
-  setToolCallAwaitingApproval: (toolCallId) =>
-    set((s) =>
-      s.streaming
-        ? {
-            streaming: {
-              ...s.streaming,
-              toolCalls: s.streaming.toolCalls.map((tc) =>
-                tc.toolCallId === toolCallId ? { ...tc, awaitingApproval: true } : tc,
-              ),
-            },
-          }
-        : {},
-    ),
+  setToolCallAwaitingApproval: (toolCallId, toolName, input) =>
+    set((s) => {
+      if (!s.streaming) return {}
+      const exists = s.streaming.toolCalls.some((tc) => tc.toolCallId === toolCallId)
+      const toolCalls = exists
+        ? s.streaming.toolCalls.map((tc) =>
+            tc.toolCallId === toolCallId ? { ...tc, awaitingApproval: true } : tc,
+          )
+        : [...s.streaming.toolCalls, { toolCallId, toolName, input, awaitingApproval: true }]
+      return { streaming: { ...s.streaming, toolCalls } }
+    }),
 
   finishStreaming: () =>
     set((s) => {
@@ -181,6 +189,11 @@ export const useChatStore = create<ChatUIState>((set) => ({
         : {},
     ),
 
+  setCompacting: (active) =>
+    set((s) => (s.streaming ? { streaming: { ...s.streaming, compacting: active } } : {})),
+
+  setCompactingChatId: (chatId) => set({ compactingChatId: chatId }),
+
   setStreamingError: (error) =>
     set((s) => (s.streaming ? { streaming: { ...s.streaming, done: true, error } } : {})),
 
@@ -195,6 +208,7 @@ export const useChatStore = create<ChatUIState>((set) => ({
         reasoningEndedAt: null,
         toolCalls: [],
         sources: [],
+        compacting: false,
         done: true,
         error,
       },

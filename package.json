@@ -1,11 +1,12 @@
 {
-  "name": "llm-chat",
-  "version": "0.0.1-pre-alpha",
-  "description": "LLM chat desktop app",
+  "name": "proxima",
+  "version": "0.0.2-pre-alpha",
+  "description": "Proxima desktop AI chat",
   "scripts": {
     "start": "vite build && electrobun dev",
     "dev": "electrobun dev --watch",
-    "dev:hmr": "concurrently \"bun run hmr\" \"bun run start\"",
+    "dev:hmr": "concurrently \"bun run hmr\" \"HMR=1 bun run start\"",
+    "dev:tweak": "concurrently \"VITE_TWEAK=1 bun run hmr\" \"HMR=1 TWEAK=1 bun run start\"",
     "hmr": "vite --port 5173",
     "build": "vite build && electrobun build",
     "db:generate": "drizzle-kit generate",
@@ -15,12 +16,16 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
-    "build:native": "clang -dynamiclib -framework Cocoa -o native/libTrafficLights.dylib native/traffic-lights.m -arch arm64 -arch x86_64"
+    "build:native": "clang -dynamiclib -framework Cocoa -o native/libTrafficLights.dylib native/traffic-lights.m -arch arm64 -arch x86_64",
+    "eval": "bun run scripts/run-evals.ts",
+    "eval:watch": "bun run scripts/run-evals.ts --watch"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.82",
     "@ai-sdk/openai": "^3.0.69",
     "@base-ui-components/react": "^1.0.0-rc.0",
+    "@fontsource-variable/geist": "^5.2.9",
+    "@fontsource-variable/geist-mono": "^5.2.8",
     "@openrouter/ai-sdk-provider": "^2.9.0",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-query": "^5.101.0",
@@ -47,11 +52,12 @@
     "@types/bun": "latest",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.3",
     "concurrently": "^9.1.0",
     "drizzle-kit": "^0.31.0",
     "tailwindcss": "^4.3.0",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.3"
+    "typescript": "^6.0.3",
+    "evalite": "^0.19.0",
+    "vite": "^8.1.0"
   }
 }

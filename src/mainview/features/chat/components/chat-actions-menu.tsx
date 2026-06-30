@@ -90,6 +90,7 @@ export function ChatActionsMenu({
         <DropdownTrigger
           className={cn(
             'flex items-center justify-center w-6 h-6 rounded-md text-subtle hover:bg-border hover:text-foreground transition-colors cursor-pointer',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             triggerClassName,
           )}
           aria-label="Chat options"

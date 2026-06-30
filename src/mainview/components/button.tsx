@@ -19,7 +19,7 @@ const sizeClasses: Record<Size, string> = {
   'icon-md': 'h-8 w-8',
 }
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+type ButtonProps = React.ComponentProps<'button'> & {
   variant?: Variant
   size?: Size
 }
@@ -29,7 +29,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center rounded-lg font-medium transition-colors',
+        'inline-flex items-center justify-center rounded-lg font-medium transition pointer-fine:active:transform-[scale(0.97)]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         'disabled:pointer-events-none disabled:opacity-40 cursor-pointer select-none',
         variantClasses[variant],

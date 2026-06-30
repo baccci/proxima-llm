@@ -1,6 +1,7 @@
 import { dlopen, FFIType, type Pointer, ptr, toBuffer } from 'bun:ffi';
+import { log } from '../logging/logger';
 
-const SERVICE = 'com.llmchat.apikeys';
+const SERVICE = 'com.proxima.apikeys';
 
 // SecKeychainAddGenericPassword / SecKeychainFindGenericPassword — the older
 // (deprecated-in-12) but simpler C API. SecItem* requires CFDictionary marshalling
@@ -52,8 +53,8 @@ const asPtr = (addr: bigint): Pointer => Number(addr) as unknown as Pointer;
 
 type Found = { itemRef: bigint; dataPtr: bigint; dataLen: number };
 
-function findItem(provider: string): Found | null {
-  const svc = enc(SERVICE);
+function findItem(service: string, provider: string): Found | null {
+  const svc = enc(service);
   const acc = enc(provider);
   const outLen = new Uint32Array(1);
   const outData = new BigUint64Array(1); // receives *passwordData address
@@ -75,7 +76,7 @@ function findItem(provider: string): Found | null {
 }
 
 export function getApiKey(provider: string): string | undefined {
-  const found = findItem(provider);
+  const found = findItem(SERVICE, provider);
   if (!found || found.dataPtr === 0n) return undefined;
 
   // Copy the bytes before freeing — toBuffer references foreign memory
@@ -87,7 +88,7 @@ export function getApiKey(provider: string): string | undefined {
 
 export function setApiKey(provider: string, key: string): void {
   // Delete existing entry first; SecKeychainAddGenericPassword fails on duplicates
-  const existing = findItem(provider);
+  const existing = findItem(SERVICE, provider);
   if (existing) {
     if (existing.dataPtr !== 0n) symbols.SecKeychainItemFreeContent(null, asPtr(existing.dataPtr));
     if (existing.itemRef !== 0n) symbols.SecKeychainItemDelete(asPtr(existing.itemRef));
@@ -109,20 +110,40 @@ export function setApiKey(provider: string, key: string): void {
   ) as number;
 
   if (status !== 0) {
-    console.error(`[keychain] SecKeychainAddGenericPassword failed (OSStatus ${status})`);
+    log.error(`[keychain] SecKeychainAddGenericPassword failed (OSStatus ${status})`);
   }
 }
 
 export function hasApiKey(provider: string): boolean {
-  const found = findItem(provider);
+  const found = findItem(SERVICE, provider);
   if (!found) return false;
   if (found.dataPtr !== 0n) symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
   return true;
 }
 
 export function removeApiKey(provider: string): void {
-  const found = findItem(provider);
+  const found = findItem(SERVICE, provider);
   if (!found) return;
   if (found.dataPtr !== 0n) symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
   if (found.itemRef !== 0n) symbols.SecKeychainItemDelete(asPtr(found.itemRef));
+}
+
+export function migrateApiKeysFrom(oldService: string, providers: readonly string[]): void {
+  for (const provider of providers) {
+    const existing = findItem(SERVICE, provider);
+    if (existing) {
+      if (existing.dataPtr !== 0n)
+        symbols.SecKeychainItemFreeContent(null, asPtr(existing.dataPtr));
+      continue;
+    }
+    const found = findItem(oldService, provider);
+    if (!found) continue;
+    let key: string | undefined;
+    if (found.dataPtr !== 0n) {
+      const bytes = new Uint8Array(toBuffer(asPtr(found.dataPtr), 0, found.dataLen));
+      key = new TextDecoder().decode(bytes) || undefined;
+      symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
+    }
+    if (key) setApiKey(provider, key);
+  }
 }

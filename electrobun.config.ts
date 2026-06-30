@@ -2,8 +2,8 @@ import type { ElectrobunConfig } from 'electrobun'
 
 export default {
   app: {
-    name: 'LLM Chat',
-    identifier: 'sh.llmchat.app',
+    name: 'Proxima',
+    identifier: 'sh.proxima.app',
     version: '0.0.1-pre-alpha',
   },
   build: {

@@ -6,7 +6,7 @@ const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 const SYNC_THROTTLE_MS = 24 * 60 * 60 * 1000; // 24 hours
 const SETTINGS_KEY = 'openrouter_sync';
 // Bump when sync logic or schema changes to force a re-sync on next startup.
-const SYNC_VERSION = 1;
+const SYNC_VERSION = 2;
 
 interface OpenRouterModel {
   id: string;

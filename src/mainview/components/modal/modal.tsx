@@ -107,7 +107,7 @@ function ModalShell({
             transition={{ duration: 0.2 }}
             className={cn(
               'fixed inset-0 z-modal flex items-center justify-center',
-              isDark ? 'bg-black/80 backdrop-blur-sm' : 'bg-white/80 backdrop-blur-sm',
+              isDark ? 'bg-neutral-950/80 backdrop-blur-sm' : 'bg-neutral-50/80 backdrop-blur-sm',
               overlayClassName,
             )}
             onClick={dismiss.onOverlayClick ? onClose : undefined}
@@ -177,8 +177,8 @@ function ModalClose({ className }: { className?: string }) {
       className={cn(
         'size-9 rounded-full flex items-center justify-center transition-colors duration-150 cursor-pointer',
         isDark
-          ? 'bg-white/10 hover:bg-white/20 text-white'
-          : 'bg-black/5 hover:bg-black/10 text-black',
+          ? 'bg-neutral-50/10 hover:bg-neutral-50/20 text-neutral-50'
+          : 'bg-neutral-950/5 hover:bg-neutral-950/10 text-neutral-950',
         className,
       )}
     >

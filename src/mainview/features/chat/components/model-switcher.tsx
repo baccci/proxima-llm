@@ -27,15 +27,24 @@ interface Props {
   disabled?: boolean
   usedTokens?: number
   cachedFraction?: number
+  effort?: string | null
 }
 
-export function ModelSwitcher({ modelId, onChange, disabled, usedTokens, cachedFraction }: Props) {
+export function ModelSwitcher({
+  modelId,
+  onChange,
+  disabled,
+  usedTokens,
+  cachedFraction,
+  effort,
+}: Props) {
   const { data: allModels = [] } = useModels()
   const enabled = allModels.filter((m) => m.isEnabled)
   const groups = groupByFamily(enabled)
 
   const selected = allModels.find((m) => m.id === modelId)
-  const label = selected?.displayName ?? 'Select model'
+  const baseName = selected ? shortModelName(selected.displayName) : 'Select model'
+  const effortLabel = effort ? effort.charAt(0).toUpperCase() + effort.slice(1) : null
   const limit = selected?.capabilities.contextWindow ?? null
   const used = usedTokens ?? 0
 
@@ -43,10 +52,11 @@ export function ModelSwitcher({ modelId, onChange, disabled, usedTokens, cachedF
     <DropdownRoot>
       <DropdownTrigger
         disabled={disabled}
-        className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-sm bg-transparent text-white/70 hover:bg-white/14 hover:text-white data-[popup-open]:bg-white/8 data-[popup-open]:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+        className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-transparent text-foreground hover:bg-surface-hover hover:text-foreground data-popup-open:bg-surface-hover data-popup-open:text-foreground transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="font-medium">{label}</span>
-        <IconChevronDown width={13} className="text-white/40" />
+        <span className="font-medium">{baseName}</span>
+        {effortLabel && <span className="opacity-60 font-medium">{effortLabel}</span>}
+        <IconChevronDown width={13} className="text-subtle" />
       </DropdownTrigger>
 
       <DropdownPortal>

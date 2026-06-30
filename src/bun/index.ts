@@ -4,29 +4,45 @@ import { join } from 'path';
 import { startControlServer, stopControlServer } from './control-server/server';
 import { setupSchema } from './db/migrate';
 import { seedModels } from './db/seed';
+import { log } from './logging/logger';
 import {
   createRPC,
   pushModelsUpdated,
   setControlServerFns,
   setSendControlNavigate,
+  setSendMemoryChanged,
   setSendModelsUpdated,
 } from './rpc';
 import { setSendChatsUpdated, setSendToWebview } from './services/chat-stream.service';
 import { syncOpenRouterModels } from './services/model-sync.service';
 import * as settingsService from './services/settings.service';
 
+log.init();
+log.installGlobalHandlers();
+
 const DEV_SERVER_PORT = 5173;
+// dev:hmr sets HMR=1 — under it, Vite and electrobun boot in parallel, so poll for the
+// dev server instead of probing once (the one-shot check lost the race and fell back to
+// stale bundled assets). Outside HMR there's no server to wait for, so probe just once.
+const HMR_EXPECTED = process.env.HMR === '1';
 
 async function getMainViewUrl(): Promise<string> {
   const channel = await Updater.localInfo.channel();
   if (channel === 'dev') {
-    try {
-      await fetch(`http://localhost:${DEV_SERVER_PORT}`, { method: 'HEAD' });
-      console.log(`HMR enabled: http://localhost:${DEV_SERVER_PORT}`);
-      return `http://localhost:${DEV_SERVER_PORT}`;
-    } catch {
-      console.log('Vite server not running — using bundled assets. Run "bun run dev:hmr" for HMR.');
+    const attempts = HMR_EXPECTED ? 20 : 1;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        await fetch(`http://localhost:${DEV_SERVER_PORT}`, {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(500),
+        });
+        console.log(`HMR enabled: http://localhost:${DEV_SERVER_PORT}`);
+        return `http://localhost:${DEV_SERVER_PORT}`;
+      } catch {
+        if (i < attempts - 1) await Bun.sleep(250);
+      }
     }
+    console.log('Vite server not running — using bundled assets. Run "bun run dev:hmr" for HMR.');
   }
   return 'views://mainview/index.html';
 }
@@ -36,14 +52,14 @@ setupSchema();
 await seedModels();
 // Non-blocking background sync — UI renders from DB cache instantly
 syncOpenRouterModels(pushModelsUpdated).catch((err) =>
-  console.error('OpenRouter sync failed (non-fatal):', err),
+  log.error('OpenRouter sync failed (non-fatal)', err),
 );
 
 const rpc = createRPC();
 const url = await getMainViewUrl();
 
 export const mainWindow = new BrowserWindow({
-  title: 'LLM Chat',
+  title: 'Proxima',
   url,
   rpc,
   titleBarStyle: 'hiddenInset',
@@ -56,7 +72,7 @@ export const mainWindow = new BrowserWindow({
 });
 
 const trafficLightsLib = dlopen(join(import.meta.dir, '../native/libTrafficLights.dylib'), {
-  setTrafficLightsPosition: {
+  setupTrafficLights: {
     args: [FFIType.ptr, FFIType.f64, FFIType.f64],
     returns: FFIType.void,
   },
@@ -65,27 +81,11 @@ const trafficLightsLib = dlopen(join(import.meta.dir, '../native/libTrafficLight
 const TRAFFIC_LIGHT_X = 18;
 const TRAFFIC_LIGHT_Y = 24;
 
-function applyTrafficLights() {
-  trafficLightsLib.symbols.setTrafficLightsPosition(
-    mainWindow.ptr,
-    TRAFFIC_LIGHT_X,
-    TRAFFIC_LIGHT_Y,
-  );
-}
-
-// Initial placement — deferred so the window ptr is ready
-setTimeout(applyTrafficLights, 100);
-
-// Re-apply after every resize; macOS resets native button positions on resize
-let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
-mainWindow.on('resize', () => {
-  if (resizeDebounce) clearTimeout(resizeDebounce);
-  resizeDebounce = setTimeout(applyTrafficLights, 50);
-});
+trafficLightsLib.symbols.setupTrafficLights(mainWindow.ptr, TRAFFIC_LIGHT_X, TRAFFIC_LIGHT_Y);
 
 ApplicationMenu.setApplicationMenu([
   {
-    label: 'LLM Chat',
+    label: 'Proxima',
     submenu: [
       { role: 'about' },
       { type: 'separator' },
@@ -120,6 +120,9 @@ setSendModelsUpdated(() => {
 setSendChatsUpdated(() => {
   mainWindow.webview.rpc?.send.chatsUpdated({});
 });
+setSendMemoryChanged((scope, projectId) => {
+  mainWindow.webview.rpc?.send.memoryChanged({ scope, projectId });
+});
 setSendControlNavigate((msg) => {
   mainWindow.webview.rpc?.send.controlNavigate(msg);
 });
@@ -133,4 +136,4 @@ if (initSettings.controlServerEnabled) {
   startControlServer(initSettings.controlServerPort ?? 7865);
 }
 
-console.log('LLM Chat started');
+log.info('Proxima started');

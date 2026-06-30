@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import React from 'react'
+import { Switch } from '@/components/switch'
 import { queryKeys } from '@/lib/query-keys'
 import { electroview } from '@/lib/rpc.client'
 import { useSettings } from '../hooks/use-settings'
@@ -71,24 +72,10 @@ export function ControlServerSection() {
               Lets local scripts inject prompts that run inside the app.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleToggle}
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-              enabled ? 'bg-brand' : 'bg-border'
-            }`}
-            role="switch"
-            aria-checked={enabled}
-          >
-            <span
-              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                enabled ? 'translate-x-4' : 'translate-x-0'
-              }`}
-            />
-          </button>
+          <Switch checked={enabled} onChange={handleToggle} aria-label="Local control server" />
         </div>
 
-        <p className={`mt-2 text-xs font-mono ${enabled ? 'text-brand' : 'text-subtle'}`}>
+        <p className={`mt-2 text-xs font-mono ${enabled ? 'text-foreground' : 'text-subtle'}`}>
           {enabled ? `Listening on 127.0.0.1:${port}` : 'Off'}
         </p>
       </div>
@@ -102,21 +89,11 @@ export function ControlServerSection() {
             in' prompt instead.
           </p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={focusFollowsIncoming}
-          onClick={() => settings.update({ focusFollowsIncoming: !focusFollowsIncoming })}
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-            focusFollowsIncoming ? 'bg-brand' : 'bg-border'
-          }`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-              focusFollowsIncoming ? 'translate-x-4' : 'translate-x-0'
-            }`}
-          />
-        </button>
+        <Switch
+          checked={focusFollowsIncoming}
+          onChange={() => settings.update({ focusFollowsIncoming: !focusFollowsIncoming })}
+          aria-label="Follow incoming prompts"
+        />
       </div>
 
       {/* Port */}
@@ -191,7 +168,7 @@ export function ControlServerSection() {
                 <button
                   type="button"
                   onClick={() => handleRevoke(t.token)}
-                  className="text-xs text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                  className="text-xs text-danger hover:text-danger/80 transition-colors cursor-pointer"
                 >
                   Revoke
                 </button>

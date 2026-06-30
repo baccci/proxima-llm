@@ -1,8 +1,7 @@
 import React from 'react'
 import { useForm } from 'react-hook-form'
 import { Button } from '@/components/button'
-import { IconAlertTriangle } from '@/components/icons/icon-alert-triangle'
-import { IconCheckCircle } from '@/components/icons/icon-check-circle'
+import { IconCheck } from '@/components/icons/icon-check'
 import { IconEye } from '@/components/icons/icon-eye'
 import { IconEyeOff } from '@/components/icons/icon-eye-off'
 import { Input } from '@/components/input'
@@ -13,7 +12,14 @@ interface KeyFormValues {
   key: string
 }
 
-function ApiKeyRow({ provider, label }: { provider: string; label: string }) {
+type ApiKeyRowProps = {
+  provider: string
+  placeholder?: string
+  accent?: string
+  foreground?: string
+}
+
+export function ApiKeyRow({ provider, placeholder, accent, foreground }: ApiKeyRowProps) {
   const { data } = useApiKeyStatus(provider)
   const [visible, setVisible] = React.useState(false)
   const {
@@ -25,7 +31,6 @@ function ApiKeyRow({ provider, label }: { provider: string; label: string }) {
   } = useForm<KeyFormValues>()
 
   const typed = watch('key')
-
   const isConfigured = data?.configured ?? false
 
   async function onSubmit({ key }: KeyFormValues) {
@@ -36,14 +41,10 @@ function ApiKeyRow({ provider, label }: { provider: string; label: string }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-foreground">{label}</span>
-        {isConfigured ? (
+        <span className="text-sm font-medium text-foreground">API Key</span>
+        {isConfigured && (
           <span className="flex items-center gap-1 text-xs text-success">
-            <IconCheckCircle width={12} /> Configured
-          </span>
-        ) : (
-          <span className="flex items-center gap-1 text-xs text-warning">
-            <IconAlertTriangle width={12} /> Not set
+            <IconCheck width={12} /> Configured
           </span>
         )}
       </div>
@@ -52,7 +53,7 @@ function ApiKeyRow({ provider, label }: { provider: string; label: string }) {
         <div className="relative flex-1">
           <Input
             type={visible ? 'text' : 'password'}
-            placeholder={isConfigured ? '••••••••••••••••' : 'sk-ant-…'}
+            placeholder={isConfigured ? '••••••••••••••••' : (placeholder ?? 'sk-…')}
             {...register('key', { required: true })}
             className={typed ? 'pr-9' : ''}
           />
@@ -66,19 +67,17 @@ function ApiKeyRow({ provider, label }: { provider: string; label: string }) {
             </button>
           )}
         </div>
-        <Button type="submit" variant="brand" size="md" disabled={!isDirty}>
+        <Button
+          type="submit"
+          variant="brand"
+          size="md"
+          disabled={!isDirty}
+          style={accent ? { backgroundColor: accent, color: foreground } : undefined}
+          className={accent ? 'hover:opacity-90' : undefined}
+        >
           Save
         </Button>
       </form>
-    </div>
-  )
-}
-
-export function ApiKeysSection() {
-  return (
-    <div className="space-y-6">
-      <ApiKeyRow provider="anthropic" label="Anthropic API key" />
-      <ApiKeyRow provider="openrouter" label="OpenRouter API key" />
     </div>
   )
 }

@@ -29,6 +29,14 @@ Projects group related chats together under a shared context.
 - A project can have its own instructions and a notes area that apply to every chat inside it.
 - Chats can live inside a project or stand on their own.`,
 
+  memory: `## Memory
+The model can save and recall notes across conversations using memory slices — titled entries that persist between chats.
+
+- The model reads a slice on demand with \`read_memory\` (only when relevant — it won't load them all at once).
+- It can save new notes or update existing ones with \`write_memory\`, and remove outdated ones with \`delete_memory\`.
+- Memory is split into two scopes: **Global** (across all chats) and **Project** (tied to the current project).
+- You can view, add, edit, and delete slices in the Memories card in a project view, or in the Memory tab in Settings.`,
+
   'web-search': `## Web search
 Lets the model look things up on the internet while it answers, for questions that need up-to-date information.
 

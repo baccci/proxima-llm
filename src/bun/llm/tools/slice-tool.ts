@@ -6,7 +6,7 @@ const capabilityKeys = Object.keys(CAPABILITY_SLICES) as [string, ...string[]];
 
 export const sliceTool = tool({
   description:
-    'Fetch detailed information about a specific LLM Chat feature. Call this when the user asks about a capability and you need more detail.',
+    'Fetch detailed information about a specific Proxima feature. Call this when the user asks about a capability and you need more detail.',
   inputSchema: z.object({
     capability: z.enum(capabilityKeys).describe('The feature to get detail about'),
   }),

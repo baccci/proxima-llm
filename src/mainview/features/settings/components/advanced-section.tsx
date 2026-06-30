@@ -1,7 +1,7 @@
 import { cn } from '@utils/tailwind-class-merge'
-import React from 'react'
 import { useSettings } from '@/features/settings/hooks/use-settings'
 import { settings } from '@/features/settings/settings.api'
+import { DiagnosticsSection } from './diagnostics-section'
 
 const RETRY_OPTIONS = [0, 1, 2, 3, 5]
 
@@ -14,16 +14,6 @@ const TIMEOUT_OPTIONS = [
 
 export function AdvancedSection() {
   const { data: currentSettings } = useSettings()
-  const [syncing, setSyncing] = React.useState(false)
-
-  async function handleResync() {
-    setSyncing(true)
-    try {
-      await settings.syncModels()
-    } finally {
-      setSyncing(false)
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -42,7 +32,7 @@ export function AdvancedSection() {
               className={cn(
                 'flex-1 py-2 rounded-lg border text-sm transition-colors cursor-pointer',
                 currentSettings?.maxRetries === n
-                  ? 'border-brand bg-brand/10 text-brand'
+                  ? 'border-selected-border bg-selected-surface text-selected-foreground'
                   : 'border-border text-muted hover:bg-surface-hover hover:text-foreground',
               )}
             >
@@ -66,7 +56,7 @@ export function AdvancedSection() {
               className={cn(
                 'flex-1 py-2 rounded-lg border text-sm transition-colors cursor-pointer',
                 currentSettings?.requestTimeoutMs === t.value
-                  ? 'border-brand bg-brand/10 text-brand'
+                  ? 'border-selected-border bg-selected-surface text-selected-foreground'
                   : 'border-border text-muted hover:bg-surface-hover hover:text-foreground',
               )}
             >
@@ -76,20 +66,8 @@ export function AdvancedSection() {
         </div>
       </div>
 
-      {/* Model catalog */}
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">Model catalog</label>
-        <p className="text-xs text-subtle mb-3">
-          Force a fresh sync of OpenRouter models, bypassing the 24-hour throttle.
-        </p>
-        <button
-          onClick={handleResync}
-          disabled={syncing}
-          className="px-3 py-2 rounded-lg border border-border text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-        >
-          {syncing ? 'Syncing…' : 'Resync models'}
-        </button>
-      </div>
+      {/* Diagnostics */}
+      <DiagnosticsSection />
     </div>
   )
 }

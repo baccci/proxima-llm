@@ -1,4 +1,6 @@
+import type { ChatDTO } from '@shared/schemas/chat.schema'
 import type { MessageDTO } from '@shared/schemas/message.schema'
+import { isSilentTool } from '@shared/tools/tool-catalog'
 import React from 'react'
 import { IconChevronDown } from '@/components/icons/icon-chevron-down'
 import { MessagePartRenderer } from '@/features/chat/entities/parts'
@@ -11,10 +13,16 @@ import { ToolCallBlock } from './tool-call-block'
 
 interface Props {
   messages: MessageDTO[]
+  chatItem: ChatDTO
+  compactedThroughAt?: string | null
 }
 
-export function MessageList({ messages }: Props) {
+export function MessageList({ messages, chatItem, compactedThroughAt }: Props) {
   const streaming = useChatStore((s) => s.streaming)
+  const compactingChatId = useChatStore((s) => s.compactingChatId)
+  // Label shows for both auto-compaction (stream chunk) and a manual ring click
+  // (store flag, no stream).
+  const showCompacting = streaming?.compacting || compactingChatId === chatItem.id
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const [showScrollToBottom, setShowScrollToBottom] = React.useState(false)
@@ -25,16 +33,33 @@ export function MessageList({ messages }: Props) {
     return el.scrollHeight - el.scrollTop - el.clientHeight
   }
 
+  const didInitRef = React.useRef(false)
   React.useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
+    if (didInitRef.current || messages.length === 0) return
+    didInitRef.current = true
+    bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+  }, [messages.length])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: streaming?.textParts is the trigger; getDistanceFromBottom reads a stable ref
+  // biome-ignore lint/correctness/useExhaustiveDependencies: streaming?.textParts + messages.length are the triggers; getDistanceFromBottom reads stable refs
   React.useEffect(() => {
     if (getDistanceFromBottom() < 120) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
     }
-  }, [streaming?.textParts])
+  }, [streaming?.textParts, messages.length])
+
+  // The id of the last message covered by the rolling summary. Everything up to
+  // and including it is sent to the model as a compact summary, not in full — we
+  // render a divider after it so the boundary is visible. The DB still keeps
+  // every message, so the full history stays readable above the line.
+  const compactedThroughId = React.useMemo(() => {
+    if (!compactedThroughAt) return null
+    let id: string | null = null
+    for (const m of messages) {
+      if (m.createdAt <= compactedThroughAt) id = m.id
+      else break
+    }
+    return id
+  }, [messages, compactedThroughAt])
 
   function handleScroll() {
     setShowScrollToBottom(getDistanceFromBottom() > 120)
@@ -51,10 +76,29 @@ export function MessageList({ messages }: Props) {
         onScroll={handleScroll}
         className="h-full overflow-y-auto overflow-x-hidden"
       >
-        <div className="max-w-[740px] mx-auto px-6 py-8">
+        <div className="max-w-(--layout-content-w) mx-auto px-6 pb-8 pt-20">
           {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
+            <React.Fragment key={msg.id}>
+              <MessageBubble message={msg} chatItem={chatItem} />
+              {msg.id === compactedThroughId && (
+                <div className="flex items-center gap-3 my-6 select-none" aria-hidden>
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-subtle whitespace-nowrap">
+                    Earlier messages summarized to save context
+                  </span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              )}
+            </React.Fragment>
           ))}
+
+          {/* Compaction label — auto (during a stream) or manual (ring click). */}
+          {showCompacting && (
+            <div className="mb-6 flex items-center gap-2 text-sm text-subtle">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-subtle animate-pulse" />
+              <span>Compacting earlier messages…</span>
+            </div>
+          )}
 
           {/* Streaming assistant message */}
           {streaming && !streaming.done && (
@@ -73,31 +117,33 @@ export function MessageList({ messages }: Props) {
                 />
               )}
 
-              {streaming.toolCalls.map((tc) => (
-                <ToolCallBlock
-                  key={tc.toolCallId}
-                  toolName={tc.toolName}
-                  input={tc.input}
-                  output={tc.output}
-                  awaitingApproval={tc.awaitingApproval}
-                  onApprove={(remember) =>
-                    rpcRequest().resolveToolApproval({
-                      streamId: streaming.streamId,
-                      toolCallId: tc.toolCallId,
-                      decision: 'allow',
-                      remember,
-                    })
-                  }
-                  onDeny={(remember) =>
-                    rpcRequest().resolveToolApproval({
-                      streamId: streaming.streamId,
-                      toolCallId: tc.toolCallId,
-                      decision: 'deny',
-                      remember,
-                    })
-                  }
-                />
-              ))}
+              {streaming.toolCalls
+                .filter((tc) => !isSilentTool(tc.toolName))
+                .map((tc) => (
+                  <ToolCallBlock
+                    key={tc.toolCallId}
+                    toolName={tc.toolName}
+                    input={tc.input}
+                    output={tc.output}
+                    awaitingApproval={tc.awaitingApproval}
+                    onApprove={(remember) =>
+                      rpcRequest().resolveToolApproval({
+                        streamId: streaming.streamId,
+                        toolCallId: tc.toolCallId,
+                        decision: 'allow',
+                        remember,
+                      })
+                    }
+                    onDeny={(remember) =>
+                      rpcRequest().resolveToolApproval({
+                        streamId: streaming.streamId,
+                        toolCallId: tc.toolCallId,
+                        decision: 'deny',
+                        remember,
+                      })
+                    }
+                  />
+                ))}
 
               <div className="text-base text-foreground leading-relaxed">
                 {streaming.textParts ? (
@@ -107,7 +153,7 @@ export function MessageList({ messages }: Props) {
                   />
                 ) : (
                   streaming.toolCalls.length === 0 && (
-                    <span className="inline-block w-2 h-4 bg-accent-400 rounded-sm animate-pulse" />
+                    <span className="inline-block w-2 h-4 bg-brand rounded-sm animate-pulse" />
                   )
                 )}
               </div>
@@ -130,7 +176,7 @@ export function MessageList({ messages }: Props) {
         <div className="absolute bottom-3 left-0 right-0 flex justify-center pointer-events-none">
           <button
             onClick={scrollToBottom}
-            className="pointer-events-auto flex items-center gap-1 pl-3 pr-3.5 py-1.5 rounded-full bg-elevated border border-border-strong text-sm text-foreground shadow-pop hover:bg-surface-hover transition-colors"
+            className="pointer-events-auto flex items-center gap-1 pl-3 pr-3.5 py-1.5 rounded-full border text-sm transition-colors backdrop-blur-2xl bg-floating text-floating-foreground border-floating-border hover:bg-floating-hover shadow-pop"
           >
             <IconChevronDown width={14} />
             <span>Scroll to bottom</span>

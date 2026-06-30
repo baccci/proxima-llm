@@ -29,7 +29,7 @@ export function FocusModeNav({
   onClose,
 }: Props) {
   const btnBase =
-    'flex items-center justify-center rounded-lg transition-colors text-subtle hover:text-foreground hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed'
+    'flex items-center justify-center rounded-lg transition-colors text-subtle hover:text-foreground hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
   return (
     <div className="flex items-center gap-2 px-8 py-4 shrink-0">

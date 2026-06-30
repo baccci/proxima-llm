@@ -23,7 +23,7 @@ export function SidebarChatList({ chats }: Props) {
           <div className="px-4 py-1.5 text-2xs font-semibold text-subtle uppercase tracking-wider">
             {group.label}
           </div>
-          <ul>
+          <ul className="px-2">
             {group.chats.map((c) => (
               <ChatRow
                 key={c.id}

@@ -1,11 +1,12 @@
 import { cn } from '@utils/tailwind-class-merge'
 import type React from 'react'
 
-type Variant = 'default' | 'brand' | 'success' | 'warning' | 'danger'
+type Variant = 'default' | 'neutral' | 'brand' | 'success' | 'warning' | 'danger'
 
 const variantClasses: Record<Variant, string> = {
   default: 'bg-surface text-muted border border-border',
-  brand: 'bg-accent-950 text-accent-300 border border-accent-800',
+  neutral: 'bg-surface-hover text-muted',
+  brand: 'bg-selected-surface text-selected-foreground',
   success: 'bg-success/10 text-success border border-success/20',
   warning: 'bg-warning/10 text-warning border border-warning/20',
   danger: 'bg-danger/10 text-danger border border-danger/20',

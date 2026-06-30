@@ -18,7 +18,7 @@ export function TooltipWrapper({ content, children, side = 'top' }: TooltipWrapp
       <Tooltip.Trigger render={children} />
       <Tooltip.Portal>
         <Tooltip.Positioner side={side} sideOffset={6} className="z-tooltip">
-          <Tooltip.Popup className="rounded-lg bg-elevated border border-border shadow-pop px-2.5 py-1.5 text-xs text-foreground animate-fade-in">
+          <Tooltip.Popup className="rounded-lg bg-elevated border border-border shadow-pop px-2.5 py-1.5 text-xs text-foreground origin-(--transform-origin) data-starting-style:opacity-0 data-starting-style:transform-[scale(0.97)] data-ending-style:opacity-0 data-ending-style:transform-[scale(0.97)] transition-[opacity,transform] duration-125 ease-out">
             {content}
           </Tooltip.Popup>
         </Tooltip.Positioner>

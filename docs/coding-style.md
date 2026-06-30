@@ -7,6 +7,11 @@ before finishing. The conventions below are the ones Biome can't enforce.
 
 - No semicolons. Single quotes.
 
+## Conditionals
+
+Prefer usign multiline conditionals over one-liners, except when it's
+very small.
+
 ## Naming & files
 
 - **Filenames are kebab-case**, React components included: `focus-mode-overlay.tsx`,
@@ -18,6 +23,24 @@ before finishing. The conventions below are the ones Biome can't enforce.
   feature talks about (e.g. `Exchange`) is an entity; a file exporting only functions
   over primitives/imported types (e.g. typography math) is a helper. Full rule in
   [../local-docs/ARCHITECTURE.md](../local-docs/ARCHITECTURE.md).
+
+## Component props
+
+- **Always type props with `type`, never `interface`.** Name it `<Component>Props`.
+- **Components meant to be extended — all generic/reusable UI components (`components/`)
+  — extend the underlying element's props:**
+  `type ButtonProps = React.ComponentProps<'button'> & { variant?: Variant }`.
+- **Destructure your own props, spread the rest into the main element** (the first/root
+  ancestor the component renders), so every native attribute passes through:
+  ```tsx
+  export function Button({ variant = 'default', className, ...props }: ButtonProps) {
+    return <button className={cn('base classes', variantClasses[variant], className)} {...props} />
+  }
+  ```
+- **Merge `className` via `cn('classes…', className)`** — pull `className` from props so
+  callers can extend styling without clobbering the base classes.
+- Leaf/feature components that render nothing extendable still use `type` for props;
+  they just don't extend a DOM element or spread `...props`.
 
 ## Constants vs inline
 
@@ -31,4 +54,4 @@ before finishing. The conventions below are the ones Biome can't enforce.
 ## Comments
 
 - A short one-line comment above non-obvious logic — derived values, subscriptions,
-  layout tricks (column flow, overflow handling). Explain *why*, not *what*.
+  layout tricks (column flow, overflow handling). Explain _why_, not _what_.
