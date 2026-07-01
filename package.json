@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
