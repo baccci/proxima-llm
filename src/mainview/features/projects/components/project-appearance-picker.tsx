@@ -71,13 +71,17 @@ function OpacitySlider({
   )
 }
 
-// One mode's editor: the whole preview area is filled with that mode's bg and
-// shows the icon + Aa in that mode's fr, so it always previews its own mode
-// regardless of the active app theme. `active` (the current app theme) only
-// adds a border to mark which mode you're seeing.
+// A mini mock of the app in one theme: the box is that theme's neutral surface,
+// and the pill inside is painted with the custom palette's bg/fr for that mode —
+// so you see how the project pill would look on a light vs dark sidebar. `active`
+// marks the box matching the running app theme.
+const BOX_SURFACE = { light: '#F7F7F8', dark: '#1D1D20' }
+const BOX_LABEL = { light: '#6C6C73', dark: '#8B8B92' }
+
 function PaletteBox({
   label,
   active,
+  boxDark,
   bg,
   fr,
   onBg,
@@ -86,6 +90,7 @@ function PaletteBox({
 }: {
   label: string
   active: boolean
+  boxDark: boolean
   bg: string
   fr: string
   onBg: (v: string) => void
@@ -94,24 +99,27 @@ function PaletteBox({
 }) {
   const bgValid = HEX_RE.test(bg)
   const frValid = HEX_RE.test(fr)
+  const theme = boxDark ? 'dark' : 'light'
   return (
     <div className="flex flex-col gap-1.5">
-      {/* The box IS the preview: filled with this mode's bg, content in this mode's fr. */}
       <div
         className={cn(
           'flex flex-col gap-1 rounded-lg p-2 h-16 justify-between',
           active ? 'border-2 border-ring' : 'border border-border',
         )}
-        style={{
-          backgroundColor: bgValid ? bg : 'var(--color-surface)',
-          color: frValid ? fr : undefined,
-        }}
+        style={{ backgroundColor: BOX_SURFACE[theme] }}
       >
-        <span className="text-2xs font-medium opacity-80">
+        <span className="text-2xs font-medium" style={{ color: BOX_LABEL[theme] }}>
           {active ? `${label} · current` : label}
         </span>
-        <div className="flex items-center gap-1.5">
-          <Icon width={14} />
+        <div
+          className="w-full flex items-center gap-1.5 px-2 h-6 rounded-md"
+          style={{
+            backgroundColor: bgValid ? bg : 'transparent',
+            color: frValid ? fr : BOX_LABEL[theme],
+          }}
+        >
+          <Icon width={13} />
           <span className="text-xs font-semibold">Aa</span>
         </div>
       </div>
@@ -384,6 +392,7 @@ export function ProjectAppearancePicker({
                 <PaletteBox
                   label="Light"
                   active={!isDark}
+                  boxDark={false}
                   bg={customDraft.lightBg}
                   fr={customDraft.lightFr}
                   onBg={(v) => commitCustom({ ...customDraft, lightBg: v })}
@@ -393,6 +402,7 @@ export function ProjectAppearancePicker({
                 <PaletteBox
                   label="Dark"
                   active={isDark}
+                  boxDark={true}
                   bg={customDraft.darkBg}
                   fr={customDraft.darkFr}
                   onBg={(v) => commitCustom({ ...customDraft, darkBg: v })}
