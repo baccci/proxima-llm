@@ -1,11 +1,15 @@
 import { Slider } from '@base-ui-components/react'
 import {
+  type CustomPalette,
   composeIconColor,
+  isCustomPalette,
   PROJECT_ICON_KEYS,
   PROJECT_PALETTES,
+  parseCustomPalette,
   parseIconColor,
   resolveIconColor,
   resolvePalette,
+  serializeCustomPalette,
 } from '@shared/project-appearance'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
@@ -14,6 +18,11 @@ import { getProjectIcon } from '@/features/projects/lib/project-icon'
 import { useIsDark } from '@/features/projects/lib/use-is-dark'
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
+
+const DEFAULT_CUSTOM: CustomPalette = {
+  light: { bg: '#F1F5F9', fr: '#334155' },
+  dark: { bg: '#1E293B', fr: '#CBD5E1' },
+}
 
 interface ProjectAppearancePickerProps {
   icon: string | null
@@ -62,6 +71,64 @@ function OpacitySlider({
   )
 }
 
+function PaletteBox({
+  label,
+  active,
+  bg,
+  fr,
+  onBg,
+  onFr,
+  Icon,
+}: {
+  label: string
+  active: boolean
+  bg: string
+  fr: string
+  onBg: (v: string) => void
+  onFr: (v: string) => void
+  Icon: React.FC<React.ComponentProps<'svg'>>
+}) {
+  const bgValid = HEX_RE.test(bg)
+  const frValid = HEX_RE.test(fr)
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-1.5 rounded-lg p-2',
+        active ? 'border border-border' : 'border border-transparent',
+      )}
+    >
+      <span className="text-2xs text-subtle">{active ? `${label} · current` : label}</span>
+      <div
+        className="flex items-center gap-1.5 h-7 px-2 rounded-md"
+        style={{ backgroundColor: bgValid ? bg : 'transparent', color: frValid ? fr : undefined }}
+      >
+        <Icon width={13} />
+        <span className="text-xs font-semibold">Aa</span>
+      </div>
+      <input
+        value={bg}
+        onChange={(e) => onBg(e.target.value)}
+        spellCheck={false}
+        placeholder="#bg"
+        className={cn(
+          'h-6 px-1.5 rounded border bg-panel text-2xs font-mono text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          bgValid ? 'border-border' : 'border-danger',
+        )}
+      />
+      <input
+        value={fr}
+        onChange={(e) => onFr(e.target.value)}
+        spellCheck={false}
+        placeholder="#fr"
+        className={cn(
+          'h-6 px-1.5 rounded border bg-panel text-2xs font-mono text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          frValid ? 'border-border' : 'border-danger',
+        )}
+      />
+    </div>
+  )
+}
+
 export function ProjectAppearancePicker({
   icon,
   palette,
@@ -73,6 +140,53 @@ export function ProjectAppearancePicker({
   const isDark = useIsDark()
   const { base: iconColorBase, opacityPct } = parseIconColor(iconColor)
   const [hexDraft, setHexDraft] = React.useState(iconColorBase || '#')
+
+  const isCustom = isCustomPalette(palette)
+  const seededCustom = parseCustomPalette(palette) ?? DEFAULT_CUSTOM
+  const [customDraft, setCustomDraft] = React.useState({
+    lightBg: seededCustom.light.bg,
+    lightFr: seededCustom.light.fr,
+    darkBg: seededCustom.dark.bg,
+    darkFr: seededCustom.dark.fr,
+  })
+
+  function commitCustom(next: typeof customDraft) {
+    setCustomDraft(next)
+    const allValid = [next.lightBg, next.lightFr, next.darkBg, next.darkFr].every((h) =>
+      HEX_RE.test(h),
+    )
+    if (allValid) {
+      onPaletteChange(
+        serializeCustomPalette({
+          light: { bg: next.lightBg, fr: next.lightFr },
+          dark: { bg: next.darkBg, fr: next.darkFr },
+        }),
+      )
+    }
+  }
+
+  function selectCustom() {
+    const seed =
+      resolvePalette(palette, false) && !isCustom
+        ? {
+            light: resolvePalette(palette, false)!,
+            dark: resolvePalette(palette, true)!,
+          }
+        : DEFAULT_CUSTOM
+    const next = {
+      lightBg: seed.light.bg.toUpperCase(),
+      lightFr: seed.light.fr.toUpperCase(),
+      darkBg: seed.dark.bg.toUpperCase(),
+      darkFr: seed.dark.fr.toUpperCase(),
+    }
+    setCustomDraft(next)
+    onPaletteChange(
+      serializeCustomPalette({
+        light: { bg: next.lightBg, fr: next.lightFr },
+        dark: { bg: next.darkBg, fr: next.darkFr },
+      }),
+    )
+  }
 
   const previewColors = resolvePalette(palette, isDark)
   const previewIconColor = resolveIconColor(iconColor, previewColors)
@@ -237,7 +351,41 @@ export function ProjectAppearancePicker({
                     </button>
                   )
                 })}
+                <button
+                  type="button"
+                  onClick={selectCustom}
+                  title="Custom"
+                  className={cn(
+                    'h-8 rounded-lg border border-border text-2xs font-semibold text-muted transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    isCustom && 'ring-2 ring-ring',
+                  )}
+                >
+                  +
+                </button>
               </div>
+
+              {isCustom && (
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <PaletteBox
+                    label="Light"
+                    active={!isDark}
+                    bg={customDraft.lightBg}
+                    fr={customDraft.lightFr}
+                    onBg={(v) => commitCustom({ ...customDraft, lightBg: v })}
+                    onFr={(v) => commitCustom({ ...customDraft, lightFr: v })}
+                    Icon={PreviewIcon}
+                  />
+                  <PaletteBox
+                    label="Dark"
+                    active={isDark}
+                    bg={customDraft.darkBg}
+                    fr={customDraft.darkFr}
+                    onBg={(v) => commitCustom({ ...customDraft, darkBg: v })}
+                    onFr={(v) => commitCustom({ ...customDraft, darkFr: v })}
+                    Icon={PreviewIcon}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </PopoverContent>
