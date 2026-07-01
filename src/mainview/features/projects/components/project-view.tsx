@@ -1,13 +1,73 @@
+import type { ProjectDTO } from '@shared/schemas/project.schema'
 import { cn } from '@utils/tailwind-class-merge'
+import React from 'react'
+import { Button } from '@/components/button'
+import { DialogContent, DialogRoot } from '@/components/dialog'
+import { IconPencil } from '@/components/icons/icon-pencil'
 import { ComposerBody } from '@/features/chat/components/composer-body'
 import { useChats } from '@/features/chat/hooks/use-chats'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useProjects } from '@/features/projects/hooks/use-projects'
+import { projects as projectsApi } from '@/features/projects/projects.api'
 import { FilesCard } from './files-card'
 import { MemoriesCard } from './memories-card'
+import { ProjectAppearancePicker } from './project-appearance-picker'
 
 interface Props {
   projectId: string
+}
+
+function EditAppearanceButton({ project }: { project: ProjectDTO }) {
+  const [open, setOpen] = React.useState(false)
+  const [icon, setIcon] = React.useState<string | null>(project.icon)
+  const [palette, setPalette] = React.useState<string | null>(project.palette)
+
+  function openDialog() {
+    setIcon(project.icon)
+    setPalette(project.palette)
+    setOpen(true)
+  }
+
+  async function save() {
+    await projectsApi.update({ id: project.id, icon, palette })
+    setOpen(false)
+  }
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={openDialog}
+        className="shrink-0 electrobun-webkit-app-region-no-drag"
+      >
+        <IconPencil width={14} />
+      </Button>
+      <DialogRoot open={open} onOpenChange={setOpen}>
+        <DialogContent
+          title="Project appearance"
+          description="Choose an icon and color for this project."
+        >
+          <div className="flex flex-col gap-4">
+            <ProjectAppearancePicker
+              icon={icon}
+              palette={palette}
+              onIconChange={setIcon}
+              onPaletteChange={setPalette}
+            />
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" variant="brand" onClick={save}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </DialogRoot>
+    </>
+  )
 }
 
 export function ProjectView({ projectId }: Props) {
@@ -40,9 +100,12 @@ export function ProjectView({ projectId }: Props) {
           {/* Hero + Composer */}
           <div className="shrink-0 pt-8 pb-6 flex flex-col gap-6">
             <div>
-              <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-                {project.name}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-semibold text-foreground tracking-tight">
+                  {project.name}
+                </h1>
+                <EditAppearanceButton project={project} />
+              </div>
               {project.description && (
                 <p className="mt-1.5 text-sm text-muted leading-relaxed">{project.description}</p>
               )}

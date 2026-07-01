@@ -21,5 +21,9 @@ export const CreateProjectInput = z.object({
 
 export type CreateProjectInput = z.infer<typeof CreateProjectInput>
 
-export const UpdateProjectInput = CreateProjectInput.partial()
+// icon/palette accept null so a project can be reset to Native / default folder.
+export const UpdateProjectInput = CreateProjectInput.partial().extend({
+  icon: z.string().nullable().optional(),
+  palette: z.string().nullable().optional(),
+})
 export type UpdateProjectInput = z.infer<typeof UpdateProjectInput>
