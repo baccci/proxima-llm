@@ -9,7 +9,7 @@ function resolveDark(theme: 'light' | 'dark' | 'system'): boolean {
 }
 
 // Syncs the saved theme onto <html class="dark">. This is an external-DOM side-effect
-// (not derivable render state), so an effect is the right tool here — see docs/react.md.
+// (not derivable render state), so an effect is the right tool here.
 export function useApplyTheme() {
   const theme = useSettings().data?.theme ?? 'system'
 

@@ -35,3 +35,7 @@ native/*.dylib
 
 # Eval artifacts
 evals/*.sqlite
+
+# Claude context (local-only, untracked — read from disk, kept out of the repo)
+/CLAUDE.md
+/local-docs/
