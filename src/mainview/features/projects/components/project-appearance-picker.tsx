@@ -71,6 +71,10 @@ function OpacitySlider({
   )
 }
 
+// One mode's editor: the whole preview area is filled with that mode's bg and
+// shows the icon + Aa in that mode's fr, so it always previews its own mode
+// regardless of the active app theme. `active` (the current app theme) only
+// adds a border to mark which mode you're seeing.
 function PaletteBox({
   label,
   active,
@@ -93,16 +97,19 @@ function PaletteBox({
   return (
     <div
       className={cn(
-        'flex flex-col gap-1.5 rounded-lg p-2',
+        'flex flex-col gap-1.5 rounded-lg p-1.5',
         active ? 'border border-border' : 'border border-transparent',
       )}
     >
       <span className="text-2xs text-subtle">{active ? `${label} · current` : label}</span>
       <div
-        className="flex items-center gap-1.5 h-7 px-2 rounded-md"
-        style={{ backgroundColor: bgValid ? bg : 'transparent', color: frValid ? fr : undefined }}
+        className="flex items-center justify-center gap-1.5 h-9 rounded-md border border-border"
+        style={{
+          backgroundColor: bgValid ? bg : 'var(--color-surface)',
+          color: frValid ? fr : undefined,
+        }}
       >
-        <Icon width={13} />
+        <Icon width={14} />
         <span className="text-xs font-semibold">Aa</span>
       </div>
       <input
@@ -150,6 +157,10 @@ export function ProjectAppearancePicker({
     darkFr: seededCustom.dark.fr,
   })
 
+  const previewColors = resolvePalette(palette, isDark)
+  const previewIconColor = resolveIconColor(iconColor, previewColors)
+  const PreviewIcon = getProjectIcon(icon)
+
   function commitCustom(next: typeof customDraft) {
     setCustomDraft(next)
     const allValid = [next.lightBg, next.lightFr, next.darkBg, next.darkFr].every((h) =>
@@ -166,12 +177,11 @@ export function ProjectAppearancePicker({
   }
 
   function selectCustom() {
+    if (isCustom) return
+    const built = resolvePalette(palette, false)
     const seed =
-      resolvePalette(palette, false) && !isCustom
-        ? {
-            light: resolvePalette(palette, false)!,
-            dark: resolvePalette(palette, true)!,
-          }
+      built && !isCustom
+        ? { light: resolvePalette(palette, false)!, dark: resolvePalette(palette, true)! }
         : DEFAULT_CUSTOM
     const next = {
       lightBg: seed.light.bg.toUpperCase(),
@@ -187,10 +197,6 @@ export function ProjectAppearancePicker({
       }),
     )
   }
-
-  const previewColors = resolvePalette(palette, isDark)
-  const previewIconColor = resolveIconColor(iconColor, previewColors)
-  const PreviewIcon = getProjectIcon(icon)
 
   function pickIconColor(base: string) {
     setHexDraft(base)
@@ -208,188 +214,193 @@ export function ProjectAppearancePicker({
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-muted">Appearance</label>
-      <PopoverRoot>
-        <PopoverTrigger
-          className={cn(
-            'flex items-center gap-2 h-9 px-2.5 rounded-lg border border-border bg-panel text-sm text-foreground',
-            'hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          )}
-        >
-          <span
-            className="flex items-center justify-center size-6 rounded-md shrink-0"
-            style={previewColors ? { backgroundColor: previewColors.bg } : undefined}
-          >
-            <PreviewIcon
-              width={15}
-              style={previewIconColor ? { color: previewIconColor } : undefined}
-              className={cn(!previewIconColor && 'text-subtle')}
-            />
-          </span>
-          <span className="flex-1 text-left text-muted">Icon &amp; color</span>
-        </PopoverTrigger>
-
-        <PopoverContent className="w-64">
-          <div className="flex flex-col gap-4">
-            {/* Icon + its color, one section */}
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-medium text-muted">Icon</label>
-              <div className="grid grid-cols-6 gap-1.5">
-                {PROJECT_ICON_KEYS.map((key) => {
-                  const Icon = getProjectIcon(key)
-                  const selected = (icon ?? 'folder') === key
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => onIconChange(key === 'folder' ? null : key)}
-                      className={cn(
-                        'flex items-center justify-center h-8 rounded-lg text-muted hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        selected && 'ring-2 ring-ring text-foreground',
-                      )}
-                    >
-                      <Icon width={16} />
-                    </button>
-                  )
-                })}
-              </div>
-
-              <span className="text-2xs text-subtle uppercase tracking-wider">Icon color</span>
-              <div className="grid grid-cols-6 gap-1.5">
-                <button
-                  type="button"
-                  onClick={clearIconColor}
-                  className={cn(
-                    'h-8 rounded-lg border border-border text-2xs text-muted hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    iconColor === null && 'ring-2 ring-ring',
-                  )}
-                >
-                  Match
-                </button>
-                {PROJECT_PALETTES.map((p) => {
-                  const base = resolvePalette(p.key, isDark)!.fr.toUpperCase()
-                  const selected = iconColorBase === base
-                  return (
-                    <button
-                      key={p.key}
-                      type="button"
-                      title={p.name}
-                      onClick={() => pickIconColor(base)}
-                      className={cn(
-                        'h-8 rounded-lg border border-border transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        selected && 'ring-2 ring-ring',
-                      )}
-                    >
-                      <span
-                        className="block w-full h-full rounded-md"
-                        style={{ backgroundColor: base }}
-                      />
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="text-2xs text-muted shrink-0">Custom</span>
-                <input
-                  value={hexDraft}
-                  onChange={(e) => onHexInput(e.target.value)}
-                  placeholder="#RRGGBB"
-                  spellCheck={false}
-                  className={cn(
-                    'flex-1 min-w-0 h-7 px-2 rounded-md border bg-panel text-xs font-mono text-foreground',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    hexDraft !== '#' && !HEX_RE.test(hexDraft) ? 'border-danger' : 'border-border',
-                  )}
-                />
-                <span
-                  className="size-7 rounded-md border border-border shrink-0"
-                  style={HEX_RE.test(hexDraft) ? { backgroundColor: hexDraft } : undefined}
-                />
-              </div>
-
-              {iconColor && (
-                <OpacitySlider
-                  base={iconColorBase}
-                  value={opacityPct}
-                  onChange={(pct) => onIconColorChange(composeIconColor(iconColorBase, pct))}
-                />
-              )}
-            </div>
-
-            {/* Pill color */}
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-medium text-muted">Color</label>
-              <div className="grid grid-cols-6 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onPaletteChange(null)}
-                  className={cn(
-                    'h-8 rounded-lg border border-border text-2xs text-muted hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    palette === null && 'ring-2 ring-ring',
-                  )}
-                >
-                  Native
-                </button>
-                {PROJECT_PALETTES.map((p) => {
-                  const colors = resolvePalette(p.key, isDark)!
-                  const selected = palette === p.key
-                  return (
-                    <button
-                      key={p.key}
-                      type="button"
-                      title={p.name}
-                      onClick={() => onPaletteChange(p.key)}
-                      style={{ backgroundColor: colors.bg, color: colors.fr }}
-                      className={cn(
-                        'h-8 rounded-lg text-2xs font-semibold transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        selected && 'ring-2 ring-ring',
-                      )}
-                    >
-                      Aa
-                    </button>
-                  )
-                })}
-                <button
-                  type="button"
-                  onClick={selectCustom}
-                  title="Custom"
-                  className={cn(
-                    'h-8 rounded-lg border border-border text-2xs font-semibold text-muted transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    isCustom && 'ring-2 ring-ring',
-                  )}
-                >
-                  +
-                </button>
-              </div>
-
-              {isCustom && (
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <PaletteBox
-                    label="Light"
-                    active={!isDark}
-                    bg={customDraft.lightBg}
-                    fr={customDraft.lightFr}
-                    onBg={(v) => commitCustom({ ...customDraft, lightBg: v })}
-                    onFr={(v) => commitCustom({ ...customDraft, lightFr: v })}
-                    Icon={PreviewIcon}
-                  />
-                  <PaletteBox
-                    label="Dark"
-                    active={isDark}
-                    bg={customDraft.darkBg}
-                    fr={customDraft.darkFr}
-                    onBg={(v) => commitCustom({ ...customDraft, darkBg: v })}
-                    onFr={(v) => commitCustom({ ...customDraft, darkFr: v })}
-                    Icon={PreviewIcon}
-                  />
+    <div className="flex flex-col gap-4">
+      {/* Icon */}
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-medium text-muted">Icon</label>
+        <div className="flex gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-2xs text-subtle uppercase tracking-wider">Icon</span>
+            <PopoverRoot>
+              <PopoverTrigger className="flex items-center justify-center size-9 rounded-lg border border-border bg-panel text-foreground hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <PreviewIcon width={16} />
+              </PopoverTrigger>
+              <PopoverContent className="w-56">
+                <div className="grid grid-cols-6 gap-1.5">
+                  {PROJECT_ICON_KEYS.map((key) => {
+                    const Icon = getProjectIcon(key)
+                    const selected = (icon ?? 'folder') === key
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => onIconChange(key === 'folder' ? null : key)}
+                        className={cn(
+                          'flex items-center justify-center h-8 rounded-lg text-muted hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                          selected && 'ring-2 ring-ring text-foreground',
+                        )}
+                      >
+                        <Icon width={16} />
+                      </button>
+                    )
+                  })}
                 </div>
-              )}
-            </div>
+              </PopoverContent>
+            </PopoverRoot>
           </div>
-        </PopoverContent>
-      </PopoverRoot>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-2xs text-subtle uppercase tracking-wider">Icon color</span>
+            <PopoverRoot>
+              <PopoverTrigger
+                title="Icon color"
+                className="flex items-center justify-center size-9 rounded-lg border border-border bg-panel hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span
+                  className="size-5 rounded-md border border-border"
+                  style={previewIconColor ? { backgroundColor: previewIconColor } : undefined}
+                />
+              </PopoverTrigger>
+              <PopoverContent className="w-60">
+                <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-6 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={clearIconColor}
+                      className={cn(
+                        'h-8 rounded-lg border border-border text-2xs text-muted hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        iconColor === null && 'ring-2 ring-ring',
+                      )}
+                    >
+                      Match
+                    </button>
+                    {PROJECT_PALETTES.map((p) => {
+                      const base = resolvePalette(p.key, isDark)!.fr.toUpperCase()
+                      const selected = iconColorBase === base
+                      return (
+                        <button
+                          key={p.key}
+                          type="button"
+                          title={p.name}
+                          onClick={() => pickIconColor(base)}
+                          className={cn(
+                            'h-8 rounded-lg border border-border transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            selected && 'ring-2 ring-ring',
+                          )}
+                        >
+                          <span
+                            className="block w-full h-full rounded-md"
+                            style={{ backgroundColor: base }}
+                          />
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-2xs text-muted shrink-0">Custom</span>
+                    <input
+                      value={hexDraft}
+                      onChange={(e) => onHexInput(e.target.value)}
+                      placeholder="#RRGGBB"
+                      spellCheck={false}
+                      className={cn(
+                        'flex-1 min-w-0 h-7 px-2 rounded-md border bg-panel text-xs font-mono text-foreground',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        hexDraft !== '#' && !HEX_RE.test(hexDraft)
+                          ? 'border-danger'
+                          : 'border-border',
+                      )}
+                    />
+                    <span
+                      className="size-7 rounded-md border border-border shrink-0"
+                      style={HEX_RE.test(hexDraft) ? { backgroundColor: hexDraft } : undefined}
+                    />
+                  </div>
+
+                  {iconColor && (
+                    <OpacitySlider
+                      base={iconColorBase}
+                      value={opacityPct}
+                      onChange={(pct) => onIconColorChange(composeIconColor(iconColorBase, pct))}
+                    />
+                  )}
+                </div>
+              </PopoverContent>
+            </PopoverRoot>
+          </div>
+        </div>
+      </div>
+
+      {/* Palette */}
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-medium text-muted">Palette</label>
+        <div className="grid grid-cols-6 gap-1.5">
+          <button
+            type="button"
+            onClick={() => onPaletteChange(null)}
+            className={cn(
+              'h-8 rounded-lg border border-border text-2xs text-muted hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              palette === null && 'ring-2 ring-ring',
+            )}
+          >
+            Native
+          </button>
+          {PROJECT_PALETTES.map((p) => {
+            const colors = resolvePalette(p.key, isDark)!
+            const selected = palette === p.key
+            return (
+              <button
+                key={p.key}
+                type="button"
+                title={p.name}
+                onClick={() => onPaletteChange(p.key)}
+                style={{ backgroundColor: colors.bg, color: colors.fr }}
+                className={cn(
+                  'h-8 rounded-lg text-2xs font-semibold transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  selected && 'ring-2 ring-ring',
+                )}
+              >
+                Aa
+              </button>
+            )
+          })}
+          <PopoverRoot>
+            <PopoverTrigger
+              title="Custom palette"
+              onClick={selectCustom}
+              className={cn(
+                'h-8 rounded-lg border border-border text-2xs font-semibold text-muted transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                isCustom && 'ring-2 ring-ring',
+              )}
+            >
+              +
+            </PopoverTrigger>
+            <PopoverContent className="w-64">
+              <div className="grid grid-cols-2 gap-2">
+                <PaletteBox
+                  label="Light"
+                  active={!isDark}
+                  bg={customDraft.lightBg}
+                  fr={customDraft.lightFr}
+                  onBg={(v) => commitCustom({ ...customDraft, lightBg: v })}
+                  onFr={(v) => commitCustom({ ...customDraft, lightFr: v })}
+                  Icon={PreviewIcon}
+                />
+                <PaletteBox
+                  label="Dark"
+                  active={isDark}
+                  bg={customDraft.darkBg}
+                  fr={customDraft.darkFr}
+                  onBg={(v) => commitCustom({ ...customDraft, darkBg: v })}
+                  onFr={(v) => commitCustom({ ...customDraft, darkFr: v })}
+                  Icon={PreviewIcon}
+                />
+              </div>
+            </PopoverContent>
+          </PopoverRoot>
+        </div>
+      </div>
     </div>
   )
 }
