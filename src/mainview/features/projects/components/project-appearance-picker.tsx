@@ -95,22 +95,25 @@ function PaletteBox({
   const bgValid = HEX_RE.test(bg)
   const frValid = HEX_RE.test(fr)
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-1.5 rounded-lg p-1.5',
-        active ? 'border border-border' : 'border border-transparent',
-      )}
-    >
-      <span className="text-2xs text-subtle">{active ? `${label} · current` : label}</span>
+    <div className="flex flex-col gap-1.5">
+      {/* The box IS the preview: filled with this mode's bg, content in this mode's fr. */}
       <div
-        className="flex items-center justify-center gap-1.5 h-9 rounded-md border border-border"
+        className={cn(
+          'flex flex-col gap-1 rounded-lg p-2 h-16 justify-between',
+          active ? 'border-2 border-ring' : 'border border-border',
+        )}
         style={{
           backgroundColor: bgValid ? bg : 'var(--color-surface)',
           color: frValid ? fr : undefined,
         }}
       >
-        <Icon width={14} />
-        <span className="text-xs font-semibold">Aa</span>
+        <span className="text-2xs font-medium opacity-80">
+          {active ? `${label} · current` : label}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Icon width={14} />
+          <span className="text-xs font-semibold">Aa</span>
+        </div>
       </div>
       <input
         value={bg}
