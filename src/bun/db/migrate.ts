@@ -161,4 +161,16 @@ export function setupSchema() {
   if (!hasMemorySummary) {
     sqlite.exec(`ALTER TABLE projects ADD COLUMN memory_summary TEXT`);
   }
+
+  // Add icon column to projects if it doesn't exist (existing DBs)
+  const hasIcon = projCols.some((c) => c.name === 'icon');
+  if (!hasIcon) {
+    sqlite.exec(`ALTER TABLE projects ADD COLUMN icon TEXT`);
+  }
+
+  // Add palette column to projects if it doesn't exist (existing DBs)
+  const hasPalette = projCols.some((c) => c.name === 'palette');
+  if (!hasPalette) {
+    sqlite.exec(`ALTER TABLE projects ADD COLUMN palette TEXT`);
+  }
 }

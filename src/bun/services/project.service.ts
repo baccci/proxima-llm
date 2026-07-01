@@ -13,6 +13,8 @@ function rowToDTO(row: typeof projects.$inferSelect): ProjectDTO {
     id: row.id,
     name: row.name,
     description: row.description ?? null,
+    icon: row.icon ?? null,
+    palette: row.palette ?? null,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };
@@ -35,6 +37,8 @@ export function createProject(input: CreateProjectInput): ProjectDTO {
       id,
       name: input.name,
       description: input.description ?? null,
+      icon: input.icon ?? null,
+      palette: input.palette ?? null,
       createdAt: now,
       updatedAt: now,
     })

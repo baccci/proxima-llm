@@ -24,6 +24,8 @@ export const projects = sqliteTable('projects', {
   memory: text('memory'),
   memorySummary: text('memory_summary'),
   defaultModelId: text('default_model_id'),
+  icon: text('icon'),
+  palette: text('palette'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
