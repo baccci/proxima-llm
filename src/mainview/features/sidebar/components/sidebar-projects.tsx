@@ -1,3 +1,5 @@
+import { resolveIconColor, resolvePalette } from '@shared/project-appearance'
+import type { ProjectDTO } from '@shared/schemas/project.schema'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { useForm } from 'react-hook-form'
@@ -5,11 +7,13 @@ import { Button } from '@/components/button'
 import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from '@/components/collapsible'
 import { DialogContent, DialogRoot } from '@/components/dialog'
 import { IconChevronRight } from '@/components/icons/icon-chevron-right'
-import { IconFolderOpen } from '@/components/icons/icon-folder-open'
 import { IconPlus } from '@/components/icons/icon-plus'
 import { Input } from '@/components/input'
 import { useChatStore } from '@/features/chat/store/chat.store'
+import { ProjectAppearancePicker } from '@/features/projects/components/project-appearance-picker'
 import { useProjects } from '@/features/projects/hooks/use-projects'
+import { getProjectIcon } from '@/features/projects/lib/project-icon'
+import { useIsDark } from '@/features/projects/lib/use-is-dark'
 import { projects as projectsApi } from '@/features/projects/projects.api'
 import { useSidebarStore } from '@/features/sidebar/store/sidebar.store'
 
@@ -20,6 +24,9 @@ interface CreateProjectFields {
 
 function CreateProjectDialog() {
   const [open, setOpen] = React.useState(false)
+  const [icon, setIcon] = React.useState<string | null>(null)
+  const [palette, setPalette] = React.useState<string | null>(null)
+  const [iconColor, setIconColor] = React.useState<string | null>(null)
   const selectProject = useChatStore((s) => s.selectProject)
 
   const {
@@ -33,9 +40,15 @@ function CreateProjectDialog() {
     const created = await projectsApi.create({
       name: data.name,
       description: data.description || undefined,
+      icon: icon ?? undefined,
+      palette: palette ?? undefined,
+      iconColor: iconColor ?? undefined,
     })
     selectProject(created.id)
     reset()
+    setIcon(null)
+    setPalette(null)
+    setIconColor(null)
     setOpen(false)
   }
 
@@ -62,12 +75,23 @@ function CreateProjectDialog() {
                 {...register('description')}
               />
             </div>
+            <ProjectAppearancePicker
+              icon={icon}
+              palette={palette}
+              iconColor={iconColor}
+              onIconChange={setIcon}
+              onPaletteChange={setPalette}
+              onIconColorChange={setIconColor}
+            />
             <div className="flex justify-end gap-2 pt-1">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => {
                   reset()
+                  setIcon(null)
+                  setPalette(null)
+                  setIconColor(null)
                   setOpen(false)
                 }}
               >
@@ -84,9 +108,38 @@ function CreateProjectDialog() {
   )
 }
 
+function ProjectPill({ project }: { project: ProjectDTO }) {
+  const selectProject = useChatStore((s) => s.selectProject)
+  const isDark = useIsDark()
+  const colors = resolvePalette(project.palette, isDark)
+  const iconColor = resolveIconColor(project.iconColor, colors)
+  const Icon = getProjectIcon(project.icon)
+
+  return (
+    <li>
+      <button
+        onClick={() => selectProject(project.id)}
+        style={colors ? { backgroundColor: colors.bg, color: colors.fr } : undefined}
+        className={cn(
+          'flex items-center gap-2 w-full px-2 h-8 text-sm rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          colors ? 'font-medium' : 'text-muted hover:bg-surface-hover hover:text-foreground',
+        )}
+      >
+        <Icon
+          width={15}
+          style={iconColor ? { color: iconColor } : undefined}
+          className={cn('shrink-0', !iconColor && 'text-subtle')}
+        />
+        <span className="flex-1 text-left min-w-0 truncate font-medium leading-tight">
+          {project.name}
+        </span>
+      </button>
+    </li>
+  )
+}
+
 export function SidebarProjects() {
   const { data: projectList = [] } = useProjects()
-  const selectProject = useChatStore((s) => s.selectProject)
   const { projectsCollapsed, toggleProjects } = useSidebarStore()
 
   return (
@@ -106,19 +159,9 @@ export function SidebarProjects() {
         {projectList.length === 0 ? (
           <p className="px-4 pb-2 text-xs text-subtle italic">No projects yet</p>
         ) : (
-          <ul className="px-2 pb-1">
+          <ul className="px-2 pb-1 flex flex-col gap-0.5">
             {projectList.map((project) => (
-              <li key={project.id}>
-                <button
-                  onClick={() => selectProject(project.id)}
-                  className="flex items-center gap-2 w-full px-2 h-8 text-sm text-muted hover:bg-surface-hover hover:text-foreground rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <IconFolderOpen width={15} className="text-subtle shrink-0" />
-                  <span className="flex-1 text-left min-w-0 truncate font-medium leading-tight">
-                    {project.name}
-                  </span>
-                </button>
-              </li>
+              <ProjectPill key={project.id} project={project} />
             ))}
           </ul>
         )}
