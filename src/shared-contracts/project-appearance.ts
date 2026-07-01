@@ -12,25 +12,25 @@ export const PROJECT_PALETTES: readonly Palette[] = [
   {
     key: 'clay',
     name: 'Clay',
-    light: { bg: '#F2EAD3', fr: '#E45049' },
-    dark: { bg: '#F2EAD3', fr: '#E45049' },
+    light: { bg: '#F2EAD3', fr: '#C0392B' },
+    dark: { bg: '#2E2519', fr: '#E9897F' },
   },
   {
     key: 'paper',
     name: 'Paper',
     light: { bg: '#FBFBFB', fr: '#E65554' },
-    dark: { bg: '#FBFBFB', fr: '#E65554' },
+    dark: { bg: '#26262A', fr: '#FF6B6A' },
   },
   {
     key: 'synthwave',
     name: 'Synthwave',
-    light: { bg: '#16002A', fr: '#CF3FB9' },
+    light: { bg: '#F3E0FF', fr: '#B01E9E' },
     dark: { bg: '#16002A', fr: '#CF3FB9' },
   },
   {
     key: 'hacker',
     name: 'Hacker',
-    light: { bg: '#040F0A', fr: '#4CFB71' },
+    light: { bg: '#E3FBE9', fr: '#12813A' },
     dark: { bg: '#040F0A', fr: '#4CFB71' },
   },
   {
@@ -42,7 +42,7 @@ export const PROJECT_PALETTES: readonly Palette[] = [
   {
     key: 'sunset',
     name: 'Sunset',
-    light: { bg: '#2A0A00', fr: '#FF8A3D' },
+    light: { bg: '#FFE9D6', fr: '#C2410C' },
     dark: { bg: '#2A0A00', fr: '#FF8A3D' },
   },
   {
@@ -86,12 +86,52 @@ export const PROJECT_ICON_KEYS = [
   'bot',
 ] as const
 
+export type CustomPalette = { light: PaletteColors; dark: PaletteColors }
+
+export function isCustomPalette(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.startsWith('{')
+}
+
+function isColors(v: unknown): v is PaletteColors {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    typeof (v as PaletteColors).bg === 'string' &&
+    typeof (v as PaletteColors).fr === 'string'
+  )
+}
+
+export function parseCustomPalette(value: string | null | undefined): CustomPalette | null {
+  if (!isCustomPalette(value)) return null
+  try {
+    const parsed = JSON.parse(value as string) as unknown
+    if (typeof parsed !== 'object' || parsed === null) return null
+    const { light, dark } = parsed as { light?: unknown; dark?: unknown }
+    if (!isColors(light) || !isColors(dark)) return null
+    return { light: { bg: light.bg, fr: light.fr }, dark: { bg: dark.bg, fr: dark.fr } }
+  } catch {
+    return null
+  }
+}
+
+export function serializeCustomPalette(cp: CustomPalette): string {
+  return JSON.stringify({
+    light: { bg: cp.light.bg, fr: cp.light.fr },
+    dark: { bg: cp.dark.bg, fr: cp.dark.fr },
+  })
+}
+
 export function resolvePalette(
-  key: string | null | undefined,
+  value: string | null | undefined,
   isDark: boolean,
 ): PaletteColors | null {
-  if (!key) return null
-  const palette = PROJECT_PALETTES.find((p) => p.key === key)
+  if (!value) return null
+  if (isCustomPalette(value)) {
+    const custom = parseCustomPalette(value)
+    if (!custom) return null
+    return isDark ? custom.dark : custom.light
+  }
+  const palette = PROJECT_PALETTES.find((p) => p.key === value)
   if (!palette) return null
   return isDark ? palette.dark : palette.light
 }
