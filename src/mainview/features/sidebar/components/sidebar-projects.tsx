@@ -10,6 +10,7 @@ import { IconChevronRight } from '@/components/icons/icon-chevron-right'
 import { IconPlus } from '@/components/icons/icon-plus'
 import { Input } from '@/components/input'
 import { useChatStore } from '@/features/chat/store/chat.store'
+import { ProjectAppearancePicker } from '@/features/projects/components/project-appearance-picker'
 import { useProjects } from '@/features/projects/hooks/use-projects'
 import { getProjectIcon } from '@/features/projects/lib/project-icon'
 import { useIsDark } from '@/features/projects/lib/use-is-dark'
@@ -23,6 +24,8 @@ interface CreateProjectFields {
 
 function CreateProjectDialog() {
   const [open, setOpen] = React.useState(false)
+  const [icon, setIcon] = React.useState<string | null>(null)
+  const [palette, setPalette] = React.useState<string | null>(null)
   const selectProject = useChatStore((s) => s.selectProject)
 
   const {
@@ -36,9 +39,13 @@ function CreateProjectDialog() {
     const created = await projectsApi.create({
       name: data.name,
       description: data.description || undefined,
+      icon: icon ?? undefined,
+      palette: palette ?? undefined,
     })
     selectProject(created.id)
     reset()
+    setIcon(null)
+    setPalette(null)
     setOpen(false)
   }
 
@@ -65,12 +72,20 @@ function CreateProjectDialog() {
                 {...register('description')}
               />
             </div>
+            <ProjectAppearancePicker
+              icon={icon}
+              palette={palette}
+              onIconChange={setIcon}
+              onPaletteChange={setPalette}
+            />
             <div className="flex justify-end gap-2 pt-1">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => {
                   reset()
+                  setIcon(null)
+                  setPalette(null)
                   setOpen(false)
                 }}
               >
