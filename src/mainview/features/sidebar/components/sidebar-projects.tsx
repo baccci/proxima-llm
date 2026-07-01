@@ -148,7 +148,7 @@ export function SidebarProjects() {
         {projectList.length === 0 ? (
           <p className="px-4 pb-2 text-xs text-subtle italic">No projects yet</p>
         ) : (
-          <ul className="px-2 pb-1">
+          <ul className="px-2 pb-1 flex flex-col gap-0.5">
             {projectList.map((project) => (
               <ProjectPill key={project.id} project={project} />
             ))}

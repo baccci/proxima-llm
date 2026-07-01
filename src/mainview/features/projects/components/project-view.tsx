@@ -4,6 +4,7 @@ import React from 'react'
 import { Button } from '@/components/button'
 import { DialogContent, DialogRoot } from '@/components/dialog'
 import { IconPencil } from '@/components/icons/icon-pencil'
+import { Input } from '@/components/input'
 import { ComposerBody } from '@/features/chat/components/composer-body'
 import { useChats } from '@/features/chat/hooks/use-chats'
 import { useChatStore } from '@/features/chat/store/chat.store'
@@ -19,17 +20,29 @@ interface Props {
 
 function EditAppearanceButton({ project }: { project: ProjectDTO }) {
   const [open, setOpen] = React.useState(false)
+  const [name, setName] = React.useState(project.name)
+  const [description, setDescription] = React.useState(project.description ?? '')
   const [icon, setIcon] = React.useState<string | null>(project.icon)
   const [palette, setPalette] = React.useState<string | null>(project.palette)
 
   function openDialog() {
+    setName(project.name)
+    setDescription(project.description ?? '')
     setIcon(project.icon)
     setPalette(project.palette)
     setOpen(true)
   }
 
   async function save() {
-    await projectsApi.update({ id: project.id, icon, palette })
+    const trimmed = name.trim()
+    if (!trimmed) return
+    await projectsApi.update({
+      id: project.id,
+      name: trimmed,
+      description: description.trim() || undefined,
+      icon,
+      palette,
+    })
     setOpen(false)
   }
 
@@ -45,10 +58,22 @@ function EditAppearanceButton({ project }: { project: ProjectDTO }) {
       </Button>
       <DialogRoot open={open} onOpenChange={setOpen}>
         <DialogContent
-          title="Project appearance"
-          description="Choose an icon and color for this project."
+          title="Edit project"
+          description="Update this project's details and appearance."
         >
           <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted">Name</label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted">Purpose</label>
+              <Input
+                placeholder="What will you use this project for? (optional)"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
             <ProjectAppearancePicker
               icon={icon}
               palette={palette}
