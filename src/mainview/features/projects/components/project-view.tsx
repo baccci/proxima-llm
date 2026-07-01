@@ -24,12 +24,14 @@ function EditAppearanceButton({ project }: { project: ProjectDTO }) {
   const [description, setDescription] = React.useState(project.description ?? '')
   const [icon, setIcon] = React.useState<string | null>(project.icon)
   const [palette, setPalette] = React.useState<string | null>(project.palette)
+  const [iconColor, setIconColor] = React.useState<string | null>(project.iconColor)
 
   function openDialog() {
     setName(project.name)
     setDescription(project.description ?? '')
     setIcon(project.icon)
     setPalette(project.palette)
+    setIconColor(project.iconColor)
     setOpen(true)
   }
 
@@ -42,6 +44,7 @@ function EditAppearanceButton({ project }: { project: ProjectDTO }) {
       description: description.trim() || undefined,
       icon,
       palette,
+      iconColor,
     })
     setOpen(false)
   }
@@ -77,8 +80,10 @@ function EditAppearanceButton({ project }: { project: ProjectDTO }) {
             <ProjectAppearancePicker
               icon={icon}
               palette={palette}
+              iconColor={iconColor}
               onIconChange={setIcon}
               onPaletteChange={setPalette}
+              onIconColorChange={setIconColor}
             />
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>

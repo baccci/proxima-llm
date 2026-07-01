@@ -1,4 +1,4 @@
-import { resolvePalette } from '@shared/project-appearance'
+import { resolveIconColor, resolvePalette } from '@shared/project-appearance'
 import type { ProjectDTO } from '@shared/schemas/project.schema'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
@@ -26,6 +26,7 @@ function CreateProjectDialog() {
   const [open, setOpen] = React.useState(false)
   const [icon, setIcon] = React.useState<string | null>(null)
   const [palette, setPalette] = React.useState<string | null>(null)
+  const [iconColor, setIconColor] = React.useState<string | null>(null)
   const selectProject = useChatStore((s) => s.selectProject)
 
   const {
@@ -41,11 +42,13 @@ function CreateProjectDialog() {
       description: data.description || undefined,
       icon: icon ?? undefined,
       palette: palette ?? undefined,
+      iconColor: iconColor ?? undefined,
     })
     selectProject(created.id)
     reset()
     setIcon(null)
     setPalette(null)
+    setIconColor(null)
     setOpen(false)
   }
 
@@ -75,8 +78,10 @@ function CreateProjectDialog() {
             <ProjectAppearancePicker
               icon={icon}
               palette={palette}
+              iconColor={iconColor}
               onIconChange={setIcon}
               onPaletteChange={setPalette}
+              onIconColorChange={setIconColor}
             />
             <div className="flex justify-end gap-2 pt-1">
               <Button
@@ -86,6 +91,7 @@ function CreateProjectDialog() {
                   reset()
                   setIcon(null)
                   setPalette(null)
+                  setIconColor(null)
                   setOpen(false)
                 }}
               >
@@ -106,6 +112,7 @@ function ProjectPill({ project }: { project: ProjectDTO }) {
   const selectProject = useChatStore((s) => s.selectProject)
   const isDark = useIsDark()
   const colors = resolvePalette(project.palette, isDark)
+  const iconColor = resolveIconColor(project.iconColor, colors)
   const Icon = getProjectIcon(project.icon)
 
   return (
@@ -118,7 +125,11 @@ function ProjectPill({ project }: { project: ProjectDTO }) {
           colors ? 'font-medium' : 'text-muted hover:bg-surface-hover hover:text-foreground',
         )}
       >
-        <Icon width={15} className={cn('shrink-0', !colors && 'text-subtle')} />
+        <Icon
+          width={15}
+          style={iconColor ? { color: iconColor } : undefined}
+          className={cn('shrink-0', !iconColor && 'text-subtle')}
+        />
         <span className="flex-1 text-left min-w-0 truncate font-medium leading-tight">
           {project.name}
         </span>

@@ -6,6 +6,7 @@ export const ProjectDTO = z.object({
   description: z.string().nullable(),
   icon: z.string().nullable(),
   palette: z.string().nullable(),
+  iconColor: z.string().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })
@@ -17,6 +18,7 @@ export const CreateProjectInput = z.object({
   description: z.string().optional(),
   icon: z.string().optional(),
   palette: z.string().optional(),
+  iconColor: z.string().optional(),
 })
 
 export type CreateProjectInput = z.infer<typeof CreateProjectInput>
@@ -25,5 +27,6 @@ export type CreateProjectInput = z.infer<typeof CreateProjectInput>
 export const UpdateProjectInput = CreateProjectInput.partial().extend({
   icon: z.string().nullable().optional(),
   palette: z.string().nullable().optional(),
+  iconColor: z.string().nullable().optional(),
 })
 export type UpdateProjectInput = z.infer<typeof UpdateProjectInput>

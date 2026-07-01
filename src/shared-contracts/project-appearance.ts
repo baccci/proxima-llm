@@ -95,3 +95,33 @@ export function resolvePalette(
   if (!palette) return null
   return isDark ? palette.dark : palette.light
 }
+
+// Icon color override is stored as an 8-digit hex (#RRGGBBAA) so a single column
+// carries both hue and opacity. null means "inherit the palette's fr".
+
+export function composeIconColor(baseHex: string, opacityPct: number): string {
+  const clamped = Math.max(0, Math.min(100, opacityPct))
+  const alpha = Math.round((clamped / 100) * 255)
+  const alphaHex = alpha.toString(16).padStart(2, '0').toUpperCase()
+  return `${baseHex.slice(0, 7).toUpperCase()}${alphaHex}`
+}
+
+export function parseIconColor(value: string | null | undefined): {
+  base: string
+  opacityPct: number
+} {
+  if (!value) return { base: '', opacityPct: 100 }
+  const base = value.slice(0, 7).toUpperCase()
+  const alphaHex = value.slice(7, 9)
+  const opacityPct = alphaHex ? Math.round((parseInt(alphaHex, 16) / 255) * 100) : 100
+  return { base, opacityPct }
+}
+
+// The color to paint the project icon: an explicit override wins, else the palette fr.
+export function resolveIconColor(
+  iconColor: string | null | undefined,
+  palette: PaletteColors | null,
+): string | undefined {
+  if (iconColor) return iconColor
+  return palette?.fr
+}

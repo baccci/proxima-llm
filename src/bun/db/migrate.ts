@@ -173,4 +173,10 @@ export function setupSchema() {
   if (!hasPalette) {
     sqlite.exec(`ALTER TABLE projects ADD COLUMN palette TEXT`);
   }
+
+  // Add icon_color column to projects if it doesn't exist (existing DBs)
+  const hasIconColor = projCols.some((c) => c.name === 'icon_color');
+  if (!hasIconColor) {
+    sqlite.exec(`ALTER TABLE projects ADD COLUMN icon_color TEXT`);
+  }
 }
