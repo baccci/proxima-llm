@@ -13,9 +13,6 @@ drizzle/
 .env.*
 !.env.example
 
-# Native compiled artifacts
-native/*.dylib
-
 # macOS
 .DS_Store
 .AppleDouble

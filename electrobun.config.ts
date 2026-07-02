@@ -13,10 +13,10 @@ export default {
     copy: {
       'dist/index.html': 'views/mainview/index.html',
       'dist/assets': 'views/mainview/assets',
-      'native/libTrafficLights.dylib': 'native/libTrafficLights.dylib',
+      'os/macos/native/libTrafficLights.dylib': 'native/libTrafficLights.dylib',
     },
     watchIgnore: ['dist/**'],
-    mac: { bundleCEF: false },
+    mac: { bundleCEF: false, icons: 'os/macos/icon.iconset' },
     linux: { bundleCEF: false },
     win: { bundleCEF: false },
   },
