@@ -120,9 +120,8 @@ export function setupSchema() {
   addColumnIfMissing('models', 'pricing', 'TEXT');
 
   if (addColumnIfMissing('models', 'source', "TEXT NOT NULL DEFAULT 'builtin'")) {
-    // Backfill: tag existing OpenRouter and custom rows correctly.
+    // Backfill: tag existing OpenRouter rows correctly.
     sqlite.exec(`UPDATE models SET source = 'openrouter' WHERE provider = 'openrouter'`);
-    sqlite.exec(`UPDATE models SET source = 'custom' WHERE is_custom = 1`);
   }
 
   addColumnIfMissing('chats', 'composer', "TEXT NOT NULL DEFAULT '{}'");

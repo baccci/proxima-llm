@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from './client';
 import { MODEL_SEED } from './model-seed';
+import { ModelSource } from './model-source';
 import { models } from './schema';
 
 // Insert the models we ship on first boot, and refresh them on later boots.
@@ -16,7 +17,7 @@ export async function seedModels() {
       db.insert(models)
         .values({
           ...def,
-          source: 'builtin',
+          source: ModelSource.enum.builtin,
           capabilities: def.capabilities as unknown as string,
           createdAt: now,
           updatedAt: now,
@@ -26,7 +27,7 @@ export async function seedModels() {
     }
 
     // Refresh built-in specs each boot; leave user- and openrouter-sourced rows untouched.
-    if (existing.source !== 'builtin') {
+    if (existing.source !== ModelSource.enum.builtin) {
       continue;
     }
 

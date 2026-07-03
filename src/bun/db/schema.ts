@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { ModelSource } from './model-source';
 
 export const models = sqliteTable('models', {
   id: text('id').primaryKey(),
@@ -9,9 +10,7 @@ export const models = sqliteTable('models', {
   pricing: text('pricing', { mode: 'json' }),
   isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
   isEnabled: integer('is_enabled', { mode: 'boolean' }).notNull().default(true),
-  source: text('source', { enum: ['builtin', 'openrouter', 'custom'] })
-    .notNull()
-    .default('builtin'),
+  source: text('source', { enum: ModelSource.options }).notNull().default(ModelSource.enum.builtin),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
