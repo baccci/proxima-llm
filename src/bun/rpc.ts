@@ -78,11 +78,7 @@ export function createRPC() {
       requests: {
         // Models
         listModels: () => modelService.listModels(),
-        createModel: (input) => modelService.createModel(input),
         updateModel: ({ id, ...patch }) => modelService.updateModel(id, patch),
-        deleteModel: ({ id }) => {
-          modelService.deleteModel(id);
-        },
 
         // Projects
         listProjects: () => projectService.listProjects(),

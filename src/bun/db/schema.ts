@@ -108,10 +108,9 @@ export const compactionSnapshots = sqliteTable('compaction_snapshots', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   coveredThroughAt: integer('covered_through_at', { mode: 'timestamp_ms' }).notNull(),
   coveredThroughMessageId: text('covered_through_message_id').notNull(),
-  // Newest message present when compaction ran. Display-only: the divider renders
-  // after this message (the chat tail at compaction time) so it sits at the bottom,
-  // while covered_through_* drives what the model actually summarizes. Nullable for
-  // pre-existing rows.
+  // Display-only: the divider renders after this message (the chat tail at
+  // compaction time) so it sits at the bottom, while covered_through_*
+  // drives what the model actually summarizes. Nullable for pre-existing rows.
   displayThroughAt: integer('display_through_at', { mode: 'timestamp_ms' }),
   summaryText: text('summary_text').notNull(),
   tokensSaved: integer('tokens_saved'),

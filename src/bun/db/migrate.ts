@@ -1,5 +1,16 @@
 import { sqlite } from './client';
 
+// Add a column only if the table lacks it — SQLite has no idempotent ADD COLUMN.
+// Returns whether it was just added, so callers can run one-time backfills.
+function addColumnIfMissing(table: string, column: string, type: string): boolean {
+  const cols = sqlite.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (cols.some((c) => c.name === column)) {
+    return false;
+  }
+  sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  return true;
+}
+
 export function setupSchema() {
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS models (
@@ -105,78 +116,20 @@ export function setupSchema() {
     CREATE INDEX IF NOT EXISTS idx_compaction_chat    ON compaction_snapshots(chat_id, created_at DESC);
   `);
 
-  // Add pricing column if it doesn't exist (existing DBs)
-  const pricingCols: { name: string }[] = sqlite.query(`PRAGMA table_info(models)`).all() as {
-    name: string;
-  }[];
-  const hasPricing = pricingCols.some((c) => c.name === 'pricing');
-  if (!hasPricing) {
-    sqlite.exec(`ALTER TABLE models ADD COLUMN pricing TEXT`);
-  }
+  // Back-add columns onto DBs created before each was introduced.
+  addColumnIfMissing('models', 'pricing', 'TEXT');
 
-  // Add source column if it doesn't exist (existing DBs)
-  const cols: { name: string }[] = sqlite.query(`PRAGMA table_info(models)`).all() as {
-    name: string;
-  }[];
-  const hasSource = cols.some((c) => c.name === 'source');
-  if (!hasSource) {
-    sqlite.exec(`ALTER TABLE models ADD COLUMN source TEXT NOT NULL DEFAULT 'builtin'`);
-    // Backfill: tag existing OpenRouter rows and custom rows correctly
+  if (addColumnIfMissing('models', 'source', "TEXT NOT NULL DEFAULT 'builtin'")) {
+    // Backfill: tag existing OpenRouter and custom rows correctly.
     sqlite.exec(`UPDATE models SET source = 'openrouter' WHERE provider = 'openrouter'`);
     sqlite.exec(`UPDATE models SET source = 'custom' WHERE is_custom = 1`);
   }
 
-  // Add composer column if it doesn't exist (existing DBs)
-  const chatCols: { name: string }[] = sqlite.query(`PRAGMA table_info(chats)`).all() as {
-    name: string;
-  }[];
-  const hasComposer = chatCols.some((c) => c.name === 'composer');
-  if (!hasComposer) {
-    sqlite.exec(`ALTER TABLE chats ADD COLUMN composer TEXT NOT NULL DEFAULT '{}'`);
-  }
-
-  // Add display_through_at column if it doesn't exist (existing DBs)
-  const compactionCols: { name: string }[] = sqlite
-    .query(`PRAGMA table_info(compaction_snapshots)`)
-    .all() as { name: string }[];
-  const hasDisplayThrough = compactionCols.some((c) => c.name === 'display_through_at');
-  if (!hasDisplayThrough) {
-    sqlite.exec(`ALTER TABLE compaction_snapshots ADD COLUMN display_through_at INTEGER`);
-  }
-
-  // Add stop_reason column if it doesn't exist (existing DBs)
-  const msgCols: { name: string }[] = sqlite.query(`PRAGMA table_info(messages)`).all() as {
-    name: string;
-  }[];
-  const hasStopReason = msgCols.some((c) => c.name === 'stop_reason');
-  if (!hasStopReason) {
-    sqlite.exec(`ALTER TABLE messages ADD COLUMN stop_reason TEXT`);
-  }
-
-  // Add memory_summary column to projects if it doesn't exist (existing DBs)
-  const projCols: { name: string }[] = sqlite.query(`PRAGMA table_info(projects)`).all() as {
-    name: string;
-  }[];
-  const hasMemorySummary = projCols.some((c) => c.name === 'memory_summary');
-  if (!hasMemorySummary) {
-    sqlite.exec(`ALTER TABLE projects ADD COLUMN memory_summary TEXT`);
-  }
-
-  // Add icon column to projects if it doesn't exist (existing DBs)
-  const hasIcon = projCols.some((c) => c.name === 'icon');
-  if (!hasIcon) {
-    sqlite.exec(`ALTER TABLE projects ADD COLUMN icon TEXT`);
-  }
-
-  // Add palette column to projects if it doesn't exist (existing DBs)
-  const hasPalette = projCols.some((c) => c.name === 'palette');
-  if (!hasPalette) {
-    sqlite.exec(`ALTER TABLE projects ADD COLUMN palette TEXT`);
-  }
-
-  // Add icon_color column to projects if it doesn't exist (existing DBs)
-  const hasIconColor = projCols.some((c) => c.name === 'icon_color');
-  if (!hasIconColor) {
-    sqlite.exec(`ALTER TABLE projects ADD COLUMN icon_color TEXT`);
-  }
+  addColumnIfMissing('chats', 'composer', "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing('compaction_snapshots', 'display_through_at', 'INTEGER');
+  addColumnIfMissing('messages', 'stop_reason', 'TEXT');
+  addColumnIfMissing('projects', 'memory_summary', 'TEXT');
+  addColumnIfMissing('projects', 'icon', 'TEXT');
+  addColumnIfMissing('projects', 'palette', 'TEXT');
+  addColumnIfMissing('projects', 'icon_color', 'TEXT');
 }

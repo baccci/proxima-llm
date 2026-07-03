@@ -15,9 +15,4 @@ export const models = {
     queryClient.invalidateQueries({ queryKey: queryKeys.models() })
     return updated
   },
-
-  remove: async (id: string) => {
-    await req().deleteModel({ id })
-    queryClient.invalidateQueries({ queryKey: queryKeys.models() })
-  },
 }

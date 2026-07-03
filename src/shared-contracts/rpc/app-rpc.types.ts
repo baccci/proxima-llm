@@ -56,9 +56,7 @@ export type AppRPC = {
       // Models
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
       listModels: { params: {}; response: ModelDTO[] }
-      createModel: { params: Omit<ModelDTO, 'createdAt' | 'updatedAt'>; response: ModelDTO }
       updateModel: { params: Partial<ModelDTO> & { id: string }; response: ModelDTO }
-      deleteModel: { params: { id: string }; response: void }
 
       // Projects
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape

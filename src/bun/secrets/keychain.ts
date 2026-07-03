@@ -127,23 +127,3 @@ export function removeApiKey(provider: string): void {
   if (found.dataPtr !== 0n) symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
   if (found.itemRef !== 0n) symbols.SecKeychainItemDelete(asPtr(found.itemRef));
 }
-
-export function migrateApiKeysFrom(oldService: string, providers: readonly string[]): void {
-  for (const provider of providers) {
-    const existing = findItem(SERVICE, provider);
-    if (existing) {
-      if (existing.dataPtr !== 0n)
-        symbols.SecKeychainItemFreeContent(null, asPtr(existing.dataPtr));
-      continue;
-    }
-    const found = findItem(oldService, provider);
-    if (!found) continue;
-    let key: string | undefined;
-    if (found.dataPtr !== 0n) {
-      const bytes = new Uint8Array(toBuffer(asPtr(found.dataPtr), 0, found.dataLen));
-      key = new TextDecoder().decode(bytes) || undefined;
-      symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
-    }
-    if (key) setApiKey(provider, key);
-  }
-}
