@@ -16,6 +16,7 @@ import type {
   ReadProjectFileInput,
 } from '../schemas/project-file.schema'
 import type { SettingsDTO, UpdateSettingsInput } from '../schemas/settings.schema'
+import type { ToolDecision, ToolPolicy } from '../tools/tool-policy'
 
 export type StreamChunk =
   | { kind: 'start'; assistantMessageId: string }
@@ -118,7 +119,7 @@ export type AppRPC = {
         params: {
           streamId: string
           toolCallId: string
-          decision: 'allow' | 'deny'
+          decision: ToolDecision
           remember: boolean
         }
         response: void
@@ -157,11 +158,11 @@ export type AppRPC = {
           name: string
           label: string
           description: string
-          policy: 'allow' | 'ask' | 'deny'
+          policy: ToolPolicy
         }[]
       }
       setToolPolicy: {
-        params: { toolName: string; policy: 'allow' | 'ask' | 'deny' }
+        params: { toolName: string; policy: ToolPolicy }
         response: void
       }
 

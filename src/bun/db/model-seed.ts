@@ -1,5 +1,6 @@
-import type { ModelDefinition } from '../schemas/model.schema'
+import type { ModelDefinition } from '../../shared-contracts/schemas/model.schema';
 
+// Built-in models inserted on first boot and refreshed each boot (see seed.ts).
 export const MODEL_SEED: ModelDefinition[] = [
   {
     id: 'claude-opus-4-7',
@@ -59,4 +60,4 @@ export const MODEL_SEED: ModelDefinition[] = [
       contextWindow: 200_000,
     },
   },
-]
+];

@@ -1,11 +1,12 @@
 import { z } from 'zod'
+import { ToolDecision } from '../tools/tool-policy'
 
 export const ChatComposerState = z
   .object({
     thinking: z.boolean().default(false),
     webSearch: z.boolean().default(false),
     effort: z.string().nullable().default(null),
-    toolGrants: z.record(z.string(), z.enum(['allow', 'deny'])).default({}),
+    toolGrants: z.record(z.string(), ToolDecision).default({}),
   })
   .default({})
 

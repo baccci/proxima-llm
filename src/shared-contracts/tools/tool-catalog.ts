@@ -6,7 +6,7 @@ export const TOOL_GROUPS = {
 
 export type ToolGroup = keyof typeof TOOL_GROUPS
 
-interface ToolCatalogEntry {
+type ToolCatalogEntry = {
   name: string
   label: string
   runningLabel: string
@@ -67,8 +67,6 @@ export const TOOL_CATALOG = [
 
 export type ToolName = (typeof TOOL_CATALOG)[number]['name']
 
-const META: Map<string, ToolCatalogEntry> = new Map(
-  TOOL_CATALOG.map((t) => [t.name, t as ToolCatalogEntry]),
-)
+const META: Map<string, ToolCatalogEntry> = new Map(TOOL_CATALOG.map((t) => [t.name, t]))
 export const isAlwaysAllowed = (n: string) => META.get(n)?.alwaysAllow ?? false
 export const isSilentTool = (n: string) => META.get(n)?.silent ?? false

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { MODEL_SEED } from '../../shared-contracts/models/seed';
 import { db } from './client';
+import { MODEL_SEED } from './model-seed';
 import { models } from './schema';
 
 export async function seedModels() {
