@@ -1,3 +1,4 @@
+import { ProviderId } from '@shared/providers/registry'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 
 const VENDOR_LABELS: Record<string, string> = {
@@ -17,7 +18,10 @@ const VENDOR_LABELS: Record<string, string> = {
 }
 
 export function modelCompany(model: ModelDTO): string {
-  if (model.provider === 'anthropic') return 'Anthropic'
+  if (model.provider === ProviderId.enum.anthropic) {
+    return 'Anthropic'
+  }
+
   const vendor = model.id.split('/')[0] ?? model.provider
   return VENDOR_LABELS[vendor] ?? vendor.charAt(0).toUpperCase() + vendor.slice(1)
 }

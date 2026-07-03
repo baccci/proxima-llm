@@ -1,4 +1,4 @@
-import { getProvider, PROVIDER_IDS, type ProviderId } from '@shared/providers/registry'
+import { getProvider, PROVIDER_IDS, ProviderId } from '@shared/providers/registry'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { IconSearch } from '@/components/icons/icon-search'
@@ -226,7 +226,7 @@ export function ModelsMarketplace() {
 
             <div className="h-[440px] overflow-y-auto pr-1 pb-1">
               {filtered.length === 0 &&
-              currentProvider === 'openrouter' &&
+              currentProvider === ProviderId.enum.openrouter &&
               !search &&
               filterMode === 'all' ? (
                 <div className="flex flex-col items-center justify-center h-full gap-3 text-center">

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ProviderId } from '../providers/registry'
 import type { ModelDTO } from '../schemas/model.schema'
 
 // The reasoning-effort tiers the app understands, ordered low→high. Zod so a
@@ -22,12 +23,12 @@ export function effortLevelsForModel(model: ModelDTO): string[] {
     return []
   }
 
-  if (model.provider === 'anthropic') {
+  if (model.provider === ProviderId.enum.anthropic) {
     const extended = EXTENDED_EFFORT_MODEL_IDS.some((id) => model.id.includes(id))
     return extended ? EXTENDED_EFFORTS : STANDARD_EFFORTS
   }
 
-  if (model.provider === 'openrouter') {
+  if (model.provider === ProviderId.enum.openrouter) {
     return STANDARD_EFFORTS
   }
 
