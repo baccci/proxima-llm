@@ -1,4 +1,5 @@
 import React from 'react'
+import { computeFontWeight, computeLineHeight } from '../helpers/typography'
 
 const FONT_SIZE_MAX = 90
 const FONT_SIZE_MIN = 16
@@ -45,12 +46,23 @@ export function useFitTypography(resetKey: unknown) {
       const H = inner.parentElement?.clientHeight ?? inner.clientHeight
       if (H === 0) return
 
-      // Imperatively set fontSize and read scrollHeight to force a synchronous
-      // reflow — the only way to measure candidate sizes without a React render
-      // per step. The imperative style is replaced by the committed React state
-      // (via the inline style prop on this element) after setState resolves.
-      const fits = (px: number) => {
+      // Imperatively apply a candidate size and read scrollHeight to force a
+      // synchronous reflow — the only way to measure candidate sizes without a
+      // React render per step. The imperative style is replaced by the committed
+      // React state (via the inline style prop on this element) after setState
+      // resolves. line-height AND weight must be set too, not just fontSize:
+      // the committed render derives both from fontSize (computeLineHeight ramps
+      // 1.65→1.2 across the range, weight shifts glyph width), so measuring with
+      // only fontSize reads scrollHeight against the previous size's line-height.
+      // That makes the fit and the real render disagree, so the observer keeps
+      // re-firing and the size oscillates between two values (visible flicker).
+      const apply = (px: number) => {
         inner.style.fontSize = `${px}px`
+        inner.style.lineHeight = `${computeLineHeight(px)}`
+        inner.style.fontWeight = `${computeFontWeight(px)}`
+      }
+      const fits = (px: number) => {
+        apply(px)
         return inner.scrollHeight <= H
       }
 
@@ -60,8 +72,8 @@ export function useFitTypography(resetKey: unknown) {
         return
       }
       if (!fits(FONT_SIZE_MIN)) {
-        // Even the minimum font overflows one column → two columns.
-        inner.style.fontSize = `${FONT_SIZE_MIN}px`
+        // Even the minimum font overflows one column → two columns. apply() has
+        // already committed the min size imperatively.
         lockedRef.current = true
         setFontSize(FONT_SIZE_MIN)
         setTwoColumn(true)
@@ -75,9 +87,9 @@ export function useFitTypography(resetKey: unknown) {
         if (fits(mid)) lo = mid
         else hi = mid - 1
       }
-      // Set the resolved size imperatively so there is no flash between now and
+      // Apply the resolved size imperatively so there is no flash between now and
       // the React commit that applies it via the inline style prop.
-      inner.style.fontSize = `${lo}px`
+      apply(lo)
       setFontSize(lo)
       setTwoColumn(false)
     }
