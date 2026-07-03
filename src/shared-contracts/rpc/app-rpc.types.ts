@@ -1,8 +1,9 @@
-import type { AttachmentDTO } from '../schemas/attachment.schema'
+import type { AttachmentDTO, AttachmentKind } from '../schemas/attachment.schema'
 import type { ChatComposerState, ChatDTO, CreateChatInput } from '../schemas/chat.schema'
 import type {
   DeleteMemorySliceInput,
   ListMemorySlicesInput,
+  MemoryScope,
   MemorySliceDTO,
   UpsertMemorySliceInput,
 } from '../schemas/memory-slice.schema'
@@ -133,7 +134,7 @@ export type AppRPC = {
         params: { id: string }
         response: {
           id: string
-          kind: 'image' | 'file'
+          kind: AttachmentKind
           mediaType: string
           name: string
           byteSize: number
@@ -220,7 +221,7 @@ export type AppRPC = {
       modelsUpdated: {}
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
       chatsUpdated: {}
-      memoryChanged: { scope: 'global' | 'project'; projectId: string | null }
+      memoryChanged: { scope: MemoryScope; projectId: string | null }
       controlNavigate: {
         chatId: string
         streamId: string

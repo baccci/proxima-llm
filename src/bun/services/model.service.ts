@@ -6,7 +6,7 @@ import { models } from '../db/schema';
 function rowToDTO(row: typeof models.$inferSelect): ModelDTO {
   return {
     id: row.id,
-    provider: row.provider,
+    provider: row.provider as ModelDTO['provider'],
     family: row.family,
     displayName: row.displayName,
     capabilities: row.capabilities as ModelDTO['capabilities'],

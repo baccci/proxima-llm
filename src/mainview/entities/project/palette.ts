@@ -7,6 +7,12 @@ export type Palette = {
   dark: PaletteColors
 }
 
+export type CustomPalette = { light: PaletteColors; dark: PaletteColors }
+
+// Custom palettes are stored as serialized JSON, built-ins as a bare key.
+// A leading '{' is the cheap discriminator between the two.
+const CUSTOM_PALETTE_PREFIX = '{'
+
 // Fixed palettes set light === dark; adaptive palettes differ per mode.
 export const PROJECT_PALETTES: readonly Palette[] = [
   {
@@ -71,25 +77,9 @@ export const PROJECT_PALETTES: readonly Palette[] = [
   },
 ]
 
-export const PROJECT_ICON_KEYS = [
-  'folder',
-  'suitcase',
-  'banknote',
-  'code',
-  'plane',
-  'palette',
-  'flask',
-  'graduation-cap',
-  'rocket',
-  'book',
-  'sparkles',
-  'bot',
-] as const
-
-export type CustomPalette = { light: PaletteColors; dark: PaletteColors }
-
-export function isCustomPalette(value: string | null | undefined): boolean {
-  return typeof value === 'string' && value.startsWith('{')
+// Narrows to `string` so callers can parse the JSON without a cast.
+export function isCustomPalette(value: string | null | undefined): value is string {
+  return typeof value === 'string' && value.startsWith(CUSTOM_PALETTE_PREFIX)
 }
 
 function isColors(v: unknown): v is PaletteColors {
@@ -104,7 +94,7 @@ function isColors(v: unknown): v is PaletteColors {
 export function parseCustomPalette(value: string | null | undefined): CustomPalette | null {
   if (!isCustomPalette(value)) return null
   try {
-    const parsed = JSON.parse(value as string) as unknown
+    const parsed = JSON.parse(value) as unknown
     if (typeof parsed !== 'object' || parsed === null) return null
     const { light, dark } = parsed as { light?: unknown; dark?: unknown }
     if (!isColors(light) || !isColors(dark)) return null
@@ -121,6 +111,14 @@ export function serializeCustomPalette(cp: CustomPalette): string {
   })
 }
 
+// Pick the colors for the active color scheme.
+function pickMode(
+  pair: { light: PaletteColors; dark: PaletteColors },
+  isDark: boolean,
+): PaletteColors {
+  return isDark ? pair.dark : pair.light
+}
+
 export function resolvePalette(
   value: string | null | undefined,
   isDark: boolean,
@@ -129,39 +127,9 @@ export function resolvePalette(
   if (isCustomPalette(value)) {
     const custom = parseCustomPalette(value)
     if (!custom) return null
-    return isDark ? custom.dark : custom.light
+    return pickMode(custom, isDark)
   }
   const palette = PROJECT_PALETTES.find((p) => p.key === value)
   if (!palette) return null
-  return isDark ? palette.dark : palette.light
-}
-
-// Icon color override is stored as an 8-digit hex (#RRGGBBAA) so a single column
-// carries both hue and opacity. null means "inherit the palette's fr".
-
-export function composeIconColor(baseHex: string, opacityPct: number): string {
-  const clamped = Math.max(0, Math.min(100, opacityPct))
-  const alpha = Math.round((clamped / 100) * 255)
-  const alphaHex = alpha.toString(16).padStart(2, '0').toUpperCase()
-  return `${baseHex.slice(0, 7).toUpperCase()}${alphaHex}`
-}
-
-export function parseIconColor(value: string | null | undefined): {
-  base: string
-  opacityPct: number
-} {
-  if (!value) return { base: '', opacityPct: 100 }
-  const base = value.slice(0, 7).toUpperCase()
-  const alphaHex = value.slice(7, 9)
-  const opacityPct = alphaHex ? Math.round((parseInt(alphaHex, 16) / 255) * 100) : 100
-  return { base, opacityPct }
-}
-
-// The color to paint the project icon: an explicit override wins, else the palette fr.
-export function resolveIconColor(
-  iconColor: string | null | undefined,
-  palette: PaletteColors | null,
-): string | undefined {
-  if (iconColor) return iconColor
-  return palette?.fr
+  return pickMode(palette, isDark)
 }

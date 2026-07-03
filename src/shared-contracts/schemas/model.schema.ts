@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ProviderId } from '../providers/registry'
 
 export const ModelCapabilities = z.object({
   thinking: z.boolean(),
@@ -16,7 +17,7 @@ export type ModelCapabilities = z.infer<typeof ModelCapabilities>
 
 export const ModelDTO = z.object({
   id: z.string(),
-  provider: z.string(),
+  provider: ProviderId,
   family: z.string(),
   displayName: z.string(),
   capabilities: ModelCapabilities,

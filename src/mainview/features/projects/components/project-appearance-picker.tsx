@@ -1,19 +1,21 @@
 import { Slider } from '@base-ui-components/react'
-import {
-  type CustomPalette,
-  composeIconColor,
-  isCustomPalette,
-  PROJECT_ICON_KEYS,
-  PROJECT_PALETTES,
-  parseCustomPalette,
-  parseIconColor,
-  resolveIconColor,
-  resolvePalette,
-  serializeCustomPalette,
-} from '@shared/project-appearance'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/popover'
+import {
+  composeIconColor,
+  PROJECT_ICON_KEYS,
+  parseIconColor,
+  resolveIconColor,
+} from '@/entities/project/icon'
+import {
+  type CustomPalette,
+  isCustomPalette,
+  PROJECT_PALETTES,
+  parseCustomPalette,
+  resolvePalette,
+  serializeCustomPalette,
+} from '@/entities/project/palette'
 import { getProjectIcon } from '@/features/projects/lib/project-icon'
 import { useIsDark } from '@/features/projects/lib/use-is-dark'
 
