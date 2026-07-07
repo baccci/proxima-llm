@@ -1,12 +1,32 @@
 import { and, eq, notInArray } from 'drizzle-orm';
+import { ProviderId } from '../../shared-contracts/providers/registry';
+import type { ModelCapabilities } from '../../shared-contracts/schemas/model.schema';
 import { db, sqlite } from '../db/client';
+import { ModelSource } from '../db/model-source';
 import { models } from '../db/schema';
+import { log } from '../logging/logger';
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 const SYNC_THROTTLE_MS = 24 * 60 * 60 * 1000; // 24 hours
 const SETTINGS_KEY = 'openrouter_sync';
 // Bump when sync logic or schema changes to force a re-sync on next startup.
 const SYNC_VERSION = 2;
+// Fallback when OpenRouter does not report a model's max output tokens.
+const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
+// Vendor tokens we look for in a model slug to group it into a family.
+const FAMILY_TOKENS = [
+  'gemma',
+  'gemini',
+  'llama',
+  'mistral',
+  'nemotron',
+  'qwen',
+  'deepseek',
+  'phi',
+  'falcon',
+  'mixtral',
+  'command',
+];
 
 interface OpenRouterModel {
   id: string;
@@ -18,40 +38,31 @@ interface OpenRouterModel {
   top_provider?: { max_completion_tokens?: number; context_length?: number };
 }
 
+// Guess a model family from its OpenRouter id like "google/gemma-2-9b".
+// Match a known vendor token in the slug, else fall back to the vendor prefix.
 function deriveFamily(id: string): string {
   const vendor = id.split('/')[0] ?? 'unknown';
   const modelSlug = id.split('/')[1] ?? '';
-  for (const token of [
-    'gemma',
-    'gemini',
-    'llama',
-    'mistral',
-    'nemotron',
-    'qwen',
-    'deepseek',
-    'phi',
-    'falcon',
-    'mixtral',
-    'command',
-  ]) {
+  for (const token of FAMILY_TOKENS) {
     if (modelSlug.toLowerCase().includes(token)) return token;
   }
   return vendor;
 }
 
+// Convert one entry from the OpenRouter catalog into a models table row.
 function mapToRow(m: OpenRouterModel): {
   id: string;
   provider: string;
   family: string;
   displayName: string;
-  capabilities: string;
-  pricing: string;
+  capabilities: ModelCapabilities;
+  pricing: { prompt: number; completion: number };
   isCustom: boolean;
   source: 'openrouter';
 } {
   const modalities = m.architecture?.input_modalities ?? [];
   const params = m.supported_parameters ?? [];
-  const maxOutputTokens = m.top_provider?.max_completion_tokens ?? 8192;
+  const maxOutputTokens = m.top_provider?.max_completion_tokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
   const contextWindow = m.top_provider?.context_length ?? m.context_length;
 
   const capabilities = {
@@ -72,13 +83,13 @@ function mapToRow(m: OpenRouterModel): {
 
   return {
     id: m.id,
-    provider: 'openrouter',
+    provider: ProviderId.enum.openrouter,
     family: deriveFamily(m.id),
     displayName: m.name,
-    capabilities: capabilities as unknown as string,
-    pricing: pricing as unknown as string,
+    capabilities,
+    pricing,
     isCustom: false,
-    source: 'openrouter',
+    source: ModelSource.enum.openrouter,
   };
 }
 
@@ -116,10 +127,11 @@ export function getLastSyncTimestamp(): number | null {
   return getSyncState().ts;
 }
 
+// True when any synced OpenRouter row is missing pricing, used to force a re-sync.
 function hasStaleOrNullPricing(): boolean {
   const row = sqlite
     .query<{ n: number }, []>(
-      `SELECT COUNT(*) as n FROM models WHERE source = 'openrouter' AND pricing IS NULL`,
+      `SELECT COUNT(*) as n FROM models WHERE source = '${ModelSource.enum.openrouter}' AND pricing IS NULL`,
     )
     .get();
   return (row?.n ?? 0) > 0;
@@ -130,6 +142,8 @@ export async function syncOpenRouterModels(onSynced?: () => void, force = false)
   const versionMismatch = storedVersion !== SYNC_VERSION;
   const stalePricing = hasStaleOrNullPricing();
 
+  // Skip when a recent sync already ran, unless forced, the sync version changed,
+  // or stored pricing is stale.
   if (
     !force &&
     !versionMismatch &&
@@ -137,15 +151,15 @@ export async function syncOpenRouterModels(onSynced?: () => void, force = false)
     lastSync !== null &&
     Date.now() - lastSync < SYNC_THROTTLE_MS
   ) {
-    console.log('OpenRouter sync skipped — last sync was less than 24h ago');
+    log.info('OpenRouter sync skipped, last sync was less than 24h ago');
     return;
   }
 
   if (versionMismatch)
-    console.log(
-      `OpenRouter sync forced — version changed (stored: ${storedVersion}, current: ${SYNC_VERSION})`,
+    log.info(
+      `OpenRouter sync forced, version changed (stored: ${storedVersion}, current: ${SYNC_VERSION})`,
     );
-  if (stalePricing) console.log('OpenRouter sync forced — stale pricing data detected');
+  if (stalePricing) log.info('OpenRouter sync forced, stale pricing data detected');
 
   const res = await fetch(OPENROUTER_MODELS_URL);
   if (!res.ok) throw new Error(`OpenRouter models fetch failed: ${res.status}`);
@@ -160,32 +174,39 @@ export async function syncOpenRouterModels(onSynced?: () => void, force = false)
     const row = mapToRow(m);
     const existing = db.select().from(models).where(eq(models.id, row.id)).get();
 
+    // New model: insert disabled so the user opts in from the marketplace.
     if (!existing) {
-      // New model: insert as disabled (opt-in)
       db.insert(models)
         .values({ ...row, isEnabled: false, createdAt: now, updatedAt: now })
         .run();
-    } else if (existing.source === 'openrouter') {
-      // Existing model: update metadata only — never touch isEnabled
-      db.update(models)
-        .set({
-          displayName: row.displayName,
-          capabilities: row.capabilities,
-          pricing: row.pricing,
-          updatedAt: now,
-        })
-        .where(eq(models.id, row.id))
-        .run();
+      continue;
     }
+
+    // Only the catalog sync owns openrouter rows. Leave builtin rows untouched.
+    if (existing.source !== ModelSource.enum.openrouter) {
+      continue;
+    }
+
+    // Refresh metadata only. Never touch isEnabled, that is the user's choice.
+    db.update(models)
+      .set({
+        displayName: row.displayName,
+        capabilities: row.capabilities,
+        pricing: row.pricing,
+        updatedAt: now,
+      })
+      .where(eq(models.id, row.id))
+      .run();
   }
 
-  // Prune only absent + disabled openrouter rows (never delete user-enabled models)
+  // Prune only rows the catalog dropped that are still disabled.
+  // Never delete a model the user enabled.
   const incomingIdList = [...incomingIds];
   if (incomingIdList.length > 0) {
     db.delete(models)
       .where(
         and(
-          eq(models.source, 'openrouter'),
+          eq(models.source, ModelSource.enum.openrouter),
           eq(models.isEnabled, false),
           notInArray(models.id, incomingIdList),
         ),
@@ -194,6 +215,6 @@ export async function syncOpenRouterModels(onSynced?: () => void, force = false)
   }
 
   setSyncState(Date.now());
-  console.log(`OpenRouter sync complete — ${allModels.length} models synced`);
+  log.info(`OpenRouter sync complete: ${allModels.length} models synced`);
   onSynced?.();
 }

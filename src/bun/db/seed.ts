@@ -15,13 +15,7 @@ export async function seedModels() {
     // Not stored yet, so add it as a built in model.
     if (!existing) {
       db.insert(models)
-        .values({
-          ...def,
-          source: ModelSource.enum.builtin,
-          capabilities: def.capabilities as unknown as string,
-          createdAt: now,
-          updatedAt: now,
-        })
+        .values({ ...def, source: ModelSource.enum.builtin, createdAt: now, updatedAt: now })
         .run();
       continue;
     }
@@ -32,11 +26,7 @@ export async function seedModels() {
     }
 
     db.update(models)
-      .set({
-        capabilities: def.capabilities as unknown as string,
-        displayName: def.displayName,
-        updatedAt: now,
-      })
+      .set({ capabilities: def.capabilities, displayName: def.displayName, updatedAt: now })
       .where(eq(models.id, def.id))
       .run();
   }

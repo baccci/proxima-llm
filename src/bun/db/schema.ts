@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import type { ModelCapabilities } from '../../shared-contracts/schemas/model.schema';
 import { ModelSource } from './model-source';
 
 export const models = sqliteTable('models', {
@@ -6,8 +7,8 @@ export const models = sqliteTable('models', {
   provider: text('provider').notNull(),
   family: text('family').notNull(),
   displayName: text('display_name').notNull(),
-  capabilities: text('capabilities', { mode: 'json' }).notNull(),
-  pricing: text('pricing', { mode: 'json' }),
+  capabilities: text('capabilities', { mode: 'json' }).$type<ModelCapabilities>().notNull(),
+  pricing: text('pricing', { mode: 'json' }).$type<{ prompt: number; completion: number }>(),
   isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
   isEnabled: integer('is_enabled', { mode: 'boolean' }).notNull().default(true),
   source: text('source', { enum: ModelSource.options }).notNull().default(ModelSource.enum.builtin),
