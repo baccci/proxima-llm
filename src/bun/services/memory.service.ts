@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 import { and, eq, isNull, type SQL } from 'drizzle-orm';
-import type {
+import {
   MemorySliceDTO,
-  UpsertMemorySliceInput,
+  type UpsertMemorySliceInput,
 } from '../../shared-contracts/schemas/memory-slice.schema';
 import { db } from '../db/client';
 import { memorySlices } from '../db/schema';
@@ -11,8 +11,24 @@ function projectIdCond(projectId: string | null | undefined): SQL {
   return projectId != null ? eq(memorySlices.projectId, projectId) : isNull(memorySlices.projectId);
 }
 
+// One slice looked up by its natural key (scope + project + title). Shared by the upsert's
+// title-match branch and the by-title read/delete so the three-part where clause lives once.
+function sliceByTitle(
+  scope: 'global' | 'project',
+  projectId: string | null | undefined,
+  title: string,
+): typeof memorySlices.$inferSelect | undefined {
+  return db
+    .select()
+    .from(memorySlices)
+    .where(
+      and(eq(memorySlices.scope, scope), projectIdCond(projectId), eq(memorySlices.title, title)),
+    )
+    .get();
+}
+
 function rowToDTO(row: typeof memorySlices.$inferSelect): MemorySliceDTO {
-  return {
+  return MemorySliceDTO.parse({
     id: row.id,
     scope: row.scope,
     projectId: row.projectId ?? null,
@@ -21,7 +37,7 @@ function rowToDTO(row: typeof memorySlices.$inferSelect): MemorySliceDTO {
     source: row.source,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
-  };
+  });
 }
 
 export function listSlices(
@@ -36,13 +52,17 @@ export function listSlices(
   return db.select().from(memorySlices).where(conditions).all().map(rowToDTO);
 }
 
+// Upsert precedence: an explicit id updates that row; else a same-title slice in the same
+// scope is updated; else insert. The title-match branch deliberately leaves the title as-is.
 export function upsertSlice(input: UpsertMemorySliceInput): MemorySliceDTO {
   const now = new Date();
 
   if (input.id) {
     const existing = db.select().from(memorySlices).where(eq(memorySlices.id, input.id)).get();
+
     if (existing) {
-      db.update(memorySlices)
+      const updated = db
+        .update(memorySlices)
         .set({
           title: input.title,
           content: input.content,
@@ -50,39 +70,42 @@ export function upsertSlice(input: UpsertMemorySliceInput): MemorySliceDTO {
           updatedAt: now,
         })
         .where(eq(memorySlices.id, input.id))
-        .run();
-      return rowToDTO(db.select().from(memorySlices).where(eq(memorySlices.id, input.id)).get()!);
+        .returning()
+        .get();
+
+      if (!updated) {
+        throw new Error(`upsertSlice: update returned no row for id ${input.id}`);
+      }
+
+      return rowToDTO(updated);
     }
   }
 
-  const byTitle = db
-    .select()
-    .from(memorySlices)
-    .where(
-      and(
-        eq(memorySlices.scope, input.scope),
-        projectIdCond(input.projectId),
-        eq(memorySlices.title, input.title),
-      ),
-    )
-    .get();
+  const byTitle = sliceByTitle(input.scope, input.projectId, input.title);
 
   if (byTitle) {
-    db.update(memorySlices)
+    const updated = db
+      .update(memorySlices)
       .set({
         content: input.content,
         source: input.source ?? byTitle.source,
         updatedAt: now,
       })
       .where(eq(memorySlices.id, byTitle.id))
-      .run();
-    return rowToDTO(db.select().from(memorySlices).where(eq(memorySlices.id, byTitle.id)).get()!);
+      .returning()
+      .get();
+
+    if (!updated) {
+      throw new Error(`upsertSlice: update returned no row for id ${byTitle.id}`);
+    }
+
+    return rowToDTO(updated);
   }
 
-  const id = input.id ?? randomUUID();
-  db.insert(memorySlices)
+  const inserted = db
+    .insert(memorySlices)
     .values({
-      id,
+      id: input.id ?? randomUUID(),
       scope: input.scope,
       projectId: input.projectId ?? null,
       title: input.title,
@@ -91,17 +114,27 @@ export function upsertSlice(input: UpsertMemorySliceInput): MemorySliceDTO {
       createdAt: now,
       updatedAt: now,
     })
-    .run();
+    .returning()
+    .get();
 
-  return rowToDTO(db.select().from(memorySlices).where(eq(memorySlices.id, id)).get()!);
+  if (!inserted) {
+    throw new Error('upsertSlice: insert returned no row');
+  }
+
+  return rowToDTO(inserted);
 }
 
 export function deleteSlice(
   id: string,
 ): { scope: 'global' | 'project'; projectId: string | null } | null {
   const row = db.select().from(memorySlices).where(eq(memorySlices.id, id)).get();
-  if (!row) return null;
+
+  if (!row) {
+    return null;
+  }
+
   db.delete(memorySlices).where(eq(memorySlices.id, id)).run();
+
   return { scope: row.scope, projectId: row.projectId ?? null };
 }
 
@@ -110,13 +143,7 @@ export function readByTitle(
   projectId: string | null,
   title: string,
 ): MemorySliceDTO | undefined {
-  const row = db
-    .select()
-    .from(memorySlices)
-    .where(
-      and(eq(memorySlices.scope, scope), projectIdCond(projectId), eq(memorySlices.title, title)),
-    )
-    .get();
+  const row = sliceByTitle(scope, projectId, title);
   return row ? rowToDTO(row) : undefined;
 }
 
@@ -135,13 +162,8 @@ export function deleteByTitle(
   projectId: string | null,
   title: string,
 ): void {
-  const row = db
-    .select()
-    .from(memorySlices)
-    .where(
-      and(eq(memorySlices.scope, scope), projectIdCond(projectId), eq(memorySlices.title, title)),
-    )
-    .get();
+  const row = sliceByTitle(scope, projectId, title);
+
   if (row) {
     db.delete(memorySlices).where(eq(memorySlices.id, row.id)).run();
   }
