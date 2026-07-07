@@ -32,7 +32,9 @@ function buildCompactionPrompt(
       .filter((p): p is Extract<MessageDTO['parts'][number], { type: 'text' }> => p.type === 'text')
       .map((p) => p.text)
       .join(' ');
-    if (text) lines.push(`${role}: ${text}`);
+    if (text) {
+      lines.push(`${role}: ${text}`);
+    }
   }
   lines.push('');
   lines.push(
@@ -58,13 +60,14 @@ export function getLatestSnapshot(chatId: string): CompactionSnapshot | undefine
     .orderBy(desc(compactionSnapshots.createdAt))
     .limit(1)
     .get();
-  if (!row) return undefined;
-  const coveredThroughAt = (row.coveredThroughAt as Date).toISOString();
+  if (!row) {
+    return undefined;
+  }
+
+  const coveredThroughAt = row.coveredThroughAt.toISOString();
   return {
     coveredThroughAt,
-    displayThroughAt: row.displayThroughAt
-      ? (row.displayThroughAt as Date).toISOString()
-      : coveredThroughAt,
+    displayThroughAt: row.displayThroughAt ? row.displayThroughAt.toISOString() : coveredThroughAt,
     summaryText: row.summaryText,
   };
 }
@@ -93,19 +96,27 @@ export async function compact(
   const keep = opts.keepRecent ?? KEEP_RECENT;
   // slice(0, -0) is slice(0, 0) = [], so handle keep<=0 explicitly.
   const toSummarize = keep > 0 ? since.slice(0, -keep) : since.slice();
-  if (toSummarize.length === 0) return { status: 'noop', reason: 'nothing-to-summarize' };
+  if (toSummarize.length === 0) {
+    return { status: 'noop', reason: 'nothing-to-summarize' };
+  }
 
   const boundary = toSummarize.at(-1)!;
   // Chat tail at compaction time — divider display anchor (kept-full recent messages
   // sit between `boundary` and this, above the line).
   const displayBoundary = since.at(-1)!;
   const titleModelId = resolveTitleModel(model.provider);
-  if (!titleModelId) return { status: 'noop', reason: 'no-title-model' };
+  if (!titleModelId) {
+    return { status: 'noop', reason: 'no-title-model' };
+  }
 
   // Bound the summary call so a slow/hung cheap model can't block stream start.
   const signals: AbortSignal[] = [];
-  if (opts.signal) signals.push(opts.signal);
-  if (opts.timeoutMs) signals.push(AbortSignal.timeout(opts.timeoutMs));
+  if (opts.signal) {
+    signals.push(opts.signal);
+  }
+  if (opts.timeoutMs) {
+    signals.push(AbortSignal.timeout(opts.timeoutMs));
+  }
   const abortSignal = signals.length > 0 ? AbortSignal.any(signals) : undefined;
 
   const prompt = buildCompactionPrompt(prev?.summaryText, toSummarize);
@@ -116,7 +127,9 @@ export async function compact(
     abortSignal,
   });
   const summaryText = text.trim();
-  if (!summaryText) return { status: 'noop', reason: 'empty-summary' };
+  if (!summaryText) {
+    return { status: 'noop', reason: 'empty-summary' };
+  }
 
   db.insert(compactionSnapshots)
     .values({
