@@ -3,7 +3,10 @@ import { and, eq } from 'drizzle-orm';
 import { Utils } from 'electrobun/bun';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
-import type { AttachmentDTO } from '../../shared-contracts/schemas/attachment.schema';
+import {
+  AttachmentDTO,
+  type AttachmentKind,
+} from '../../shared-contracts/schemas/attachment.schema';
 import { db } from '../db/client';
 import { attachments } from '../db/schema';
 
@@ -25,22 +28,28 @@ const MEDIA_TYPE_EXTENSIONS: Record<string, string> = {
   'application/pdf': 'pdf',
 };
 
-function attachmentRowToDTO(row: typeof attachments.$inferSelect): AttachmentDTO {
-  return {
+// Validate the row at the DB boundary so a malformed kind or missing field fails here,
+// not in the renderer. Mirrors model.service's rowToDTO.
+function rowToDTO(row: typeof attachments.$inferSelect): AttachmentDTO {
+  return AttachmentDTO.parse({
     id: row.id,
     chatId: row.chatId,
-    kind: row.kind as AttachmentDTO['kind'],
+    kind: row.kind,
     mediaType: row.mediaType,
     byteSize: row.byteSize,
     sha256: row.sha256,
     relPath: row.relPath,
     createdAt: new Date(row.createdAt).toISOString(),
-  };
+  });
 }
 
+// Storage-path extension: prefer the uploaded name's extension, else map from media type.
 function resolveExtension(name: string, mediaType: string): string {
   const fromName = extname(name).replace('.', '').toLowerCase();
-  if (fromName) return fromName;
+  if (fromName) {
+    return fromName;
+  }
+
   return MEDIA_TYPE_EXTENSIONS[mediaType] ?? 'bin';
 }
 
@@ -69,6 +78,7 @@ export function saveAttachment(input: {
   const absDir = join(Utils.paths.userData, 'attachments', input.chatId);
   const absPath = join(Utils.paths.userData, relPath);
 
+  // Content-addressed by (chatId, sha256): a re-upload of identical bytes reuses the row.
   const existing = db
     .select()
     .from(attachments)
@@ -76,7 +86,7 @@ export function saveAttachment(input: {
     .get();
 
   if (existing) {
-    return attachmentRowToDTO(existing);
+    return rowToDTO(existing);
   }
 
   if (!existsSync(absPath)) {
@@ -84,45 +94,50 @@ export function saveAttachment(input: {
     writeFileSync(absPath, bytes);
   }
 
-  const id = randomUUID();
-  const now = new Date();
-  db.insert(attachments)
+  const inserted = db
+    .insert(attachments)
     .values({
-      id,
+      id: randomUUID(),
       chatId: input.chatId,
       kind,
       mediaType: input.mediaType,
       byteSize: bytes.byteLength,
       sha256,
       relPath,
-      createdAt: now,
+      createdAt: new Date(),
     })
-    .run();
+    .returning()
+    .get();
 
-  return attachmentRowToDTO(db.select().from(attachments).where(eq(attachments.id, id)).get()!);
+  if (!inserted) {
+    throw new Error('saveAttachment: insert returned no row');
+  }
+
+  return rowToDTO(inserted);
 }
 
 export function getAttachment(id: string): AttachmentDTO | undefined {
   const row = db.select().from(attachments).where(eq(attachments.id, id)).get();
-  return row ? attachmentRowToDTO(row) : undefined;
+  return row ? rowToDTO(row) : undefined;
 }
 
 export function getAttachmentBytes(
   id: string,
-): { bytes: Buffer; mediaType: string; kind: 'image' | 'file' } | undefined {
+): { bytes: Buffer; mediaType: string; kind: AttachmentKind } | undefined {
   const row = db.select().from(attachments).where(eq(attachments.id, id)).get();
-  if (!row) return undefined;
+  if (!row) {
+    return undefined;
+  }
+
   const absPath = join(Utils.paths.userData, row.relPath);
-  if (!existsSync(absPath)) return undefined;
+  if (!existsSync(absPath)) {
+    return undefined;
+  }
+
   const bytes = readFileSync(absPath);
-  return { bytes, mediaType: row.mediaType, kind: row.kind as 'image' | 'file' };
+  return { bytes, mediaType: row.mediaType, kind: row.kind };
 }
 
 export function listAttachments(chatId: string): AttachmentDTO[] {
-  return db
-    .select()
-    .from(attachments)
-    .where(eq(attachments.chatId, chatId))
-    .all()
-    .map(attachmentRowToDTO);
+  return db.select().from(attachments).where(eq(attachments.chatId, chatId)).all().map(rowToDTO);
 }
