@@ -7,7 +7,6 @@ export const MODEL_SEED: ModelDefinition[] = [
     provider: 'anthropic',
     family: 'opus',
     displayName: 'Claude Opus 4.7',
-    isCustom: false,
     isEnabled: true,
     pricing: null,
     capabilities: {
@@ -27,7 +26,6 @@ export const MODEL_SEED: ModelDefinition[] = [
     provider: 'anthropic',
     family: 'sonnet',
     displayName: 'Claude Sonnet 4.6',
-    isCustom: false,
     isEnabled: true,
     pricing: null,
     capabilities: {
@@ -46,7 +44,6 @@ export const MODEL_SEED: ModelDefinition[] = [
     provider: 'anthropic',
     family: 'haiku',
     displayName: 'Claude Haiku 4.5',
-    isCustom: false,
     isEnabled: true,
     pricing: null,
     capabilities: {

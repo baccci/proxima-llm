@@ -86,7 +86,6 @@ function mapToRow(m: OpenRouterModel) {
     displayName: m.name,
     capabilities,
     pricing,
-    isCustom: false,
     source: ModelSource.enum.openrouter,
   };
 }

@@ -13,7 +13,6 @@ function rowToDTO(row: typeof models.$inferSelect): ModelDTO {
     family: row.family,
     displayName: row.displayName,
     capabilities: row.capabilities,
-    isCustom: row.isCustom,
     isEnabled: row.isEnabled,
     pricing: row.pricing ?? null,
     createdAt: new Date(row.createdAt).toISOString(),

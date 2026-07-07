@@ -21,7 +21,6 @@ export const ModelDTO = z.object({
   family: z.string(),
   displayName: z.string(),
   capabilities: ModelCapabilities,
-  isCustom: z.boolean(),
   isEnabled: z.boolean(),
   pricing: z.object({ prompt: z.number(), completion: z.number() }).nullable(),
   createdAt: z.string().datetime(),

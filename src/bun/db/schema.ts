@@ -9,7 +9,6 @@ export const models = sqliteTable('models', {
   displayName: text('display_name').notNull(),
   capabilities: text('capabilities', { mode: 'json' }).$type<ModelCapabilities>().notNull(),
   pricing: text('pricing', { mode: 'json' }).$type<{ prompt: number; completion: number }>(),
-  isCustom: integer('is_custom', { mode: 'boolean' }).notNull().default(false),
   isEnabled: integer('is_enabled', { mode: 'boolean' }).notNull().default(true),
   source: text('source', { enum: ModelSource.options }).notNull().default(ModelSource.enum.builtin),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),

@@ -11,6 +11,16 @@ function addColumnIfMissing(table: string, column: string, type: string): boolea
   return true;
 }
 
+// Drop a column only if the table still has it — mirror of addColumnIfMissing for retired
+// columns. Modern SQLite (Bun's) supports DROP COLUMN directly when no index depends on it.
+function dropColumnIfPresent(table: string, column: string): void {
+  const cols = sqlite.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) {
+    return;
+  }
+  sqlite.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+}
+
 export function setupSchema() {
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS models (
@@ -20,7 +30,6 @@ export function setupSchema() {
       display_name TEXT NOT NULL,
       capabilities TEXT NOT NULL,
       pricing TEXT,
-      is_custom INTEGER NOT NULL DEFAULT 0,
       is_enabled INTEGER NOT NULL DEFAULT 1,
       source TEXT NOT NULL DEFAULT 'builtin',
       created_at INTEGER NOT NULL,
@@ -131,4 +140,8 @@ export function setupSchema() {
   addColumnIfMissing('projects', 'icon', 'TEXT');
   addColumnIfMissing('projects', 'palette', 'TEXT');
   addColumnIfMissing('projects', 'icon_color', 'TEXT');
+
+  // Retired: the custom-model feature is gone and ModelSource replaced source='custom',
+  // but the boolean outlived both. Nothing branches on it.
+  dropColumnIfPresent('models', 'is_custom');
 }
