@@ -1,4 +1,5 @@
 import { and, eq, notInArray } from 'drizzle-orm';
+import { z } from 'zod';
 import { ProviderId } from '../../shared-contracts/providers/registry';
 import type { ModelCapabilities } from '../../shared-contracts/schemas/model.schema';
 import { db, sqlite } from '../db/client';
@@ -7,69 +8,66 @@ import { models } from '../db/schema';
 import { log } from '../logging/logger';
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
-const SYNC_THROTTLE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const SYNC_THROTTLE_HOURS = 24;
+const SYNC_THROTTLE_MS = SYNC_THROTTLE_HOURS * 60 * 60 * 1000;
 const SETTINGS_KEY = 'openrouter_sync';
 // Bump when sync logic or schema changes to force a re-sync on next startup.
 const SYNC_VERSION = 2;
 // Fallback when OpenRouter does not report a model's max output tokens.
 const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
-// Vendor tokens we look for in a model slug to group it into a family.
-const FAMILY_TOKENS = [
-  'gemma',
-  'gemini',
-  'llama',
-  'mistral',
-  'nemotron',
-  'qwen',
-  'deepseek',
-  'phi',
-  'falcon',
-  'mixtral',
-  'command',
-];
 
-interface OpenRouterModel {
-  id: string;
-  name: string;
-  pricing: { prompt: string; completion: string };
-  architecture?: { input_modalities?: string[] };
-  supported_parameters?: string[];
-  context_length?: number;
-  top_provider?: { max_completion_tokens?: number; context_length?: number };
-}
+// Tokens OpenRouter advertises in a model's supported_parameters / input_modalities.
+// Named here so the capability mapping reads against its vocabulary, not bare strings.
+const OPENROUTER_PARAM = {
+  reasoning: 'reasoning',
+  includeReasoning: 'include_reasoning',
+  tools: 'tools',
+} as const;
+const OPENROUTER_MODALITY = {
+  image: 'image',
+  file: 'file',
+} as const;
 
-// Guess a model family from its OpenRouter id like "google/gemma-2-9b".
-// Match a known vendor token in the slug, else fall back to the vendor prefix.
+// One entry of the OpenRouter catalog. Parsed per item at the network boundary so a
+// malformed row is skipped, not fatal to the whole sync.
+const OpenRouterModel = z.object({
+  id: z.string(),
+  name: z.string(),
+  pricing: z.object({ prompt: z.string(), completion: z.string() }),
+  architecture: z.object({ input_modalities: z.array(z.string()).optional() }).optional(),
+  supported_parameters: z.array(z.string()).optional(),
+  context_length: z.number().optional(),
+  top_provider: z
+    .object({
+      max_completion_tokens: z.number().optional(),
+      context_length: z.number().optional(),
+    })
+    .optional(),
+});
+type OpenRouterModel = z.infer<typeof OpenRouterModel>;
+
+const OpenRouterModelsResponse = z.object({ data: z.array(z.unknown()) });
+
+// Family groups a synced model by its OpenRouter vendor prefix, so "google/gemma-2-9b" lands under "google".
 function deriveFamily(id: string): string {
-  const vendor = id.split('/')[0] ?? 'unknown';
-  const modelSlug = id.split('/')[1] ?? '';
-  for (const token of FAMILY_TOKENS) {
-    if (modelSlug.toLowerCase().includes(token)) return token;
-  }
-  return vendor;
+  return id.split('/')[0] ?? 'unknown';
 }
 
 // Convert one entry from the OpenRouter catalog into a models table row.
-function mapToRow(m: OpenRouterModel): {
-  id: string;
-  provider: string;
-  family: string;
-  displayName: string;
-  capabilities: ModelCapabilities;
-  pricing: { prompt: number; completion: number };
-  isCustom: boolean;
-  source: 'openrouter';
-} {
+function mapToRow(m: OpenRouterModel) {
   const modalities = m.architecture?.input_modalities ?? [];
   const params = m.supported_parameters ?? [];
   const maxOutputTokens = m.top_provider?.max_completion_tokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
   const contextWindow = m.top_provider?.context_length ?? m.context_length;
 
-  const capabilities = {
-    thinking: params.includes('reasoning') || params.includes('include_reasoning'),
-    vision: modalities.includes('image'),
-    pdf: modalities.includes('file'),
-    tools: params.includes('tools'),
+  const capabilities: ModelCapabilities = {
+    thinking:
+      params.includes(OPENROUTER_PARAM.reasoning) ||
+      params.includes(OPENROUTER_PARAM.includeReasoning),
+    vision: modalities.includes(OPENROUTER_MODALITY.image),
+    pdf: modalities.includes(OPENROUTER_MODALITY.file),
+    tools: params.includes(OPENROUTER_PARAM.tools),
+    // OpenRouter has no per-model prompt-cache flag; web search is a universal plugin.
     promptCaching: false,
     webSearch: true,
     maxOutputTokens,
@@ -93,26 +91,42 @@ function mapToRow(m: OpenRouterModel): {
   };
 }
 
-interface SyncState {
+type SyncState = {
   ts: number | null;
   version: number;
-}
+};
+
+// Persisted sync marker. Legacy rows stored a bare timestamp before the versioned object.
+const SyncStateBlob = z.union([
+  z.number(),
+  z.object({ ts: z.number().nullable().optional(), version: z.number().optional() }),
+]);
 
 function getSyncState(): SyncState {
   const row = sqlite
     .query<{ value: string }, [string]>(`SELECT value FROM settings WHERE key = ?`)
     .get(SETTINGS_KEY);
-  if (!row) return { ts: null, version: 0 };
-  try {
-    const parsed = JSON.parse(row.value);
-    if (typeof parsed === 'number') return { ts: parsed, version: 0 };
-    if (parsed && typeof parsed === 'object') {
-      return { ts: parsed.ts ?? null, version: parsed.version ?? 0 };
-    }
+  if (!row) {
     return { ts: null, version: 0 };
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(row.value);
   } catch {
     return { ts: null, version: 0 };
   }
+
+  const parsed = SyncStateBlob.safeParse(raw);
+  if (!parsed.success) {
+    return { ts: null, version: 0 };
+  }
+
+  if (typeof parsed.data === 'number') {
+    return { ts: parsed.data, version: 0 };
+  }
+
+  return { ts: parsed.data.ts ?? null, version: parsed.data.version ?? 0 };
 }
 
 function setSyncState(ts: number): void {
@@ -130,10 +144,10 @@ export function getLastSyncTimestamp(): number | null {
 // True when any synced OpenRouter row is missing pricing, used to force a re-sync.
 function hasStaleOrNullPricing(): boolean {
   const row = sqlite
-    .query<{ n: number }, []>(
-      `SELECT COUNT(*) as n FROM models WHERE source = '${ModelSource.enum.openrouter}' AND pricing IS NULL`,
+    .query<{ n: number }, [string]>(
+      `SELECT COUNT(*) as n FROM models WHERE source = ? AND pricing IS NULL`,
     )
-    .get();
+    .get(ModelSource.enum.openrouter);
   return (row?.n ?? 0) > 0;
 }
 
@@ -151,21 +165,39 @@ export async function syncOpenRouterModels(onSynced?: () => void, force = false)
     lastSync !== null &&
     Date.now() - lastSync < SYNC_THROTTLE_MS
   ) {
-    log.info('OpenRouter sync skipped, last sync was less than 24h ago');
+    log.info(`OpenRouter sync skipped, last sync was less than ${SYNC_THROTTLE_HOURS}h ago`);
     return;
   }
 
-  if (versionMismatch)
+  if (versionMismatch) {
     log.info(
       `OpenRouter sync forced, version changed (stored: ${storedVersion}, current: ${SYNC_VERSION})`,
     );
-  if (stalePricing) log.info('OpenRouter sync forced, stale pricing data detected');
+  }
+  if (stalePricing) {
+    log.info('OpenRouter sync forced, stale pricing data detected');
+  }
 
   const res = await fetch(OPENROUTER_MODELS_URL);
-  if (!res.ok) throw new Error(`OpenRouter models fetch failed: ${res.status}`);
+  if (!res.ok) {
+    throw new Error(`OpenRouter models fetch failed: ${res.status}`);
+  }
 
-  const json = (await res.json()) as { data: OpenRouterModel[] };
-  const allModels = json.data;
+  const body = OpenRouterModelsResponse.parse(await res.json());
+
+  // Parse entries one at a time so a single malformed row can't abort the sync.
+  const allModels: OpenRouterModel[] = [];
+  for (const entry of body.data) {
+    const parsed = OpenRouterModel.safeParse(entry);
+    if (parsed.success) {
+      allModels.push(parsed.data);
+    }
+  }
+
+  const skipped = body.data.length - allModels.length;
+  if (skipped > 0) {
+    log.warn(`OpenRouter sync skipped ${skipped} malformed catalog entries`);
+  }
 
   const now = new Date();
   const incomingIds = new Set(allModels.map((m) => m.id));
