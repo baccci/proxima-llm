@@ -1,16 +1,20 @@
-import { and, eq, notInArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { ProviderId } from '../../shared-contracts/providers/registry';
 import type { ModelCapabilities } from '../../shared-contracts/schemas/model.schema';
-import { db, sqlite } from '../db/client';
 import { ModelSource } from '../db/model-source';
-import { models } from '../db/schema';
 import { log } from '../logging/logger';
+import {
+  getSyncState,
+  hasStalePricing,
+  pruneDisabledModelsMissing,
+  type SyncedModelRow,
+  setSyncState,
+  upsertSyncedModel,
+} from './model.service';
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 const SYNC_THROTTLE_HOURS = 24;
 const SYNC_THROTTLE_MS = SYNC_THROTTLE_HOURS * 60 * 60 * 1000;
-const SETTINGS_KEY = 'openrouter_sync';
 // Bump when sync logic or schema changes to force a re-sync on next startup.
 const SYNC_VERSION = 2;
 // Fallback when OpenRouter does not report a model's max output tokens.
@@ -53,8 +57,8 @@ function deriveFamily(id: string): string {
   return id.split('/')[0] ?? 'unknown';
 }
 
-// Convert one entry from the OpenRouter catalog into a models table row.
-function mapToRow(m: OpenRouterModel) {
+// Convert one entry from the OpenRouter catalog into a persistable model row.
+function mapToRow(m: OpenRouterModel): SyncedModelRow {
   const modalities = m.architecture?.input_modalities ?? [];
   const params = m.supported_parameters ?? [];
   const maxOutputTokens = m.top_provider?.max_completion_tokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
@@ -90,70 +94,14 @@ function mapToRow(m: OpenRouterModel) {
   };
 }
 
-type SyncState = {
-  ts: number | null;
-  version: number;
-};
-
-// Persisted sync marker. Legacy rows stored a bare timestamp before the versioned object.
-const SyncStateBlob = z.union([
-  z.number(),
-  z.object({ ts: z.number().nullable().optional(), version: z.number().optional() }),
-]);
-
-function getSyncState(): SyncState {
-  const row = sqlite
-    .query<{ value: string }, [string]>(`SELECT value FROM settings WHERE key = ?`)
-    .get(SETTINGS_KEY);
-  if (!row) {
-    return { ts: null, version: 0 };
-  }
-
-  let raw: unknown;
-  try {
-    raw = JSON.parse(row.value);
-  } catch {
-    return { ts: null, version: 0 };
-  }
-
-  const parsed = SyncStateBlob.safeParse(raw);
-  if (!parsed.success) {
-    return { ts: null, version: 0 };
-  }
-
-  if (typeof parsed.data === 'number') {
-    return { ts: parsed.data, version: 0 };
-  }
-
-  return { ts: parsed.data.ts ?? null, version: parsed.data.version ?? 0 };
-}
-
-function setSyncState(ts: number): void {
-  sqlite
-    .query(
-      `INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-    )
-    .run(SETTINGS_KEY, JSON.stringify({ ts, version: SYNC_VERSION }));
-}
-
 export function getLastSyncTimestamp(): number | null {
   return getSyncState().ts;
-}
-
-// True when any synced OpenRouter row is missing pricing, used to force a re-sync.
-function hasStaleOrNullPricing(): boolean {
-  const row = sqlite
-    .query<{ n: number }, [string]>(
-      `SELECT COUNT(*) as n FROM models WHERE source = ? AND pricing IS NULL`,
-    )
-    .get(ModelSource.enum.openrouter);
-  return (row?.n ?? 0) > 0;
 }
 
 export async function syncOpenRouterModels(onSynced?: () => void, force = false): Promise<void> {
   const { ts: lastSync, version: storedVersion } = getSyncState();
   const versionMismatch = storedVersion !== SYNC_VERSION;
-  const stalePricing = hasStaleOrNullPricing();
+  const stalePricing = hasStalePricing();
 
   // Skip when a recent sync already ran, unless forced, the sync version changed,
   // or stored pricing is stale.
@@ -198,54 +146,13 @@ export async function syncOpenRouterModels(onSynced?: () => void, force = false)
     log.warn(`OpenRouter sync skipped ${skipped} malformed catalog entries`);
   }
 
-  const now = new Date();
-  const incomingIds = new Set(allModels.map((m) => m.id));
-
   for (const m of allModels) {
-    const row = mapToRow(m);
-    const existing = db.select().from(models).where(eq(models.id, row.id)).get();
-
-    // New model: insert disabled so the user opts in from the marketplace.
-    if (!existing) {
-      db.insert(models)
-        .values({ ...row, isEnabled: false, createdAt: now, updatedAt: now })
-        .run();
-      continue;
-    }
-
-    // Only the catalog sync owns openrouter rows. Leave builtin rows untouched.
-    if (existing.source !== ModelSource.enum.openrouter) {
-      continue;
-    }
-
-    // Refresh metadata only. Never touch isEnabled, that is the user's choice.
-    db.update(models)
-      .set({
-        displayName: row.displayName,
-        capabilities: row.capabilities,
-        pricing: row.pricing,
-        updatedAt: now,
-      })
-      .where(eq(models.id, row.id))
-      .run();
+    upsertSyncedModel(mapToRow(m));
   }
 
-  // Prune only rows the catalog dropped that are still disabled.
-  // Never delete a model the user enabled.
-  const incomingIdList = [...incomingIds];
-  if (incomingIdList.length > 0) {
-    db.delete(models)
-      .where(
-        and(
-          eq(models.source, ModelSource.enum.openrouter),
-          eq(models.isEnabled, false),
-          notInArray(models.id, incomingIdList),
-        ),
-      )
-      .run();
-  }
+  pruneDisabledModelsMissing(allModels.map((m) => m.id));
 
-  setSyncState(Date.now());
+  setSyncState(Date.now(), SYNC_VERSION);
   log.info(`OpenRouter sync complete: ${allModels.length} models synced`);
   onSynced?.();
 }
