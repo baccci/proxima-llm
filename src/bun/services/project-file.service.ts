@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { Utils } from 'electrobun/bun';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
-import type { ProjectFileDTO } from '../../shared-contracts/schemas/project-file.schema';
+import { ProjectFileDTO } from '../../shared-contracts/schemas/project-file.schema';
 import { db } from '../db/client';
 import { projectFiles } from '../db/schema';
 
@@ -44,10 +44,21 @@ const TEXT_EXTENSIONS: Record<string, string> = {
 };
 
 function resolveMediaType(name: string, provided: string): string {
-  if (ALLOWED_TYPES.has(provided)) return provided;
+  if (ALLOWED_TYPES.has(provided)) {
+    return provided;
+  }
+
   const ext = extname(name).replace('.', '').toLowerCase();
-  if (TEXT_EXTENSIONS[ext]) return TEXT_EXTENSIONS[ext];
-  if (CODE_EXTENSIONS.has(ext)) return 'text/plain';
+  const text = TEXT_EXTENSIONS[ext];
+
+  if (text) {
+    return text;
+  }
+
+  if (CODE_EXTENSIONS.has(ext)) {
+    return 'text/plain';
+  }
+
   throw new Error(`Unsupported media type: ${provided}`);
 }
 
@@ -56,7 +67,7 @@ function resolveExtension(name: string): string {
 }
 
 function rowToDTO(row: typeof projectFiles.$inferSelect): ProjectFileDTO {
-  return {
+  return ProjectFileDTO.parse({
     id: row.id,
     projectId: row.projectId,
     name: row.name,
@@ -65,7 +76,21 @@ function rowToDTO(row: typeof projectFiles.$inferSelect): ProjectFileDTO {
     sha256: row.sha256,
     relPath: row.relPath,
     createdAt: new Date(row.createdAt).toISOString(),
-  };
+  });
+}
+
+function readTextForRow(row: typeof projectFiles.$inferSelect | undefined, label: string): string {
+  if (!row) {
+    throw new Error(`Project file not found: ${label}`);
+  }
+
+  const absPath = join(Utils.paths.userData, row.relPath);
+
+  if (!existsSync(absPath)) {
+    throw new Error(`Project file missing on disk: ${label}`);
+  }
+
+  return readFileSync(absPath, 'utf-8');
 }
 
 export function saveProjectFile(input: {
@@ -104,22 +129,26 @@ export function saveProjectFile(input: {
     writeFileSync(absPath, bytes);
   }
 
-  const id = randomUUID();
-  const now = new Date();
-  db.insert(projectFiles)
+  const inserted = db
+    .insert(projectFiles)
     .values({
-      id,
+      id: randomUUID(),
       projectId: input.projectId,
       name: input.name,
       mediaType,
       byteSize: bytes.byteLength,
       sha256,
       relPath,
-      createdAt: now,
+      createdAt: new Date(),
     })
-    .run();
+    .returning()
+    .get();
 
-  return rowToDTO(db.select().from(projectFiles).where(eq(projectFiles.id, id)).get()!);
+  if (!inserted) {
+    throw new Error('saveProjectFile: insert returned no row');
+  }
+
+  return rowToDTO(inserted);
 }
 
 export function listProjectFiles(projectId: string): ProjectFileDTO[] {
@@ -138,12 +167,7 @@ export function readProjectFileText(projectId: string, fileId: string): string {
     .where(and(eq(projectFiles.id, fileId), eq(projectFiles.projectId, projectId)))
     .get();
 
-  if (!row) throw new Error(`Project file not found: ${fileId}`);
-
-  const absPath = join(Utils.paths.userData, row.relPath);
-  if (!existsSync(absPath)) throw new Error(`Project file missing on disk: ${fileId}`);
-
-  return readFileSync(absPath, 'utf-8');
+  return readTextForRow(row, fileId);
 }
 
 export function readProjectFileTextByName(projectId: string, name: string): string {
@@ -152,17 +176,19 @@ export function readProjectFileTextByName(projectId: string, name: string): stri
     .from(projectFiles)
     .where(and(eq(projectFiles.projectId, projectId), eq(projectFiles.name, name)))
     .get();
-  if (!row) throw new Error(`Project file not found: "${name}"`);
-  const absPath = join(Utils.paths.userData, row.relPath);
-  if (!existsSync(absPath)) throw new Error(`Project file missing on disk: "${name}"`);
-  return readFileSync(absPath, 'utf-8');
+
+  return readTextForRow(row, `"${name}"`);
 }
 
 export function deleteProjectFile(id: string): void {
   const row = db.select().from(projectFiles).where(eq(projectFiles.id, id)).get();
-  if (!row) return;
+
+  if (!row) {
+    return;
+  }
 
   const absPath = join(Utils.paths.userData, row.relPath);
+
   if (existsSync(absPath)) {
     rmSync(absPath);
   }
