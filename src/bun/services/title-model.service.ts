@@ -1,10 +1,11 @@
+import type { AnthropicFamily } from '../../shared-contracts/models/families';
 import type { ProviderId } from '../../shared-contracts/providers/registry';
 import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
 import { listModels } from './model.service';
 import { getSettings } from './settings.service';
 
 // Cheap fallback family per provider when no pricing data is available to rank by.
-const CHEAP_FAMILY_HINT: Record<string, string> = {
+const CHEAP_FAMILY_HINT: Partial<Record<ProviderId, AnthropicFamily>> = {
   anthropic: 'haiku',
 };
 

@@ -1,3 +1,4 @@
+import { ANTHROPIC_FAMILIES } from '@shared/models/families'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 
 export function supportsThinking(model: ModelDTO): boolean {
@@ -26,7 +27,8 @@ export function defaultThinkingBudget(model: ModelDTO): number {
   return model.capabilities.defaultThinkingBudget ?? 8_000
 }
 
-export const FAMILY_ORDER = ['opus', 'sonnet', 'haiku']
+// Widened to string[] so sortByFamily can indexOf any family (OpenRouter -> -1).
+export const FAMILY_ORDER: readonly string[] = ANTHROPIC_FAMILIES
 
 export function sortByFamily(models: ModelDTO[]): ModelDTO[] {
   return [...models].sort((a, b) => {
