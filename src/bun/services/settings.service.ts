@@ -1,16 +1,19 @@
 import { eq } from 'drizzle-orm';
-import type {
+import {
+  DEFAULT_SETTINGS,
   SettingsDTO,
-  UpdateSettingsInput,
+  type UpdateSettingsInput,
 } from '../../shared-contracts/schemas/settings.schema';
-import { DEFAULT_SETTINGS } from '../../shared-contracts/schemas/settings.schema';
 import { db } from '../db/client';
 import { settings } from '../db/schema';
 
 export function getSettings(): SettingsDTO {
   const row = db.select().from(settings).where(eq(settings.key, 'app')).get();
   if (!row) return DEFAULT_SETTINGS;
-  return { ...DEFAULT_SETTINGS, ...(row.value as Partial<SettingsDTO>) };
+  // Stored rows can predate newer fields, so validate what's there as a partial
+  // (dropping anything unknown) and merge it over the current defaults.
+  const stored = SettingsDTO.partial().parse(row.value);
+  return { ...DEFAULT_SETTINGS, ...stored };
 }
 
 export function updateSettings(patch: UpdateSettingsInput): void {
