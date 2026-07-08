@@ -57,3 +57,27 @@ export const MessageDTO = z.object({
 })
 
 export type MessageDTO = z.infer<typeof MessageDTO>
+
+export const SendMessageInput = z.object({
+  chatId: z.string(),
+  modelId: z.string(),
+  content: z.string(),
+  thinking: z.boolean().optional(),
+  webSearch: z.boolean().optional(),
+  effort: z.string().nullish(),
+  attachmentIds: z.array(z.string()).optional(),
+})
+
+export type SendMessageInput = z.infer<typeof SendMessageInput>
+
+export const RetryMessageInput = z.object({
+  chatId: z.string(),
+  modelId: z.string(),
+  userMessageId: z.string(),
+  content: z.string().optional(),
+  thinking: z.boolean().optional(),
+  webSearch: z.boolean().optional(),
+  effort: z.string().nullish(),
+})
+
+export type RetryMessageInput = z.infer<typeof RetryMessageInput>

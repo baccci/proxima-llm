@@ -1,11 +1,11 @@
 import { randomUUID } from 'crypto';
 import { asc, desc, eq, inArray } from 'drizzle-orm';
-import type { SendMessageInput } from '../../shared-contracts/rpc/app-rpc.types';
 import {
   ChatComposerState,
   ChatDTO,
   type CreateChatInput,
 } from '../../shared-contracts/schemas/chat.schema';
+import type { SendMessageInput } from '../../shared-contracts/schemas/message.schema';
 import {
   MessageDTO,
   type MessagePart,

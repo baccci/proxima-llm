@@ -1,6 +1,10 @@
-import type { RetryMessageInput, SendMessageInput } from '@shared/rpc/app-rpc.types'
 import type { ChatComposerState, ChatDTO, CreateChatInput } from '@shared/schemas/chat.schema'
-import type { MessageDTO, MessagePart } from '@shared/schemas/message.schema'
+import type {
+  MessageDTO,
+  MessagePart,
+  RetryMessageInput,
+  SendMessageInput,
+} from '@shared/schemas/message.schema'
 import { queryClient } from '@/lib/query-client'
 import { queryKeys } from '@/lib/query-keys'
 import { rpcRequest as req } from '@/lib/rpc.client'

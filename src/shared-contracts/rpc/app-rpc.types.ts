@@ -7,7 +7,7 @@ import type {
   MemorySliceDTO,
   UpsertMemorySliceInput,
 } from '../schemas/memory-slice.schema'
-import type { MessageDTO } from '../schemas/message.schema'
+import type { MessageDTO, RetryMessageInput, SendMessageInput } from '../schemas/message.schema'
 import type { ModelDTO } from '../schemas/model.schema'
 import type { CreateProjectInput, ProjectDTO, UpdateProjectInput } from '../schemas/project.schema'
 import type {
@@ -29,26 +29,6 @@ export type StreamChunk =
   | { kind: 'tool-approval-request'; toolCallId: string; toolName: string; input: unknown }
   | { kind: 'done'; message?: MessageDTO }
   | { kind: 'error'; error: string }
-
-export type SendMessageInput = {
-  chatId: string
-  modelId: string
-  content: string
-  thinking?: boolean
-  webSearch?: boolean
-  effort?: string | null
-  attachmentIds?: string[]
-}
-
-export type RetryMessageInput = {
-  chatId: string
-  modelId: string
-  userMessageId: string
-  content?: string
-  thinking?: boolean
-  webSearch?: boolean
-  effort?: string | null
-}
 
 export type AppRPC = {
   bun: {

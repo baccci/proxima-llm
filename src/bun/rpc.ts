@@ -1,6 +1,7 @@
 import { BrowserView, type RPCSchema, Utils } from 'electrobun/bun';
 import { ProviderId } from '../shared-contracts/providers/registry';
 import type { AppRPC } from '../shared-contracts/rpc/app-rpc.types';
+import { RetryMessageInput, SendMessageInput } from '../shared-contracts/schemas/message.schema';
 import { TOOL_CATALOG } from '../shared-contracts/tools/tool-catalog';
 import * as controlAuth from './control-server/auth';
 import * as keychain from './secrets/keychain';
@@ -149,10 +150,10 @@ export function createRPC() {
         },
 
         sendMessage: (input) => {
-          return startChatStream(input);
+          return startChatStream(SendMessageInput.parse(input));
         },
 
-        retryFromMessage: (input) => retryChatStream(input),
+        retryFromMessage: (input) => retryChatStream(RetryMessageInput.parse(input)),
 
         cancelStream: ({ streamId }) => {
           cancelStream(streamId);

@@ -1,10 +1,9 @@
 import { randomUUID } from 'crypto';
+import type { AppRPC, StreamChunk } from '../../shared-contracts/rpc/app-rpc.types';
 import type {
-  AppRPC,
   RetryMessageInput,
   SendMessageInput,
-  StreamChunk,
-} from '../../shared-contracts/rpc/app-rpc.types';
+} from '../../shared-contracts/schemas/message.schema';
 import type { ToolDecision } from '../../shared-contracts/tools/tool-policy';
 import { runStream } from '../llm/stream';
 import { generateChatTitle } from '../llm/title';
