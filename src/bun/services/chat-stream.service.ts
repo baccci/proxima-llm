@@ -90,10 +90,14 @@ function runStreamForChat(
   const { chatId, modelId, thinking, webSearch, effort, originalContent } = params;
 
   const model = getModel(modelId);
-  if (!model) throw new Error(`Unknown model: ${modelId}`);
+  if (!model) {
+    throw new Error(`Unknown model: ${modelId}`);
+  }
 
   const apiKey = keychain.getApiKey(model.provider);
-  if (!apiKey) throw new Error(`No API key configured for ${model.provider}`);
+  if (!apiKey) {
+    throw new Error(`No API key configured for ${model.provider}`);
+  }
 
   const assistantMsgId = randomUUID();
   emitChunk({ kind: 'start', assistantMessageId: assistantMsgId });
@@ -138,7 +142,9 @@ function runStreamForChat(
         Math.ceil(
           history.reduce((acc, m) => {
             for (const p of m.parts) {
-              if (p.type === 'text') acc += p.text.length;
+              if (p.type === 'text') {
+                acc += p.text.length;
+              }
             }
             return acc;
           }, 0) / 4,
