@@ -1,7 +1,9 @@
 import { randomUUID } from 'crypto';
 import { and, eq, isNull, type SQL } from 'drizzle-orm';
 import {
+  type MemoryScope,
   MemorySliceDTO,
+  type MemorySource,
   type UpsertMemorySliceInput,
 } from '../../shared-contracts/schemas/memory-slice.schema';
 import { db } from '../db/client';
@@ -14,7 +16,7 @@ function projectIdCond(projectId: string | null | undefined): SQL {
 // One slice looked up by its natural key (scope + project + title). Shared by the upsert's
 // title-match branch and the by-title read/delete so the three-part where clause lives once.
 function sliceByTitle(
-  scope: 'global' | 'project',
+  scope: MemoryScope,
   projectId: string | null | undefined,
   title: string,
 ): typeof memorySlices.$inferSelect | undefined {
@@ -40,10 +42,7 @@ function rowToDTO(row: typeof memorySlices.$inferSelect): MemorySliceDTO {
   });
 }
 
-export function listSlices(
-  scope: 'global' | 'project',
-  projectId?: string | null,
-): MemorySliceDTO[] {
+export function listSlices(scope: MemoryScope, projectId?: string | null): MemorySliceDTO[] {
   const conditions =
     scope === 'global'
       ? eq(memorySlices.scope, 'global')
@@ -124,9 +123,7 @@ export function upsertSlice(input: UpsertMemorySliceInput): MemorySliceDTO {
   return rowToDTO(inserted);
 }
 
-export function deleteSlice(
-  id: string,
-): { scope: 'global' | 'project'; projectId: string | null } | null {
+export function deleteSlice(id: string): { scope: MemoryScope; projectId: string | null } | null {
   const row = db.select().from(memorySlices).where(eq(memorySlices.id, id)).get();
 
   if (!row) {
@@ -139,7 +136,7 @@ export function deleteSlice(
 }
 
 export function readByTitle(
-  scope: 'global' | 'project',
+  scope: MemoryScope,
   projectId: string | null,
   title: string,
 ): MemorySliceDTO | undefined {
@@ -148,20 +145,16 @@ export function readByTitle(
 }
 
 export function writeByTitle(
-  scope: 'global' | 'project',
+  scope: MemoryScope,
   projectId: string | null,
   title: string,
   content: string,
-  source: 'user' | 'model' = 'model',
+  source: MemorySource = 'model',
 ): MemorySliceDTO {
   return upsertSlice({ scope, projectId, title, content, source });
 }
 
-export function deleteByTitle(
-  scope: 'global' | 'project',
-  projectId: string | null,
-  title: string,
-): void {
+export function deleteByTitle(scope: MemoryScope, projectId: string | null, title: string): void {
   const row = sliceByTitle(scope, projectId, title);
 
   if (row) {

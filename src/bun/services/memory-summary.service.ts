@@ -1,4 +1,5 @@
 import type { ProviderId } from '../../shared-contracts/providers/registry';
+import type { MemoryScope } from '../../shared-contracts/schemas/memory-slice.schema';
 import { generateMemorySummary } from '../llm/memory-summary';
 import { log } from '../logging/logger';
 import * as keychain from '../secrets/keychain';
@@ -7,7 +8,7 @@ import { listModels } from './model.service';
 import * as projectService from './project.service';
 import { resolveTitleModel } from './title-model.service';
 
-type Scope = 'global' | 'project';
+type Scope = MemoryScope;
 
 let pushMemoryChanged: ((scope: Scope, projectId: string | null) => void) | null = null;
 

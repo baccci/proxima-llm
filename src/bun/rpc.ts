@@ -1,6 +1,7 @@
 import { BrowserView, type RPCSchema, Utils } from 'electrobun/bun';
 import { ProviderId } from '../shared-contracts/providers/registry';
 import type { AppRPC } from '../shared-contracts/rpc/app-rpc.types';
+import type { MemoryScope } from '../shared-contracts/schemas/memory-slice.schema';
 import { RetryMessageInput, SendMessageInput } from '../shared-contracts/schemas/message.schema';
 import { TOOL_CATALOG } from '../shared-contracts/tools/tool-catalog';
 import * as controlAuth from './control-server/auth';
@@ -58,7 +59,7 @@ export function pushControlNavigate(msg: AppRPC['webview']['messages']['controlN
 }
 
 export function setSendMemoryChanged(
-  fn: (scope: 'global' | 'project', projectId: string | null) => void,
+  fn: (scope: MemoryScope, projectId: string | null) => void,
 ): void {
   memorySummaryService.setMemoryChangedPush(fn);
 }
