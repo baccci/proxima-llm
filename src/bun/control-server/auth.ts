@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { db } from '../db/client';
 import { settings } from '../db/schema';
 
@@ -15,17 +16,20 @@ interface PairingCode {
 
 const pairingCodes = new Map<string, PairingCode>();
 
-export interface ControlToken {
-  token: string;
-  label: string;
-  createdAt: string;
-  lastUsedAt: string | null;
-}
+const ControlToken = z.object({
+  token: z.string(),
+  label: z.string(),
+  createdAt: z.string(),
+  lastUsedAt: z.string().nullable(),
+});
+export type ControlToken = z.infer<typeof ControlToken>;
+
+const ControlTokens = z.array(ControlToken);
 
 function loadTokens(): ControlToken[] {
   const row = db.select().from(settings).where(eq(settings.key, TOKENS_KEY)).get();
   if (!row) return [];
-  return (row.value as ControlToken[]) ?? [];
+  return ControlTokens.parse(row.value);
 }
 
 function saveTokens(tokens: ControlToken[]): void {
@@ -74,12 +78,7 @@ export function validateToken(bearer: string): boolean {
 }
 
 export function listTokens(): ControlToken[] {
-  return loadTokens().map(({ token, label, createdAt, lastUsedAt }) => ({
-    token,
-    label,
-    createdAt,
-    lastUsedAt,
-  }));
+  return loadTokens();
 }
 
 export function revokeToken(token: string): void {
