@@ -33,6 +33,9 @@ export const MessagePart = z.discriminatedUnion('type', [
 
 export type MessagePart = z.infer<typeof MessagePart>
 
+export const StopReason = z.enum(['user-cancel', 'idle-timeout'])
+export type StopReason = z.infer<typeof StopReason>
+
 export const TokenUsage = z.object({
   inputTokens: z.number().int(),
   outputTokens: z.number().int(),
@@ -49,7 +52,7 @@ export const MessageDTO = z.object({
   parts: z.array(MessagePart),
   modelId: z.string().nullable(),
   usage: TokenUsage.nullable(),
-  stopReason: z.enum(['user-cancel', 'idle-timeout']).optional(),
+  stopReason: StopReason.optional(),
   createdAt: z.string().datetime(),
 })
 

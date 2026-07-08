@@ -5,6 +5,7 @@ import type { StreamChunk } from '../../shared-contracts/rpc/app-rpc.types';
 import type {
   MessageDTO,
   MessagePart,
+  StopReason,
   TokenUsage,
 } from '../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
@@ -247,7 +248,7 @@ function buildGatedTools(
 export async function runStream(opts: StreamOptions): Promise<{
   parts: MessagePart[];
   usage: TokenUsage | null;
-  stopReason?: 'user-cancel' | 'idle-timeout';
+  stopReason?: StopReason;
 }> {
   const webSearchActive =
     opts.webSearch &&
@@ -310,7 +311,7 @@ export async function runStream(opts: StreamOptions): Promise<{
 
   const parts: MessagePart[] = [];
   let streamError: Error | null = null;
-  let stopReason: 'user-cancel' | 'idle-timeout' | undefined;
+  let stopReason: StopReason | undefined;
   let reasoningStart: number | null = null;
   let reasoningEnd: number | null = null;
 
