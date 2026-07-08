@@ -1,4 +1,5 @@
 import { generateText } from 'ai';
+import type { ProviderId } from '../../shared-contracts/providers/registry';
 import { getAdapter } from './providers/index';
 
 const MAX_TITLE_LENGTH = 60;
@@ -9,7 +10,7 @@ const TITLE_PROMPT = (msg: string) =>
 // and the user's per-provider title-model setting.
 export async function generateChatTitle(
   firstUserMessage: string,
-  provider: string,
+  provider: ProviderId,
   apiKey: string,
   modelId: string,
 ): Promise<string> {

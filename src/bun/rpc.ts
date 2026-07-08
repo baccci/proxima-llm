@@ -1,4 +1,5 @@
 import { BrowserView, type RPCSchema, Utils } from 'electrobun/bun';
+import { ProviderId } from '../shared-contracts/providers/registry';
 import type { AppRPC } from '../shared-contracts/rpc/app-rpc.types';
 import { TOOL_CATALOG } from '../shared-contracts/tools/tool-catalog';
 import * as controlAuth from './control-server/auth';
@@ -257,10 +258,14 @@ export function createRPC() {
             }
           }
         },
+        // Webview sends provider as a raw wire string; narrow it to the known
+        // provider set before it reaches the keychain.
         setApiKey: ({ provider, key }) => {
-          keychain.setApiKey(provider, key);
+          keychain.setApiKey(ProviderId.parse(provider), key);
         },
-        hasApiKey: ({ provider }) => ({ configured: keychain.hasApiKey(provider) }),
+        hasApiKey: ({ provider }) => ({
+          configured: keychain.hasApiKey(ProviderId.parse(provider)),
+        }),
 
         // Control server
         generatePairingCode: () => controlAuth.generatePairingCode(),

@@ -1,4 +1,5 @@
 import { dlopen, FFIType, type Pointer, ptr, toBuffer } from 'bun:ffi';
+import type { ProviderId } from '../../shared-contracts/providers/registry';
 import { log } from '../logging/logger';
 
 const SERVICE = 'com.proxima.apikeys';
@@ -75,7 +76,7 @@ function findItem(service: string, provider: string): Found | null {
   return { itemRef: outItem[0], dataPtr: outData[0], dataLen: outLen[0] };
 }
 
-export function getApiKey(provider: string): string | undefined {
+export function getApiKey(provider: ProviderId): string | undefined {
   const found = findItem(SERVICE, provider);
   if (!found || found.dataPtr === 0n) return undefined;
 
@@ -86,7 +87,7 @@ export function getApiKey(provider: string): string | undefined {
   return new TextDecoder().decode(bytes) || undefined;
 }
 
-export function setApiKey(provider: string, key: string): void {
+export function setApiKey(provider: ProviderId, key: string): void {
   // Delete existing entry first; SecKeychainAddGenericPassword fails on duplicates
   const existing = findItem(SERVICE, provider);
   if (existing) {
@@ -114,14 +115,14 @@ export function setApiKey(provider: string, key: string): void {
   }
 }
 
-export function hasApiKey(provider: string): boolean {
+export function hasApiKey(provider: ProviderId): boolean {
   const found = findItem(SERVICE, provider);
   if (!found) return false;
   if (found.dataPtr !== 0n) symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
   return true;
 }
 
-export function removeApiKey(provider: string): void {
+export function removeApiKey(provider: ProviderId): void {
   const found = findItem(SERVICE, provider);
   if (!found) return;
   if (found.dataPtr !== 0n) symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));

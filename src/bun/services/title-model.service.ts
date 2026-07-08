@@ -1,3 +1,4 @@
+import type { ProviderId } from '../../shared-contracts/providers/registry';
 import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
 import { listModels } from './model.service';
 import { getSettings } from './settings.service';
@@ -24,7 +25,7 @@ export function isFreeModel(m: ModelDTO): boolean {
 // Cheapest enabled NON-FREE model for the provider. Priced models rank by total
 // price (prompt + completion); unpriced models sort last and fall back to a
 // known cheap family hint, then to the first enabled model.
-function cheapestEnabled(provider: string): ModelDTO | undefined {
+function cheapestEnabled(provider: ProviderId): ModelDTO | undefined {
   const enabled = listModels().filter(
     (m) => m.provider === provider && m.isEnabled && !isFreeModel(m),
   );
@@ -42,7 +43,7 @@ function cheapestEnabled(provider: string): ModelDTO | undefined {
 // Resolves which model auto-names new chats for a given provider.
 // custom + valid (enabled) id -> that id; custom + dead id -> auto fallback;
 // auto -> cheapest enabled. null = provider has no enabled models -> skip title.
-export function resolveTitleModel(provider: string): string | null {
+export function resolveTitleModel(provider: ProviderId): string | null {
   const cfg = getSettings().titleModels[provider];
 
   if (cfg?.mode === 'custom' && cfg.modelId) {

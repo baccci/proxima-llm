@@ -1,3 +1,4 @@
+import type { ProviderId } from '../../shared-contracts/providers/registry';
 import { generateMemorySummary } from '../llm/memory-summary';
 import { log } from '../logging/logger';
 import * as keychain from '../secrets/keychain';
@@ -24,12 +25,12 @@ export function notifyMemoryChanged(scope: Scope, projectId: string | null): voi
 
 function resolveGenArgs(
   projectId: string,
-): { provider: string; modelId: string; apiKey: string } | null {
+): { provider: ProviderId; modelId: string; apiKey: string } | null {
   const defaultModelId = projectService.getDefaultModelId(projectId);
 
   const allModels = listModels();
 
-  let preferredProvider: string | null = null;
+  let preferredProvider: ProviderId | null = null;
   if (defaultModelId) {
     const defaultModel = allModels.find((m) => m.id === defaultModelId && m.isEnabled);
     if (defaultModel) preferredProvider = defaultModel.provider;
