@@ -11,13 +11,14 @@ import type {
 import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
 import type { ProjectDTO } from '../../shared-contracts/schemas/project.schema';
 import { isAlwaysAllowed } from '../../shared-contracts/tools/tool-catalog';
+import type { ToolDecision } from '../../shared-contracts/tools/tool-policy';
 import type { CompactionSnapshot } from '../services/compaction.service';
 import { getPolicy } from '../services/tool-permission.service';
 import { buildModel, getAdapter } from './providers/index';
 import { buildBaseSystemPrompt, MEMORY_GUIDANCE } from './system-prompt';
 import { BUILTIN_TOOLS } from './tools/registry';
 
-type ApprovalResult = { decision: 'allow' | 'deny'; remember: boolean };
+type ApprovalResult = { decision: ToolDecision; remember: boolean };
 
 type StreamOptions = {
   model: ModelDTO;
@@ -30,8 +31,8 @@ type StreamOptions = {
   effort?: string | null;
   sliceTitles?: { global: string[]; project: string[] };
   projectFileNames?: string[];
-  getToolGrant: (toolName: string) => 'allow' | 'deny' | undefined;
-  setToolGrant: (toolName: string, decision: 'allow' | 'deny') => void;
+  getToolGrant: (toolName: string) => ToolDecision | undefined;
+  setToolGrant: (toolName: string, decision: ToolDecision) => void;
   onChunk: (chunk: StreamChunk) => void;
   awaitApproval: (toolCallId: string, toolName: string, input: unknown) => Promise<ApprovalResult>;
   signal: AbortSignal;

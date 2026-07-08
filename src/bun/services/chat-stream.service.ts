@@ -5,6 +5,7 @@ import type {
   SendMessageInput,
   StreamChunk,
 } from '../../shared-contracts/rpc/app-rpc.types';
+import type { ToolDecision } from '../../shared-contracts/tools/tool-policy';
 import { runStream } from '../llm/stream';
 import { generateChatTitle } from '../llm/title';
 import { log } from '../logging/logger';
@@ -24,7 +25,7 @@ import { resolveTitleModel } from './title-model.service';
 export const activeStreams = new Map<string, AbortController>();
 
 // Pending tool-approval promises: `${streamId}:${toolCallId}` -> resolver
-type ApprovalResolver = (result: { decision: 'allow' | 'deny'; remember: boolean }) => void;
+type ApprovalResolver = (result: { decision: ToolDecision; remember: boolean }) => void;
 const pendingApprovals = new Map<string, ApprovalResolver>();
 
 export function settlePendingApprovals(streamId: string): void {
@@ -116,7 +117,7 @@ function runStreamForChat(
     toolCallId: string,
     _toolName: string,
     _input: unknown,
-  ): Promise<{ decision: 'allow' | 'deny'; remember: boolean }> =>
+  ): Promise<{ decision: ToolDecision; remember: boolean }> =>
     new Promise((resolve) => {
       pendingApprovals.set(`${streamId}:${toolCallId}`, resolve);
     });

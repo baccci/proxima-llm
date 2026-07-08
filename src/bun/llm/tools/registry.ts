@@ -1,19 +1,18 @@
 import type { Tool } from 'ai';
 import type { ToolName } from '../../../shared-contracts/tools/tool-catalog';
+import type { ToolPolicy } from '../../../shared-contracts/tools/tool-policy';
 import { deleteMemoryTool } from './delete-memory-tool';
 import { readMemoryTool } from './read-memory-tool';
 import { readProjectFileTool } from './read-project-file-tool';
 import { sliceTool } from './slice-tool';
 import { writeMemoryTool } from './write-memory-tool';
 
-export type DefaultPolicy = 'allow' | 'ask' | 'deny';
-
 export type ToolFactory = (ctx: { projectId?: string }) => Tool;
 
-export interface ToolRegistryEntry {
+export type ToolRegistryEntry = {
   tool: Tool | ToolFactory;
-  defaultPolicy: DefaultPolicy;
-}
+  defaultPolicy: ToolPolicy;
+};
 
 export const BUILTIN_TOOLS: Record<ToolName, ToolRegistryEntry> = {
   get_capability_detail: {
