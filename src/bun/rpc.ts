@@ -100,7 +100,7 @@ export function createRPC() {
           if (deleted) memorySummaryService.notifyMemoryChanged(deleted.scope, deleted.projectId);
         },
         getMemorySummary: ({ projectId }) => ({
-          summary: memorySummaryService.getMemorySummary(projectId),
+          summary: projectService.getMemorySummary(projectId),
         }),
 
         // Project files

@@ -1,24 +1,19 @@
 import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
-import type {
-  CreateProjectInput,
+import {
+  type CreateProjectInput,
   ProjectDTO,
-  UpdateProjectInput,
+  type UpdateProjectInput,
 } from '../../shared-contracts/schemas/project.schema';
 import { db } from '../db/client';
 import { projects } from '../db/schema';
 
 function rowToDTO(row: typeof projects.$inferSelect): ProjectDTO {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description ?? null,
-    icon: row.icon ?? null,
-    palette: row.palette ?? null,
-    iconColor: row.iconColor ?? null,
-    createdAt: new Date(row.createdAt).toISOString(),
-    updatedAt: new Date(row.updatedAt).toISOString(),
-  };
+  return ProjectDTO.parse({
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  });
 }
 
 export function getProject(id: string): ProjectDTO | undefined {
@@ -32,10 +27,10 @@ export function listProjects(): ProjectDTO[] {
 
 export function createProject(input: CreateProjectInput): ProjectDTO {
   const now = new Date();
-  const id = randomUUID();
-  db.insert(projects)
+  const inserted = db
+    .insert(projects)
     .values({
-      id,
+      id: randomUUID(),
       name: input.name,
       description: input.description ?? null,
       icon: input.icon ?? null,
@@ -44,19 +39,45 @@ export function createProject(input: CreateProjectInput): ProjectDTO {
       createdAt: now,
       updatedAt: now,
     })
-    .run();
-  return rowToDTO(db.select().from(projects).where(eq(projects.id, id)).get()!);
+    .returning()
+    .get();
+
+  if (!inserted) {
+    throw new Error('createProject: insert returned no row');
+  }
+
+  return rowToDTO(inserted);
 }
 
 export function updateProject(id: string, patch: UpdateProjectInput): ProjectDTO {
-  const now = new Date();
-  db.update(projects)
-    .set({ ...patch, updatedAt: now })
+  const updated = db
+    .update(projects)
+    .set({ ...patch, updatedAt: new Date() })
     .where(eq(projects.id, id))
-    .run();
-  return rowToDTO(db.select().from(projects).where(eq(projects.id, id)).get()!);
+    .returning()
+    .get();
+
+  if (!updated) {
+    throw new Error(`updateProject: update returned no row for id ${id}`);
+  }
+
+  return rowToDTO(updated);
 }
 
 export function deleteProject(id: string): void {
   db.delete(projects).where(eq(projects.id, id)).run();
+}
+
+export function getMemorySummary(id: string): string | null {
+  const row = db.select().from(projects).where(eq(projects.id, id)).get();
+  return row?.memorySummary ?? null;
+}
+
+export function getDefaultModelId(id: string): string | null {
+  const row = db.select().from(projects).where(eq(projects.id, id)).get();
+  return row?.defaultModelId ?? null;
+}
+
+export function setMemorySummary(id: string, summary: string | null): void {
+  db.update(projects).set({ memorySummary: summary }).where(eq(projects.id, id)).run();
 }

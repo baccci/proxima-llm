@@ -1,11 +1,9 @@
-import { eq } from 'drizzle-orm';
-import { db } from '../db/client';
-import { projects } from '../db/schema';
 import { generateMemorySummary } from '../llm/memory-summary';
 import { log } from '../logging/logger';
 import * as keychain from '../secrets/keychain';
 import { listSlices } from './memory.service';
 import { listModels } from './model.service';
+import * as projectService from './project.service';
 import { resolveTitleModel } from './title-model.service';
 
 type Scope = 'global' | 'project';
@@ -24,16 +22,10 @@ export function notifyMemoryChanged(scope: Scope, projectId: string | null): voi
   if (scope === 'project' && projectId) void regenerateProjectSummary(projectId);
 }
 
-export function getMemorySummary(projectId: string): string | null {
-  const row = db.select().from(projects).where(eq(projects.id, projectId)).get();
-  return row?.memorySummary ?? null;
-}
-
 function resolveGenArgs(
   projectId: string,
 ): { provider: string; modelId: string; apiKey: string } | null {
-  const projectRow = db.select().from(projects).where(eq(projects.id, projectId)).get();
-  const defaultModelId = projectRow?.defaultModelId;
+  const defaultModelId = projectService.getDefaultModelId(projectId);
 
   const allModels = listModels();
 
@@ -72,7 +64,7 @@ export async function regenerateProjectSummary(projectId: string): Promise<void>
   const slices = listSlices('project', projectId);
 
   if (slices.length === 0) {
-    db.update(projects).set({ memorySummary: null }).where(eq(projects.id, projectId)).run();
+    projectService.setMemorySummary(projectId, null);
     pushMemoryChanged?.('project', projectId);
     return;
   }
@@ -83,7 +75,7 @@ export async function regenerateProjectSummary(projectId: string): Promise<void>
   try {
     const summary = await generateMemorySummary(slices, args.provider, args.apiKey, args.modelId);
     if (genTokens.get(projectId) !== token) return; // superseded by a newer regen
-    db.update(projects).set({ memorySummary: summary }).where(eq(projects.id, projectId)).run();
+    projectService.setMemorySummary(projectId, summary);
     pushMemoryChanged?.('project', projectId);
   } catch (err) {
     log.error('Memory summary generation failed (non-fatal)', err);
