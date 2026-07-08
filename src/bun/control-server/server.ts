@@ -1,11 +1,11 @@
 import type { ServerWebSocket } from 'bun';
-import { log } from '../logging/logger';
-import { pushControlNavigate } from '../rpc';
-import * as keychain from '../secrets/keychain';
-import * as chatService from '../services/chat.service';
-import { startChatStream } from '../services/chat-stream.service';
-import * as modelService from '../services/model.service';
-import * as settingsService from '../services/settings.service';
+import { startChatStream } from '../app/chat-stream.service';
+import { pushControlNavigate } from '../app/rpc';
+import * as keychain from '../core/keychain';
+import { log } from '../core/logging/logger';
+import * as chatService from '../features/chat/chat.repository';
+import * as modelService from '../features/model/model.repository';
+import * as settingsService from '../features/settings/settings.repository';
 import * as auth from './auth';
 
 interface WsData {
@@ -96,7 +96,7 @@ async function resolvePromptRequest(body: PromptBody | null): Promise<ResolveOk 
     });
     chatId = created.id;
   } else if (target === 'active') {
-    const { getActiveChatId } = await import('../rpc');
+    const { getActiveChatId } = await import('../app/rpc');
     const active = getActiveChatId();
     if (!active) return { ok: false, response: err('No active chat', 409) };
     chatId = active;

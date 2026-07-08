@@ -1,10 +1,7 @@
 import { dlopen, FFIType } from 'bun:ffi';
 import { ApplicationMenu, BrowserWindow, Updater } from 'electrobun/bun';
 import { join } from 'path';
-import { startControlServer, stopControlServer } from './control-server/server';
-import { setupSchema } from './db/migrate';
-import { seedModels } from './db/seed';
-import { log } from './logging/logger';
+import { setSendChatsUpdated, setSendToWebview } from './app/chat-stream.service';
 import {
   createRPC,
   pushModelsUpdated,
@@ -12,10 +9,13 @@ import {
   setSendControlNavigate,
   setSendMemoryChanged,
   setSendModelsUpdated,
-} from './rpc';
-import { setSendChatsUpdated, setSendToWebview } from './services/chat-stream.service';
-import { syncOpenRouterModels } from './services/model-sync.service';
-import * as settingsService from './services/settings.service';
+} from './app/rpc';
+import { startControlServer, stopControlServer } from './control-server/server';
+import { setupSchema } from './core/db/migrate';
+import { seedModels } from './core/db/seed';
+import { log } from './core/logging/logger';
+import { syncOpenRouterModels } from './features/model/model-sync.service';
+import * as settingsService from './features/settings/settings.repository';
 
 log.init();
 log.installGlobalHandlers();

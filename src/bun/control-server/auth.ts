@@ -1,8 +1,8 @@
 import { randomBytes } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { db } from '../db/client';
-import { settings } from '../db/schema';
+import { db } from '../core/db/client';
+import { settings } from '../core/db/schema';
 
 const PAIRING_CODE_TTL_MS = 5 * 60 * 1000;
 const TOKENS_KEY = 'control_server_tokens';
