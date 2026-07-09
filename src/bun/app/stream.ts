@@ -202,8 +202,8 @@ function buildGatedTools(
 ): Record<string, Tool> {
   const tools: Record<string, Tool> = {};
 
-  for (const [name, entry] of Object.entries(BUILTIN_TOOLS)) {
-    const resolvedTool = typeof entry.tool === 'function' ? entry.tool({ projectId }) : entry.tool;
+  for (const [name, factory] of Object.entries(BUILTIN_TOOLS)) {
+    const resolvedTool = typeof factory === 'function' ? factory({ projectId }) : factory;
     const originalExecute = resolvedTool.execute;
     tools[name] = {
       ...resolvedTool,

@@ -1,8 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { isAlwaysAllowed, TOOL_CATALOG } from '../../../shared-contracts/tools/tool-catalog';
+import {
+  defaultPolicyFor,
+  isAlwaysAllowed,
+  TOOL_CATALOG,
+} from '../../../shared-contracts/tools/tool-catalog';
 import { ToolPolicy } from '../../../shared-contracts/tools/tool-policy';
-import { BUILTIN_TOOLS, type ToolRegistryEntry } from '../../app/tools/registry';
 import { db } from '../../core/db/client';
 import { settings } from '../../core/db/schema';
 
@@ -35,10 +38,7 @@ export function getPolicy(toolName: string): ToolPolicy {
     return map[toolName];
   }
 
-  return (
-    (BUILTIN_TOOLS as Record<string, ToolRegistryEntry | undefined>)[toolName]?.defaultPolicy ??
-    'ask'
-  );
+  return defaultPolicyFor(toolName);
 }
 
 export function setPolicy(toolName: string, policy: ToolPolicy): void {
