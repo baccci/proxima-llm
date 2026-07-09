@@ -5,7 +5,7 @@ import { startControlServer, stopControlServer } from './control-server/server';
 import { setupSchema } from './core/db/migrate';
 import { seedModels } from './core/db/seed';
 import { log } from './core/logging/logger';
-import { setSendChatsUpdated, setSendToWebview } from './engine/chat-stream.service';
+import { setSendChatsUpdated, setSendToWebview } from './engine/chat-stream/chat-stream.service';
 import { regenerateProjectSummary } from './engine/memory-summary.service';
 import {
   createRPC,

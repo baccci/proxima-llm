@@ -19,8 +19,8 @@ import * as projectService from '../features/project/project.repository';
 import * as projectFileService from '../features/project-file/project-file.repository';
 import * as settingsService from '../features/settings/settings.repository';
 import * as toolPermissionService from '../features/tool-permission/tool-permission.repository';
-import { resolveApproval } from './approval-registry';
-import { cancelStream, retryChatStream, startChatStream } from './chat-stream.service';
+import { resolveApproval } from './chat-stream/approval-registry';
+import { cancelStream, retryChatStream, startChatStream } from './chat-stream/chat-stream.service';
 import * as compactionService from './compaction.service';
 
 type AppRPCTyped = {

@@ -1,32 +1,32 @@
 import { randomUUID } from 'crypto';
-import type { AppRPC, StreamChunk } from '../../shared-contracts/rpc/app-rpc.types';
+import type { AppRPC, StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
 import type {
   MessageDTO,
   RetryMessageInput,
   SendMessageInput,
-} from '../../shared-contracts/schemas/message.schema';
-import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
-import * as keychain from '../core/keychain';
-import { log } from '../core/logging/logger';
-import * as attachmentService from '../features/attachment/attachment.repository';
-import * as chatService from '../features/chat/chat.repository';
-import { getLatestSnapshot } from '../features/compaction/compaction.repository';
-import * as devOverrides from '../features/dev-overrides/dev-overrides.service';
-import * as memoryService from '../features/memory/memory.repository';
-import { getModel } from '../features/model/model.repository';
-import { generateChatTitle } from '../features/model/title';
-import { resolveTitleModel } from '../features/model/title-model.service';
-import * as projectService from '../features/project/project.repository';
-import * as projectFileService from '../features/project-file/project-file.repository';
-import * as settingsService from '../features/settings/settings.repository';
+} from '../../../shared-contracts/schemas/message.schema';
+import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
+import * as keychain from '../../core/keychain';
+import { log } from '../../core/logging/logger';
+import * as attachmentService from '../../features/attachment/attachment.repository';
+import * as chatService from '../../features/chat/chat.repository';
+import { getLatestSnapshot } from '../../features/compaction/compaction.repository';
+import * as devOverrides from '../../features/dev-overrides/dev-overrides.service';
+import * as memoryService from '../../features/memory/memory.repository';
+import { getModel } from '../../features/model/model.repository';
+import { generateChatTitle } from '../../features/model/title';
+import { resolveTitleModel } from '../../features/model/title-model.service';
+import * as projectService from '../../features/project/project.repository';
+import * as projectFileService from '../../features/project-file/project-file.repository';
+import * as settingsService from '../../features/settings/settings.repository';
+import * as compactionService from '../compaction.service';
+import { runStream } from '../stream/run';
 import { awaitApproval, settlePendingApprovals } from './approval-registry';
-import * as compactionService from './compaction.service';
 import {
   DEFAULT_COMPACTION_RATIO,
   estimateContextTokens,
   exceedsCompactionThreshold,
 } from './context-window';
-import { runStream } from './stream/run';
 
 // In-flight streams: streamId -> AbortController
 export const activeStreams = new Map<string, AbortController>();

@@ -1,4 +1,4 @@
-import type { ToolDecision } from '../../shared-contracts/tools/tool-policy';
+import type { ToolDecision } from '../../../shared-contracts/tools/tool-policy';
 
 // Tool-approval promise registry. When the stream engine hits an 'ask' tool it
 // parks on a promise keyed by stream+call; the RPC layer resolves it once the

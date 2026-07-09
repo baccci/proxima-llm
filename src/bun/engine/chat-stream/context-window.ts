@@ -1,5 +1,5 @@
-import type { MessageDTO } from '../../shared-contracts/schemas/message.schema';
-import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
+import type { MessageDTO } from '../../../shared-contracts/schemas/message.schema';
+import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
 
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 export const DEFAULT_COMPACTION_RATIO = 0.8;

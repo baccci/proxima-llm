@@ -1,7 +1,7 @@
 import type { ServerWebSocket } from 'bun';
 import * as keychain from '../core/keychain';
 import { log } from '../core/logging/logger';
-import { startChatStream } from '../engine/chat-stream.service';
+import { startChatStream } from '../engine/chat-stream/chat-stream.service';
 import { pushControlNavigate } from '../engine/rpc';
 import * as chatService from '../features/chat/chat.repository';
 import * as modelService from '../features/model/model.repository';
