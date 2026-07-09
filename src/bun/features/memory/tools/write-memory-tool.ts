@@ -1,7 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import * as memoryService from '../memory.repository';
-import { notifyMemoryChanged } from '../memory-summary.service';
+import { notifyMemoryChanged } from '../memory-notify';
 
 export function writeMemoryTool(ctx: { projectId?: string }) {
   return tool({

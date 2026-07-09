@@ -1,28 +1,12 @@
-import type { ProviderId } from '../../../shared-contracts/providers/registry';
-import type { MemoryScope } from '../../../shared-contracts/schemas/memory-slice.schema';
-import * as keychain from '../../core/keychain';
-import { log } from '../../core/logging/logger';
-import { listModels } from '../model/model.repository';
-import { resolveTitleModel } from '../model/title-model.service';
-import * as projectService from '../project/project.repository';
-import { listSlices } from './memory.repository';
-import { generateMemorySummary } from './memory-summary-llm';
-
-type Scope = MemoryScope;
-
-let pushMemoryChanged: ((scope: Scope, projectId: string | null) => void) | null = null;
-
-export function setMemoryChangedPush(fn: (scope: Scope, projectId: string | null) => void): void {
-  pushMemoryChanged = fn;
-}
-
-// Single entry point for every memory write/delete path (RPC user edits + model
-// tools). Pushes immediately so the slice list refreshes without a restart, then
-// kicks off async summary regen for project scope.
-export function notifyMemoryChanged(scope: Scope, projectId: string | null): void {
-  pushMemoryChanged?.(scope, projectId);
-  if (scope === 'project' && projectId) void regenerateProjectSummary(projectId);
-}
+import type { ProviderId } from '../../shared-contracts/providers/registry';
+import * as keychain from '../core/keychain';
+import { log } from '../core/logging/logger';
+import { listSlices } from '../features/memory/memory.repository';
+import { emitMemoryChanged } from '../features/memory/memory-notify';
+import { generateMemorySummary } from '../features/memory/memory-summary-llm';
+import { listModels } from '../features/model/model.repository';
+import { resolveTitleModel } from '../features/model/title-model.service';
+import * as projectService from '../features/project/project.repository';
 
 function resolveGenArgs(
   projectId: string,
@@ -67,7 +51,7 @@ export async function regenerateProjectSummary(projectId: string): Promise<void>
 
   if (slices.length === 0) {
     projectService.setMemorySummary(projectId, null);
-    pushMemoryChanged?.('project', projectId);
+    emitMemoryChanged('project', projectId);
     return;
   }
 
@@ -78,7 +62,7 @@ export async function regenerateProjectSummary(projectId: string): Promise<void>
     const summary = await generateMemorySummary(slices, args.provider, args.apiKey, args.modelId);
     if (genTokens.get(projectId) !== token) return; // superseded by a newer regen
     projectService.setMemorySummary(projectId, summary);
-    pushMemoryChanged?.('project', projectId);
+    emitMemoryChanged('project', projectId);
   } catch (err) {
     log.error('Memory summary generation failed (non-fatal)', err);
   }

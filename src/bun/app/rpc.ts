@@ -12,7 +12,7 @@ import { getLatestSnapshot } from '../features/compaction/compaction.repository'
 import * as devOverridesService from '../features/dev-overrides/dev-overrides.service';
 import * as logsService from '../features/logs/logs.service';
 import * as memoryService from '../features/memory/memory.repository';
-import * as memorySummaryService from '../features/memory/memory-summary.service';
+import * as memoryNotify from '../features/memory/memory-notify';
 import * as modelService from '../features/model/model.repository';
 import { getLastSyncTimestamp, syncOpenRouterModels } from '../features/model/model-sync.service';
 import * as projectService from '../features/project/project.repository';
@@ -62,7 +62,7 @@ export function pushControlNavigate(msg: AppRPC['webview']['messages']['controlN
 export function setSendMemoryChanged(
   fn: (scope: MemoryScope, projectId: string | null) => void,
 ): void {
-  memorySummaryService.setMemoryChangedPush(fn);
+  memoryNotify.setMemoryChangedPush(fn);
 }
 
 // Lazy import — control server module is only used when it exists.
@@ -96,12 +96,12 @@ export function createRPC() {
         listMemorySlices: ({ scope, projectId }) => memoryService.listSlices(scope, projectId),
         upsertMemorySlice: (input) => {
           const result = memoryService.upsertSlice(input);
-          memorySummaryService.notifyMemoryChanged(input.scope, input.projectId ?? null);
+          memoryNotify.notifyMemoryChanged(input.scope, input.projectId ?? null);
           return result;
         },
         deleteMemorySlice: ({ id }) => {
           const deleted = memoryService.deleteSlice(id);
-          if (deleted) memorySummaryService.notifyMemoryChanged(deleted.scope, deleted.projectId);
+          if (deleted) memoryNotify.notifyMemoryChanged(deleted.scope, deleted.projectId);
         },
         getMemorySummary: ({ projectId }) => ({
           summary: projectService.getMemorySummary(projectId),
