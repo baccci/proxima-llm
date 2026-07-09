@@ -26,7 +26,7 @@ import {
   estimateContextTokens,
   exceedsCompactionThreshold,
 } from './context-window';
-import { runStream } from './stream';
+import { runStream } from './stream/run';
 
 // In-flight streams: streamId -> AbortController
 export const activeStreams = new Map<string, AbortController>();
