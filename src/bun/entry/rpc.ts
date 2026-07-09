@@ -4,8 +4,14 @@ import type { AppRPC } from '../../shared-contracts/rpc/app-rpc.types';
 import type { MemoryScope } from '../../shared-contracts/schemas/memory-slice.schema';
 import { RetryMessageInput, SendMessageInput } from '../../shared-contracts/schemas/message.schema';
 import { TOOL_CATALOG } from '../../shared-contracts/tools/tool-catalog';
-import * as controlAuth from '../control-server/auth';
 import * as keychain from '../core/keychain';
+import { resolveApproval } from '../engine/chat-stream/approval-registry';
+import {
+  cancelStream,
+  retryChatStream,
+  startChatStream,
+} from '../engine/chat-stream/chat-stream.service';
+import * as compactionService from '../engine/compaction.service';
 import * as attachmentService from '../features/attachment/attachment.repository';
 import * as chatService from '../features/chat/chat.repository';
 import { getLatestSnapshot } from '../features/compaction/compaction.repository';
@@ -19,9 +25,7 @@ import * as projectService from '../features/project/project.repository';
 import * as projectFileService from '../features/project-file/project-file.repository';
 import * as settingsService from '../features/settings/settings.repository';
 import * as toolPermissionService from '../features/tool-permission/tool-permission.repository';
-import { resolveApproval } from './chat-stream/approval-registry';
-import { cancelStream, retryChatStream, startChatStream } from './chat-stream/chat-stream.service';
-import * as compactionService from './compaction.service';
+import * as controlAuth from './control-server/auth';
 
 type AppRPCTyped = {
   bun: RPCSchema<AppRPC['bun']>;

@@ -1,12 +1,12 @@
 import { dlopen, FFIType } from 'bun:ffi';
 import { ApplicationMenu, BrowserWindow, Updater } from 'electrobun/bun';
 import { join } from 'path';
-import { startControlServer, stopControlServer } from './control-server/server';
 import { setupSchema } from './core/db/migrate';
 import { seedModels } from './core/db/seed';
 import { log } from './core/logging/logger';
 import { setSendChatsUpdated, setSendToWebview } from './engine/chat-stream/chat-stream.service';
 import { regenerateProjectSummary } from './engine/memory-summary.service';
+import { startControlServer, stopControlServer } from './entry/control-server/server';
 import {
   createRPC,
   pushModelsUpdated,
@@ -14,7 +14,7 @@ import {
   setSendControlNavigate,
   setSendMemoryChanged,
   setSendModelsUpdated,
-} from './engine/rpc';
+} from './entry/rpc';
 import { setMemoryRegenHook } from './features/memory/memory-notify';
 import { syncOpenRouterModels } from './features/model/model-sync.service';
 import * as settingsService from './features/settings/settings.repository';
