@@ -1,8 +1,8 @@
 import type { ServerWebSocket } from 'bun';
-import { startChatStream } from '../app/chat-stream.service';
-import { pushControlNavigate } from '../app/rpc';
 import * as keychain from '../core/keychain';
 import { log } from '../core/logging/logger';
+import { startChatStream } from '../engine/chat-stream.service';
+import { pushControlNavigate } from '../engine/rpc';
 import * as chatService from '../features/chat/chat.repository';
 import * as modelService from '../features/model/model.repository';
 import * as settingsService from '../features/settings/settings.repository';
@@ -96,7 +96,7 @@ async function resolvePromptRequest(body: PromptBody | null): Promise<ResolveOk 
     });
     chatId = created.id;
   } else if (target === 'active') {
-    const { getActiveChatId } = await import('../app/rpc');
+    const { getActiveChatId } = await import('../engine/rpc');
     const active = getActiveChatId();
     if (!active) return { ok: false, response: err('No active chat', 409) };
     chatId = active;

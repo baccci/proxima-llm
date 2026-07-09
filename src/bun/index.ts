@@ -1,8 +1,12 @@
 import { dlopen, FFIType } from 'bun:ffi';
 import { ApplicationMenu, BrowserWindow, Updater } from 'electrobun/bun';
 import { join } from 'path';
-import { setSendChatsUpdated, setSendToWebview } from './app/chat-stream.service';
-import { regenerateProjectSummary } from './app/memory-summary.service';
+import { startControlServer, stopControlServer } from './control-server/server';
+import { setupSchema } from './core/db/migrate';
+import { seedModels } from './core/db/seed';
+import { log } from './core/logging/logger';
+import { setSendChatsUpdated, setSendToWebview } from './engine/chat-stream.service';
+import { regenerateProjectSummary } from './engine/memory-summary.service';
 import {
   createRPC,
   pushModelsUpdated,
@@ -10,11 +14,7 @@ import {
   setSendControlNavigate,
   setSendMemoryChanged,
   setSendModelsUpdated,
-} from './app/rpc';
-import { startControlServer, stopControlServer } from './control-server/server';
-import { setupSchema } from './core/db/migrate';
-import { seedModels } from './core/db/seed';
-import { log } from './core/logging/logger';
+} from './engine/rpc';
 import { setMemoryRegenHook } from './features/memory/memory-notify';
 import { syncOpenRouterModels } from './features/model/model-sync.service';
 import * as settingsService from './features/settings/settings.repository';
@@ -126,7 +126,7 @@ setSendMemoryChanged((scope, projectId) => {
   mainWindow.webview.rpc?.send.memoryChanged({ scope, projectId });
 });
 // Project-summary regen coordinates model + project + llm, so the workflow lives
-// in app/; wire it into the memory feature's change notifier here.
+// in engine/; wire it into the memory feature's change notifier here.
 setMemoryRegenHook(regenerateProjectSummary);
 setSendControlNavigate((msg) => {
   mainWindow.webview.rpc?.send.controlNavigate(msg);

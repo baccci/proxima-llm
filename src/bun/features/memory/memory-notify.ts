@@ -11,7 +11,7 @@ export function setMemoryChangedPush(fn: Push): void {
 }
 
 // App wires the project-summary regen here (it coordinates model + project + llm,
-// so the workflow lives in app/, not this feature).
+// so the workflow lives in engine/, not this feature).
 export function setMemoryRegenHook(fn: RegenHook): void {
   regenProjectSummary = fn;
 }
