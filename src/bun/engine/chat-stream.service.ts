@@ -1,10 +1,11 @@
 import { randomUUID } from 'crypto';
 import type { AppRPC, StreamChunk } from '../../shared-contracts/rpc/app-rpc.types';
 import type {
+  MessageDTO,
   RetryMessageInput,
   SendMessageInput,
 } from '../../shared-contracts/schemas/message.schema';
-import type { ToolDecision } from '../../shared-contracts/tools/tool-policy';
+import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
 import * as keychain from '../core/keychain';
 import { log } from '../core/logging/logger';
 import * as attachmentService from '../features/attachment/attachment.repository';
@@ -18,25 +19,17 @@ import { resolveTitleModel } from '../features/model/title-model.service';
 import * as projectService from '../features/project/project.repository';
 import * as projectFileService from '../features/project-file/project-file.repository';
 import * as settingsService from '../features/settings/settings.repository';
+import { awaitApproval, settlePendingApprovals } from './approval-registry';
 import * as compactionService from './compaction.service';
+import {
+  DEFAULT_COMPACTION_RATIO,
+  estimateContextTokens,
+  exceedsCompactionThreshold,
+} from './context-window';
 import { runStream } from './stream';
 
 // In-flight streams: streamId -> AbortController
 export const activeStreams = new Map<string, AbortController>();
-
-// Pending tool-approval promises: `${streamId}:${toolCallId}` -> resolver
-type ApprovalResolver = (result: { decision: ToolDecision; remember: boolean }) => void;
-const pendingApprovals = new Map<string, ApprovalResolver>();
-
-export function settlePendingApprovals(streamId: string): void {
-  const prefix = `${streamId}:`;
-  for (const [key, resolve] of pendingApprovals) {
-    if (key.startsWith(prefix)) {
-      pendingApprovals.delete(key);
-      resolve({ decision: 'deny', remember: false });
-    }
-  }
-}
 
 let sendToWebview: ((chunk: AppRPC['webview']['messages']['streamChunk']) => void) | null = null;
 let sendChatsUpdated: (() => void) | null = null;
@@ -81,6 +74,69 @@ interface RunStreamForChatParams {
   originalContent?: string;
 }
 
+// Compact the chat's context in place when the estimate crosses the model's
+// threshold. Non-fatal: a failed compaction just proceeds with full history.
+async function maybeCompact(args: {
+  chatId: string;
+  model: ModelDTO;
+  apiKey: string;
+  history: MessageDTO[];
+  requestTimeoutMs: number;
+  signal: AbortSignal;
+  emitChunk: (chunk: StreamChunk) => void;
+}): Promise<void> {
+  const tokens =
+    devOverrides.getOverride<number>('forcedContextTokens') ?? estimateContextTokens(args.history);
+  const ratio = devOverrides.getOverride<number>('compactionRatio') ?? DEFAULT_COMPACTION_RATIO;
+  if (!exceedsCompactionThreshold(tokens, args.model, ratio)) {
+    return;
+  }
+
+  args.emitChunk({ kind: 'compacting', active: true });
+  try {
+    await compactionService.compact(args.chatId, args.model, args.apiKey, {
+      signal: args.signal,
+      timeoutMs: args.requestTimeoutMs,
+    });
+  } catch (err) {
+    log.error('Context compaction failed (non-fatal)', err);
+  } finally {
+    args.emitChunk({ kind: 'compacting', active: false });
+  }
+}
+
+// Auto-name a fresh chat after its first exchange (one user + one assistant turn,
+// still titled "New Chat"). Routes to the chat's own provider, reusing the key
+// already loaded for the stream; the title model self-heals dead ids.
+async function maybeAutoTitle(args: {
+  chatId: string;
+  model: ModelDTO;
+  apiKey: string;
+  originalContent?: string;
+}): Promise<void> {
+  const history = chatService.listMessages(args.chatId);
+  const chat = chatService.getChat(args.chatId);
+  if (history.length !== 2 || chat?.title !== 'New Chat' || !args.originalContent) {
+    return;
+  }
+
+  const titleModelId = resolveTitleModel(args.model.provider);
+  if (!titleModelId) {
+    return;
+  }
+
+  const title = await generateChatTitle(
+    args.originalContent,
+    args.model.provider,
+    args.apiKey,
+    titleModelId,
+  );
+  if (title) {
+    chatService.updateChat(args.chatId, { title });
+    pushChatsUpdated();
+  }
+}
+
 function runStreamForChat(
   params: RunStreamForChatParams,
   streamId: string,
@@ -117,14 +173,8 @@ function runStreamForChat(
     ? projectFileService.listProjectFiles(project.id).map((f) => f.name)
     : [];
 
-  const awaitApproval = (
-    toolCallId: string,
-    _toolName: string,
-    _input: unknown,
-  ): Promise<{ decision: ToolDecision; remember: boolean }> =>
-    new Promise((resolve) => {
-      pendingApprovals.set(`${streamId}:${toolCallId}`, resolve);
-    });
+  const gateApproval = (toolCallId: string, _toolName: string, _input: unknown) =>
+    awaitApproval(streamId, toolCallId);
 
   const meta: LifecycleMeta = { streamId, chatId, assistantMessageId: assistantMsgId };
   let startedEmitted = false;
@@ -132,39 +182,18 @@ function runStreamForChat(
   (async () => {
     try {
       const currentSettings = settingsService.getSettings();
-
       const history = chatService.listMessages(chatId);
-      const lastAssistant = [...history]
-        .reverse()
-        .find((m) => m.role === 'assistant' && m.usage != null);
-      const currentContextTokens =
-        devOverrides.getOverride<number>('forcedContextTokens') ??
-        lastAssistant?.usage?.inputTokens ??
-        Math.ceil(
-          history.reduce((acc, m) => {
-            for (const p of m.parts) {
-              if (p.type === 'text') {
-                acc += p.text.length;
-              }
-            }
-            return acc;
-          }, 0) / 4,
-        );
-      const contextWindow = model.capabilities.contextWindow ?? 200_000;
-      const compactionRatio = devOverrides.getOverride<number>('compactionRatio') ?? 0.8;
-      if (currentContextTokens > contextWindow * compactionRatio) {
-        emitChunk({ kind: 'compacting', active: true });
-        try {
-          await compactionService.compact(chatId, model, apiKey, {
-            signal: controller.signal,
-            timeoutMs: currentSettings.requestTimeoutMs,
-          });
-        } catch (err) {
-          log.error('Context compaction failed (non-fatal)', err);
-        } finally {
-          emitChunk({ kind: 'compacting', active: false });
-        }
-      }
+
+      await maybeCompact({
+        chatId,
+        model,
+        apiKey,
+        history,
+        requestTimeoutMs: currentSettings.requestTimeoutMs,
+        signal: controller.signal,
+        emitChunk,
+      });
+
       const snapshot = getLatestSnapshot(chatId);
 
       const { parts, usage, stopReason } = await runStream({
@@ -194,7 +223,7 @@ function runStreamForChat(
             opts?.onLifecycle?.('started', meta);
           }
         },
-        awaitApproval,
+        awaitApproval: gateApproval,
         maxRetries: currentSettings.maxRetries,
         requestTimeoutMs: currentSettings.requestTimeoutMs,
         resolveAttachment: (id) => {
@@ -213,26 +242,7 @@ function runStreamForChat(
       emitChunk({ kind: 'done', message: saved });
 
       try {
-        const history = chatService.listMessages(chatId);
-        const chat = chatService.getChat(chatId);
-        if (history.length === 2 && chat?.title === 'New Chat' && originalContent) {
-          // Title generation routes to the chat's own provider, reusing the key
-          // already loaded for the stream. The model is resolved per-provider
-          // (cheapest enabled, or the user's pinned pick) and self-heals dead ids.
-          const titleModelId = resolveTitleModel(model.provider);
-          if (titleModelId) {
-            const title = await generateChatTitle(
-              originalContent,
-              model.provider,
-              apiKey,
-              titleModelId,
-            );
-            if (title) {
-              chatService.updateChat(chatId, { title });
-              pushChatsUpdated();
-            }
-          }
-        }
+        await maybeAutoTitle({ chatId, model, apiKey, originalContent });
       } catch (err) {
         log.error('Title generation failed (non-fatal)', err);
       }
@@ -320,18 +330,4 @@ export function cancelStream(streamId: string): void {
   settlePendingApprovals(streamId);
   activeStreams.get(streamId)?.abort(new DOMException('user-cancel', 'AbortError'));
   activeStreams.delete(streamId);
-}
-
-export function resolveToolApproval(
-  streamId: string,
-  toolCallId: string,
-  decision: 'allow' | 'deny',
-  remember: boolean,
-): void {
-  const key = `${streamId}:${toolCallId}`;
-  const resolve = pendingApprovals.get(key);
-  if (resolve) {
-    pendingApprovals.delete(key);
-    resolve({ decision, remember });
-  }
 }

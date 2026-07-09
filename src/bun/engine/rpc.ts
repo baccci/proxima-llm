@@ -19,12 +19,8 @@ import * as projectService from '../features/project/project.repository';
 import * as projectFileService from '../features/project-file/project-file.repository';
 import * as settingsService from '../features/settings/settings.repository';
 import * as toolPermissionService from '../features/tool-permission/tool-permission.repository';
-import {
-  cancelStream,
-  resolveToolApproval,
-  retryChatStream,
-  startChatStream,
-} from './chat-stream.service';
+import { resolveApproval } from './approval-registry';
+import { cancelStream, retryChatStream, startChatStream } from './chat-stream.service';
 import * as compactionService from './compaction.service';
 
 type AppRPCTyped = {
@@ -162,7 +158,7 @@ export function createRPC() {
         },
 
         resolveToolApproval: ({ streamId, toolCallId, decision, remember }) => {
-          resolveToolApproval(streamId, toolCallId, decision, remember);
+          resolveApproval(streamId, toolCallId, decision, remember);
         },
 
         setActiveChat: ({ chatId }) => {
