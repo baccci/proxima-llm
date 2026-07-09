@@ -1,10 +1,10 @@
 import { generateText } from 'ai';
 import type { MessageDTO } from '../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
-import { getAdapter } from '../core/llm/providers/index';
 import * as chatService from '../features/chat/chat.repository';
 import { getLatestSnapshot, saveSnapshot } from '../features/compaction/compaction.repository';
 import { resolveTitleModel } from '../features/model/title-model.service';
+import { getAdapter } from '../infra/llm/providers/index';
 
 const KEEP_RECENT = 15;
 // A manual "compact now" (ring click) is an explicit free-context action, so it

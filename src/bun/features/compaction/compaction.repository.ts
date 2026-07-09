@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { desc, eq } from 'drizzle-orm';
-import { db } from '../../core/db/client';
-import { compactionSnapshots } from '../../core/db/schema';
+import { db } from '../../infra/db/client';
+import { compactionSnapshots } from '../../infra/db/schema';
 
 export type CompactionSnapshot = {
   // Boundary the model summarizes through — messages newer than this are sent in full.

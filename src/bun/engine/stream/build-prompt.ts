@@ -2,8 +2,8 @@ import type { ModelMessage } from 'ai';
 import type { MessageDTO } from '../../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
 import type { ProjectDTO } from '../../../shared-contracts/schemas/project.schema';
-import { buildBaseSystemPrompt, MEMORY_GUIDANCE } from '../../core/llm/system-prompt';
 import type { CompactionSnapshot } from '../../features/compaction/compaction.repository';
+import { buildBaseSystemPrompt, MEMORY_GUIDANCE } from '../../infra/llm/system-prompt';
 
 export type ResolveAttachment = (
   id: string,

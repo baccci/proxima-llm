@@ -4,8 +4,8 @@ import { Utils } from 'electrobun/bun';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
 import { ProjectFileDTO } from '../../../shared-contracts/schemas/project-file.schema';
-import { db } from '../../core/db/client';
-import { projectFiles } from '../../core/db/schema';
+import { db } from '../../infra/db/client';
+import { projectFiles } from '../../infra/db/schema';
 
 const MAX_BYTE_SIZE = 20 * 1024 * 1024;
 

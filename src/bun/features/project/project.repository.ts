@@ -5,8 +5,8 @@ import {
   ProjectDTO,
   type UpdateProjectInput,
 } from '../../../shared-contracts/schemas/project.schema';
-import { db } from '../../core/db/client';
-import { projects } from '../../core/db/schema';
+import { db } from '../../infra/db/client';
+import { projects } from '../../infra/db/schema';
 
 function rowToDTO(row: typeof projects.$inferSelect): ProjectDTO {
   return ProjectDTO.parse({

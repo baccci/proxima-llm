@@ -6,8 +6,8 @@ import {
   TOOL_CATALOG,
 } from '../../../shared-contracts/tools/tool-catalog';
 import { ToolPolicy } from '../../../shared-contracts/tools/tool-policy';
-import { db } from '../../core/db/client';
-import { settings } from '../../core/db/schema';
+import { db } from '../../infra/db/client';
+import { settings } from '../../infra/db/schema';
 
 // This module owns the tool_policies slice of the shared settings table.
 const KEY = 'tool_policies';

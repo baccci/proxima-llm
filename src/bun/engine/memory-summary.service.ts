@@ -1,12 +1,12 @@
 import type { ProviderId } from '../../shared-contracts/providers/registry';
-import * as keychain from '../core/keychain';
-import { log } from '../core/logging/logger';
 import { listSlices } from '../features/memory/memory.repository';
 import { emitMemoryChanged } from '../features/memory/memory-notify';
 import { generateMemorySummary } from '../features/memory/memory-summary-llm';
 import { listModels } from '../features/model/model.repository';
 import { resolveTitleModel } from '../features/model/title-model.service';
 import * as projectService from '../features/project/project.repository';
+import * as keychain from '../infra/keychain';
+import { log } from '../infra/logging/logger';
 
 function resolveGenArgs(
   projectId: string,

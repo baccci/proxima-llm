@@ -1,7 +1,7 @@
 import { Utils } from 'electrobun/bun';
 import { readdirSync, statSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import { log } from '../../core/logging/logger';
+import { log } from '../../infra/logging/logger';
 
 export function getLogInfo(): { dir: string; sizeBytes: number; fileCount: number } {
   const dir = log.dir();

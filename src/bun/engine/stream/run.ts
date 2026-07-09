@@ -10,8 +10,8 @@ import type {
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
 import type { ProjectDTO } from '../../../shared-contracts/schemas/project.schema';
 import type { ToolDecision } from '../../../shared-contracts/tools/tool-policy';
-import { buildModel, getAdapter } from '../../core/llm/providers/index';
 import type { CompactionSnapshot } from '../../features/compaction/compaction.repository';
+import { buildModel, getAdapter } from '../../infra/llm/providers/index';
 import { buildSystem, type ResolveAttachment, toCoreMessages } from './build-prompt';
 import { type ApprovalResult, buildGatedTools } from './gate-tools';
 

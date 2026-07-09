@@ -7,8 +7,8 @@ import {
   AttachmentDTO,
   type AttachmentKind,
 } from '../../../shared-contracts/schemas/attachment.schema';
-import { db } from '../../core/db/client';
-import { attachments } from '../../core/db/schema';
+import { db } from '../../infra/db/client';
+import { attachments } from '../../infra/db/schema';
 
 const MAX_BYTE_SIZE = 20 * 1024 * 1024;
 

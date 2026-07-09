@@ -6,8 +6,8 @@ import {
   type MemorySource,
   type UpsertMemorySliceInput,
 } from '../../../shared-contracts/schemas/memory-slice.schema';
-import { db } from '../../core/db/client';
-import { memorySlices } from '../../core/db/schema';
+import { db } from '../../infra/db/client';
+import { memorySlices } from '../../infra/db/schema';
 
 function projectIdCond(projectId: string | null | undefined): SQL {
   return projectId != null ? eq(memorySlices.projectId, projectId) : isNull(memorySlices.projectId);

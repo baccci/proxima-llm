@@ -1,5 +1,5 @@
 import { generateText } from 'ai';
-import { getAdapter } from '../../core/llm/providers/index';
+import { getAdapter } from '../../infra/llm/providers/index';
 
 const MAX_SUMMARY_LENGTH = 400;
 

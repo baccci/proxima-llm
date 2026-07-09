@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { ProviderId } from '../../../shared-contracts/providers/registry';
 import type { ModelCapabilities } from '../../../shared-contracts/schemas/model.schema';
-import { ModelSource } from '../../core/db/model-source';
-import { log } from '../../core/logging/logger';
+import { ModelSource } from '../../infra/db/model-source';
+import { log } from '../../infra/logging/logger';
 import {
   getSyncState,
   hasStalePricing,

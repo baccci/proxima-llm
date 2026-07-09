@@ -6,8 +6,6 @@ import type {
   SendMessageInput,
 } from '../../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
-import * as keychain from '../../core/keychain';
-import { log } from '../../core/logging/logger';
 import * as attachmentService from '../../features/attachment/attachment.repository';
 import * as chatService from '../../features/chat/chat.repository';
 import { getLatestSnapshot } from '../../features/compaction/compaction.repository';
@@ -19,6 +17,8 @@ import { resolveTitleModel } from '../../features/model/title-model.service';
 import * as projectService from '../../features/project/project.repository';
 import * as projectFileService from '../../features/project-file/project-file.repository';
 import * as settingsService from '../../features/settings/settings.repository';
+import * as keychain from '../../infra/keychain';
+import { log } from '../../infra/logging/logger';
 import * as compactionService from '../compaction.service';
 import { runStream } from '../stream/run';
 import { awaitApproval, settlePendingApprovals } from './approval-registry';

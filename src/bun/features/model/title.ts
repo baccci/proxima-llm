@@ -1,6 +1,6 @@
 import { generateText } from 'ai';
 import type { ProviderId } from '../../../shared-contracts/providers/registry';
-import { getAdapter } from '../../core/llm/providers/index';
+import { getAdapter } from '../../infra/llm/providers/index';
 
 const MAX_TITLE_LENGTH = 60;
 const TITLE_PROMPT = (msg: string) =>

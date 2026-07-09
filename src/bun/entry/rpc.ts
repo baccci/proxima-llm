@@ -4,7 +4,6 @@ import type { AppRPC } from '../../shared-contracts/rpc/app-rpc.types';
 import type { MemoryScope } from '../../shared-contracts/schemas/memory-slice.schema';
 import { RetryMessageInput, SendMessageInput } from '../../shared-contracts/schemas/message.schema';
 import { TOOL_CATALOG } from '../../shared-contracts/tools/tool-catalog';
-import * as keychain from '../core/keychain';
 import { resolveApproval } from '../engine/chat-stream/approval-registry';
 import {
   cancelStream,
@@ -25,6 +24,7 @@ import * as projectService from '../features/project/project.repository';
 import * as projectFileService from '../features/project-file/project-file.repository';
 import * as settingsService from '../features/settings/settings.repository';
 import * as toolPermissionService from '../features/tool-permission/tool-permission.repository';
+import * as keychain from '../infra/keychain';
 import * as controlAuth from './control-server/auth';
 
 type AppRPCTyped = {

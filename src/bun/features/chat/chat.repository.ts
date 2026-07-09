@@ -11,8 +11,8 @@ import {
   type MessagePart,
   type StopReason,
 } from '../../../shared-contracts/schemas/message.schema';
-import { db } from '../../core/db/client';
-import { chats, messages } from '../../core/db/schema';
+import { db } from '../../infra/db/client';
+import { chats, messages } from '../../infra/db/schema';
 import * as attachmentService from '../attachment/attachment.repository';
 
 function chatRowToDTO(row: typeof chats.$inferSelect): ChatDTO {

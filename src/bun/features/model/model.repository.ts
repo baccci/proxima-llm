@@ -1,9 +1,9 @@
 import { and, count, eq, isNull, notInArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { type ModelDefinition, ModelDTO } from '../../../shared-contracts/schemas/model.schema';
-import { db } from '../../core/db/client';
-import { ModelSource } from '../../core/db/model-source';
-import { models, settings } from '../../core/db/schema';
+import { db } from '../../infra/db/client';
+import { ModelSource } from '../../infra/db/model-source';
+import { models, settings } from '../../infra/db/schema';
 
 // The model aggregate's data layer: the only place that queries the models table
 // (and its openrouter_sync marker) and parses rows into DTOs. model-sync orchestrates

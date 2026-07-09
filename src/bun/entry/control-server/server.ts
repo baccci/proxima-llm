@@ -1,10 +1,10 @@
 import type { ServerWebSocket } from 'bun';
-import * as keychain from '../../core/keychain';
-import { log } from '../../core/logging/logger';
 import { startChatStream } from '../../engine/chat-stream/chat-stream.service';
 import * as chatService from '../../features/chat/chat.repository';
 import * as modelService from '../../features/model/model.repository';
 import * as settingsService from '../../features/settings/settings.repository';
+import * as keychain from '../../infra/keychain';
+import { log } from '../../infra/logging/logger';
 import { pushControlNavigate } from '../rpc';
 import * as auth from './auth';
 

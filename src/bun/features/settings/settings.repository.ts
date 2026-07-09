@@ -4,8 +4,8 @@ import {
   SettingsDTO,
   type UpdateSettingsInput,
 } from '../../../shared-contracts/schemas/settings.schema';
-import { db } from '../../core/db/client';
-import { settings } from '../../core/db/schema';
+import { db } from '../../infra/db/client';
+import { settings } from '../../infra/db/schema';
 
 export function getSettings(): SettingsDTO {
   const row = db.select().from(settings).where(eq(settings.key, 'app')).get();
