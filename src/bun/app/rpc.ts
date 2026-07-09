@@ -8,7 +8,7 @@ import * as controlAuth from '../control-server/auth';
 import * as keychain from '../core/keychain';
 import * as attachmentService from '../features/attachment/attachment.repository';
 import * as chatService from '../features/chat/chat.repository';
-import * as compactionService from '../features/compaction/compaction.service';
+import { getLatestSnapshot } from '../features/compaction/compaction.repository';
 import * as devOverridesService from '../features/dev-overrides/dev-overrides.service';
 import * as logsService from '../features/logs/logs.service';
 import * as memoryService from '../features/memory/memory.repository';
@@ -25,6 +25,7 @@ import {
   retryChatStream,
   startChatStream,
 } from './chat-stream.service';
+import * as compactionService from './compaction.service';
 
 type AppRPCTyped = {
   bun: RPCSchema<AppRPC['bun']>;
@@ -126,7 +127,7 @@ export function createRPC() {
         // Messages
         listMessages: ({ chatId }) => chatService.listMessages(chatId),
         getCompactionInfo: ({ chatId }) => {
-          const snapshot = compactionService.getLatestSnapshot(chatId);
+          const snapshot = getLatestSnapshot(chatId);
           return snapshot
             ? {
                 coveredThroughAt: snapshot.coveredThroughAt,

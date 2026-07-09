@@ -1,13 +1,10 @@
 import { generateText } from 'ai';
-import { randomUUID } from 'crypto';
-import { desc, eq } from 'drizzle-orm';
-import type { MessageDTO } from '../../../shared-contracts/schemas/message.schema';
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
-import { db } from '../../core/db/client';
-import { compactionSnapshots } from '../../core/db/schema';
-import { getAdapter } from '../../core/llm/providers/index';
-import * as chatService from '../chat/chat.repository';
-import { resolveTitleModel } from '../model/title-model.service';
+import type { MessageDTO } from '../../shared-contracts/schemas/message.schema';
+import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
+import { getAdapter } from '../core/llm/providers/index';
+import * as chatService from '../features/chat/chat.repository';
+import { getLatestSnapshot, saveSnapshot } from '../features/compaction/compaction.repository';
+import { resolveTitleModel } from '../features/model/title-model.service';
 
 const KEEP_RECENT = 15;
 // A manual "compact now" (ring click) is an explicit free-context action, so it
@@ -41,35 +38,6 @@ function buildCompactionPrompt(
     'Write a dense summary of this conversation (incorporating any prior summary). Preserve all key decisions, facts, and context. Be thorough but concise.',
   );
   return lines.join('\n');
-}
-
-export type CompactionSnapshot = {
-  // Boundary the model summarizes through — messages newer than this are sent in full.
-  coveredThroughAt: string;
-  // Chat tail at compaction time — where the UI divider renders (bottom). Falls back
-  // to coveredThroughAt for pre-existing rows that predate the column.
-  displayThroughAt: string;
-  summaryText: string;
-};
-
-export function getLatestSnapshot(chatId: string): CompactionSnapshot | undefined {
-  const row = db
-    .select()
-    .from(compactionSnapshots)
-    .where(eq(compactionSnapshots.chatId, chatId))
-    .orderBy(desc(compactionSnapshots.createdAt))
-    .limit(1)
-    .get();
-  if (!row) {
-    return undefined;
-  }
-
-  const coveredThroughAt = row.coveredThroughAt.toISOString();
-  return {
-    coveredThroughAt,
-    displayThroughAt: row.displayThroughAt ? row.displayThroughAt.toISOString() : coveredThroughAt,
-    summaryText: row.summaryText,
-  };
 }
 
 export type CompactOptions = {
@@ -131,18 +99,13 @@ export async function compact(
     return { status: 'noop', reason: 'empty-summary' };
   }
 
-  db.insert(compactionSnapshots)
-    .values({
-      id: randomUUID(),
-      chatId,
-      createdAt: new Date(),
-      coveredThroughAt: new Date(boundary.createdAt),
-      coveredThroughMessageId: boundary.id,
-      displayThroughAt: new Date(displayBoundary.createdAt),
-      summaryText,
-      tokensSaved: null,
-    })
-    .run();
+  saveSnapshot({
+    chatId,
+    coveredThroughAt: new Date(boundary.createdAt),
+    coveredThroughMessageId: boundary.id,
+    displayThroughAt: new Date(displayBoundary.createdAt),
+    summaryText,
+  });
 
   return { status: 'ok', summarized: toSummarize.length };
 }

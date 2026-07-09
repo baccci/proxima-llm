@@ -9,7 +9,7 @@ import * as keychain from '../core/keychain';
 import { log } from '../core/logging/logger';
 import * as attachmentService from '../features/attachment/attachment.repository';
 import * as chatService from '../features/chat/chat.repository';
-import * as compactionService from '../features/compaction/compaction.service';
+import { getLatestSnapshot } from '../features/compaction/compaction.repository';
 import * as devOverrides from '../features/dev-overrides/dev-overrides.service';
 import * as memoryService from '../features/memory/memory.repository';
 import { getModel } from '../features/model/model.repository';
@@ -18,6 +18,7 @@ import { resolveTitleModel } from '../features/model/title-model.service';
 import * as projectService from '../features/project/project.repository';
 import * as projectFileService from '../features/project-file/project-file.repository';
 import * as settingsService from '../features/settings/settings.repository';
+import * as compactionService from './compaction.service';
 import { runStream } from './stream';
 
 // In-flight streams: streamId -> AbortController
@@ -164,7 +165,7 @@ function runStreamForChat(
           emitChunk({ kind: 'compacting', active: false });
         }
       }
-      const snapshot = compactionService.getLatestSnapshot(chatId);
+      const snapshot = getLatestSnapshot(chatId);
 
       const { parts, usage, stopReason } = await runStream({
         model,

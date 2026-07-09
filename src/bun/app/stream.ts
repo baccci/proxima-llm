@@ -14,7 +14,7 @@ import { isAlwaysAllowed } from '../../shared-contracts/tools/tool-catalog';
 import type { ToolDecision } from '../../shared-contracts/tools/tool-policy';
 import { buildModel, getAdapter } from '../core/llm/providers/index';
 import { buildBaseSystemPrompt, MEMORY_GUIDANCE } from '../core/llm/system-prompt';
-import type { CompactionSnapshot } from '../features/compaction/compaction.service';
+import type { CompactionSnapshot } from '../features/compaction/compaction.repository';
 import { getPolicy } from '../features/tool-permission/tool-permission.repository';
 import { BUILTIN_TOOLS } from './tools/registry';
 
