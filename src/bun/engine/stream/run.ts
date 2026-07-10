@@ -14,6 +14,11 @@ import type { CompactionSnapshot } from '../../features/compaction/compaction.re
 import { buildModel, getAdapter } from '../../infra/llm/providers/index';
 import { buildSystem, type ResolveAttachment, toCoreMessages } from './build-prompt';
 import { type ApprovalResult, buildGatedTools } from './gate-tools';
+import { createStreamAccumulator } from './stream-accumulator';
+import { classifyAbort, extractUsage, IDLE_TIMEOUT_ERROR_NAME } from './stream-result';
+
+// Max agentic steps before the run stops on its own (tool-call round trips).
+const MAX_STEPS = 5;
 
 type StreamOptions = {
   model: ModelDTO;
@@ -76,7 +81,7 @@ export async function runStream(opts: StreamOptions): Promise<{
   const resetIdle = () => {
     clearTimeout(idleTimer);
     idleTimer = setTimeout(
-      () => idleController.abort(new DOMException('idle-timeout', 'TimeoutError')),
+      () => idleController.abort(new DOMException('idle-timeout', IDLE_TIMEOUT_ERROR_NAME)),
       opts.requestTimeoutMs,
     );
   };
@@ -94,59 +99,55 @@ export async function runStream(opts: StreamOptions): Promise<{
     system,
     messages: toCoreMessages(opts.history, opts.resolveAttachment, opts.snapshot),
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(MAX_STEPS),
     abortSignal,
     maxRetries: opts.maxRetries,
     ...(providerOptions ? { providerOptions } : {}),
   });
 
-  const parts: MessagePart[] = [];
-  let streamError: Error | null = null;
+  const acc = createStreamAccumulator();
   let stopReason: StopReason | undefined;
-  let reasoningStart: number | null = null;
-  let reasoningEnd: number | null = null;
 
   try {
     for await (const delta of result.fullStream) {
       resetIdle();
-      if (delta.type === 'text-delta') {
-        if (reasoningStart !== null && reasoningEnd === null) {
-          reasoningEnd = Date.now();
-        }
-        opts.onChunk({ kind: 'text-delta', delta: delta.text });
-        const last = parts[parts.length - 1];
-        if (last?.type === 'text') last.text += delta.text;
-        else parts.push({ type: 'text', text: delta.text });
-      } else if (delta.type === 'reasoning-delta') {
-        if (reasoningStart === null) {
-          reasoningStart = Date.now();
-        }
-        opts.onChunk({ kind: 'reasoning-delta', delta: delta.text });
-        const last = parts[parts.length - 1];
-        if (last?.type === 'reasoning') last.text += delta.text;
-        else parts.push({ type: 'reasoning', text: delta.text });
-      } else if (delta.type === 'source' && delta.sourceType === 'url') {
-        opts.onChunk({ kind: 'source', url: delta.url, title: delta.title });
-        parts.push({ type: 'source', url: delta.url, title: delta.title });
-      } else if (delta.type === 'tool-call') {
-        const { toolCallId, toolName, input } = delta;
-        opts.onChunk({ kind: 'tool-call', toolCallId, toolName: String(toolName), input });
-        parts.push({ type: 'tool-call', toolCallId, toolName: String(toolName), input });
-      } else if (delta.type === 'tool-result') {
-        const { toolCallId, toolName, output } = delta;
-        opts.onChunk({ kind: 'tool-result', toolCallId, output });
-        parts.push({ type: 'tool-result', toolCallId, toolName: String(toolName), output });
-      } else if (delta.type === 'error') {
-        streamError = delta.error instanceof Error ? delta.error : new Error(String(delta.error));
+
+      switch (delta.type) {
+        case 'text-delta':
+          opts.onChunk({ kind: 'text-delta', delta: delta.text });
+          acc.addText(delta.text);
+          break;
+        case 'reasoning-delta':
+          opts.onChunk({ kind: 'reasoning-delta', delta: delta.text });
+          acc.addReasoning(delta.text);
+          break;
+        case 'source':
+          if (delta.sourceType === 'url') {
+            opts.onChunk({ kind: 'source', url: delta.url, title: delta.title });
+            acc.addSource(delta.url, delta.title);
+          }
+          break;
+        case 'tool-call':
+          opts.onChunk({
+            kind: 'tool-call',
+            toolCallId: delta.toolCallId,
+            toolName: String(delta.toolName),
+            input: delta.input,
+          });
+          acc.addToolCall(delta.toolCallId, String(delta.toolName), delta.input);
+          break;
+        case 'tool-result':
+          opts.onChunk({ kind: 'tool-result', toolCallId: delta.toolCallId, output: delta.output });
+          acc.addToolResult(delta.toolCallId, String(delta.toolName), delta.output);
+          break;
+        case 'error':
+          acc.setError(delta.error instanceof Error ? delta.error : new Error(String(delta.error)));
+          break;
       }
     }
   } catch (err) {
     if (abortSignal.aborted) {
-      const reason = abortSignal.reason;
-      stopReason =
-        reason instanceof DOMException && reason.name === 'TimeoutError'
-          ? 'idle-timeout'
-          : 'user-cancel';
+      stopReason = classifyAbort(abortSignal);
     } else {
       clearTimeout(idleTimer);
       throw err;
@@ -155,55 +156,25 @@ export async function runStream(opts: StreamOptions): Promise<{
     clearTimeout(idleTimer);
   }
 
-  if (reasoningStart !== null) {
-    if (reasoningEnd === null) reasoningEnd = Date.now();
-    const reasoningPart = parts.find(
-      (p): p is Extract<MessagePart, { type: 'reasoning' }> => p.type === 'reasoning',
-    );
-    if (reasoningPart) reasoningPart.durationMs = reasoningEnd - reasoningStart;
-  }
+  const { parts, error: streamError } = acc.finish();
 
-  // An abort can surface as a thrown error (caught above) OR as a delta.type === 'error'
-  // event that ends the loop normally. Classify from the signal so neither path leaks as a
-  // genuine error.
+  // A clean-loop abort (an error delta, nothing thrown) leaves stopReason unset.
+  // Recover it from the signal so that path doesn't surface as a real error.
   if (!stopReason && abortSignal.aborted) {
-    const reason = abortSignal.reason;
-    stopReason =
-      reason instanceof DOMException && reason.name === 'TimeoutError'
-        ? 'idle-timeout'
-        : 'user-cancel';
+    stopReason = classifyAbort(abortSignal);
   }
 
   if (stopReason) {
     return { parts, usage: null, stopReason };
   }
 
-  if (streamError) throw streamError;
+  if (streamError) {
+    throw streamError;
+  }
 
   const rawUsage = await result.usage;
   const meta = await result.providerMetadata;
-  const anthropicMeta = meta?.anthropic;
-
-  const anthropicCacheRead =
-    typeof anthropicMeta?.cacheReadInputTokens === 'number'
-      ? anthropicMeta.cacheReadInputTokens
-      : undefined;
-  const orCachedTokens = (
-    meta?.openrouter as { promptTokensDetails?: { cachedTokens?: number } } | undefined
-  )?.promptTokensDetails?.cachedTokens;
-  const openrouterCacheRead = typeof orCachedTokens === 'number' ? orCachedTokens : undefined;
-
-  const usage: TokenUsage | null = rawUsage
-    ? {
-        inputTokens: rawUsage.inputTokens ?? 0,
-        outputTokens: rawUsage.outputTokens ?? 0,
-        cacheWriteTokens:
-          typeof anthropicMeta?.cacheCreationInputTokens === 'number'
-            ? anthropicMeta.cacheCreationInputTokens
-            : undefined,
-        cacheReadTokens: anthropicCacheRead ?? openrouterCacheRead,
-      }
-    : null;
+  const usage = extractUsage(rawUsage, meta);
 
   return { parts, usage };
 }
