@@ -31,6 +31,12 @@ type AppRPCTyped = {
   webview: RPCSchema<AppRPC['webview']>;
 };
 
+// Max wall-clock a single RPC handler may run before the bridge times out.
+const RPC_MAX_REQUEST_MS = 60_000;
+// Dev tools gate: the launch env TWEAK=1 enables them; every dev handler is a
+// no-op otherwise. Set at launch, never mutated, so it's read once here.
+const DEV_TOOLS_ENABLED = process.env.TWEAK === '1';
+
 // Current chat selected in the renderer; used by control server for target:"active"
 let activeChatId: string | null = null;
 
@@ -76,7 +82,7 @@ export function setControlServerFns(start: (port: number) => void, stop: () => v
 
 export function createRPC() {
   return BrowserView.defineRPC<AppRPCTyped>({
-    maxRequestTime: 60_000,
+    maxRequestTime: RPC_MAX_REQUEST_MS,
     handlers: {
       requests: {
         // Models
@@ -186,14 +192,14 @@ export function createRPC() {
           Utils.quit();
         },
 
-        // Dev tools — no-ops unless process.env.TWEAK === '1'
+        // Dev tools — no-ops unless DEV_TOOLS_ENABLED
         devSetOverride: ({ key, value }) => {
-          if (process.env.TWEAK === '1') {
+          if (DEV_TOOLS_ENABLED) {
             devOverridesService.setOverride(key, value);
           }
         },
         devForceCompact: async ({ chatId }) => {
-          if (process.env.TWEAK !== '1') {
+          if (!DEV_TOOLS_ENABLED) {
             return;
           }
 
