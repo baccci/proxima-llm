@@ -4,6 +4,7 @@ import {
   ChatComposerState,
   ChatDTO,
   type CreateChatInput,
+  DEFAULT_CHAT_TITLE,
 } from '../../../shared-contracts/schemas/chat.schema';
 import type { SendMessageInput } from '../../../shared-contracts/schemas/message.schema';
 import {
@@ -15,11 +16,15 @@ import { db } from '../../infra/db/client';
 import { chats, messages } from '../../infra/db/schema';
 import * as attachmentService from '../attachment/attachment.repository';
 
+// Composer JSON can be absent or partial (older rows, optional input); parse fills defaults.
+function parseComposer(raw: unknown): ChatComposerState {
+  return ChatComposerState.parse(raw ?? {});
+}
+
 function chatRowToDTO(row: typeof chats.$inferSelect): ChatDTO {
   return ChatDTO.parse({
     ...row,
-    // Composer JSON can be absent or partial on older rows, parse fills the defaults.
-    composer: ChatComposerState.parse(row.composer ?? {}),
+    composer: parseComposer(row.composer),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     lastMessageAt: row.lastMessageAt.toISOString(),
@@ -35,33 +40,45 @@ function messageRowToDTO(row: typeof messages.$inferSelect): MessageDTO {
   });
 }
 
+// Bump a chat's recency so it sorts to the top of the recency-ordered list. Extra
+// fields (e.g. the model that produced a reply) merge into the same write.
+function bumpChatRecency(chatId: string, now: Date, extra?: { modelId?: string }): void {
+  db.update(chats)
+    .set({ lastMessageAt: now, updatedAt: now, ...extra })
+    .where(eq(chats.id, chatId))
+    .run();
+}
+
 export function getChat(id: string): ChatDTO | undefined {
   const row = db.select().from(chats).where(eq(chats.id, id)).get();
   return row ? chatRowToDTO(row) : undefined;
 }
 
 export function listChats(projectId: string | null): ChatDTO[] {
-  return db
-    .select()
-    .from(chats)
-    .where(projectId !== null ? eq(chats.projectId, projectId) : undefined)
-    .orderBy(desc(chats.lastMessageAt))
-    .all()
-    .map(chatRowToDTO);
+  return (
+    db
+      .select()
+      .from(chats)
+      // A null projectId means "all chats" (no filter), a real id scopes to that project.
+      .where(projectId !== null ? eq(chats.projectId, projectId) : undefined)
+      .orderBy(desc(chats.lastMessageAt))
+      .all()
+      .map(chatRowToDTO)
+  );
 }
 
 export function createChat(input: CreateChatInput): ChatDTO {
   const now = new Date();
-  const composer = ChatComposerState.parse(input.composer ?? {});
+  const composer = parseComposer(input.composer);
 
   const inserted = db
     .insert(chats)
     .values({
       id: randomUUID(),
       projectId: input.projectId ?? null,
-      title: input.title ?? 'New Chat',
+      title: input.title ?? DEFAULT_CHAT_TITLE,
       modelId: input.modelId ?? null,
-      composer: composer as unknown,
+      composer,
       pinned: false,
       createdAt: now,
       updatedAt: now,
@@ -87,9 +104,9 @@ export function updateChat(
   },
 ): ChatDTO {
   const now = new Date();
-  // biome-ignore lint/suspicious/noExplicitAny: Drizzle json column requires unknown cast
-  const update: Record<string, any> = { updatedAt: now };
+  const update: Partial<typeof chats.$inferInsert> = { updatedAt: now };
 
+  // Copy only the fields the patch actually sets, undefined keys stay untouched.
   if (patch.title !== undefined) {
     update.title = patch.title;
   }
@@ -103,7 +120,7 @@ export function updateChat(
   if (patch.composer !== undefined) {
     // Composer patches merge into the stored state, they do not replace it.
     const current = db.select().from(chats).where(eq(chats.id, id)).get();
-    const currentComposer = ChatComposerState.parse(current?.composer ?? {});
+    const currentComposer = parseComposer(current?.composer);
     update.composer = { ...currentComposer, ...patch.composer };
   }
 
@@ -140,6 +157,7 @@ export function createUserMessage(input: SendMessageInput): MessageDTO {
   for (const attachmentId of input.attachmentIds ?? []) {
     const att = attachmentService.getAttachment(attachmentId);
 
+    // Attachment row vanished (deleted mid-send); skip it rather than fail the message.
     if (!att) {
       continue;
     }
@@ -160,7 +178,7 @@ export function createUserMessage(input: SendMessageInput): MessageDTO {
       chatId: input.chatId,
       role: 'user',
       modelId: input.modelId,
-      parts: parts as unknown as string,
+      parts,
       createdAt: now,
     })
     .returning()
@@ -170,11 +188,7 @@ export function createUserMessage(input: SendMessageInput): MessageDTO {
     throw new Error('createUserMessage: insert returned no row');
   }
 
-  // Bump the chat so it sorts to the top of the recency-ordered list.
-  db.update(chats)
-    .set({ lastMessageAt: now, updatedAt: now })
-    .where(eq(chats.id, input.chatId))
-    .run();
+  bumpChatRecency(input.chatId, now);
 
   return messageRowToDTO(inserted);
 }
@@ -185,6 +199,7 @@ export function truncateMessagesAfter(chatId: string, messageId: string): void {
   const all = listMessages(chatId);
   const idx = all.findIndex((m) => m.id === messageId);
 
+  // Anchor already gone (deleted/retried); nothing after it to drop.
   if (idx === -1) {
     return;
   }
@@ -201,23 +216,19 @@ export function truncateMessagesAfter(chatId: string, messageId: string): void {
 export function updateUserMessageText(messageId: string, content: string): void {
   const row = db.select().from(messages).where(eq(messages.id, messageId)).get();
 
+  // Message already gone (deleted/retried); nothing to edit, tolerate silently.
   if (!row) {
     return;
   }
 
-  const parts = (row.parts as MessagePart[]).map((p) =>
-    p.type === 'text' ? { ...p, text: content } : p,
-  );
+  const parts = row.parts.map((p) => (p.type === 'text' ? { ...p, text: content } : p));
 
   // Append a text part if the message had none
   if (!parts.some((p) => p.type === 'text')) {
     parts.push({ type: 'text', text: content });
   }
 
-  db.update(messages)
-    .set({ parts: parts as unknown as string })
-    .where(eq(messages.id, messageId))
-    .run();
+  db.update(messages).set({ parts }).where(eq(messages.id, messageId)).run();
 }
 
 export function saveAssistantMessage(
@@ -236,8 +247,8 @@ export function saveAssistantMessage(
       chatId,
       role: 'assistant',
       modelId,
-      parts: parts as unknown as string,
-      usage: usage as unknown as string,
+      parts,
+      usage,
       stopReason: stopReason ?? null,
       createdAt: now,
     })
@@ -249,10 +260,7 @@ export function saveAssistantMessage(
   }
 
   // Bump the chat to the top and record the model that produced this reply.
-  db.update(chats)
-    .set({ lastMessageAt: now, updatedAt: now, modelId })
-    .where(eq(chats.id, chatId))
-    .run();
+  bumpChatRecency(chatId, now, { modelId });
 
   return messageRowToDTO(inserted);
 }

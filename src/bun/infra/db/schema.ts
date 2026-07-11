@@ -1,4 +1,6 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import type { ChatComposerState } from '../../../shared-contracts/schemas/chat.schema';
+import type { MessagePart, TokenUsage } from '../../../shared-contracts/schemas/message.schema';
 import type { ModelCapabilities } from '../../../shared-contracts/schemas/model.schema';
 import { ModelSource } from './model-source';
 
@@ -36,7 +38,7 @@ export const chats = sqliteTable('chats', {
   title: text('title').notNull(),
   pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
   modelId: text('model_id'),
-  composer: text('composer', { mode: 'json' }),
+  composer: text('composer', { mode: 'json' }).$type<ChatComposerState>(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   lastMessageAt: integer('last_message_at', { mode: 'timestamp_ms' }).notNull(),
@@ -49,8 +51,8 @@ export const messages = sqliteTable('messages', {
     .references(() => chats.id, { onDelete: 'cascade' }),
   role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
   modelId: text('model_id'),
-  parts: text('parts', { mode: 'json' }).notNull(),
-  usage: text('usage', { mode: 'json' }),
+  parts: text('parts', { mode: 'json' }).$type<MessagePart[]>().notNull(),
+  usage: text('usage', { mode: 'json' }).$type<TokenUsage>(),
   stopReason: text('stop_reason'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });

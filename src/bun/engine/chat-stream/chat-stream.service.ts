@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import type { AppRPC, StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
+import { DEFAULT_CHAT_TITLE } from '../../../shared-contracts/schemas/chat.schema';
 import type {
   MessageDTO,
   RetryMessageInput,
@@ -116,7 +117,7 @@ async function maybeAutoTitle(args: {
 }): Promise<void> {
   const history = chatService.listMessages(args.chatId);
   const chat = chatService.getChat(args.chatId);
-  if (history.length !== 2 || chat?.title !== 'New Chat' || !args.originalContent) {
+  if (history.length !== 2 || chat?.title !== DEFAULT_CHAT_TITLE || !args.originalContent) {
     return;
   }
 
