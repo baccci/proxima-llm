@@ -138,7 +138,7 @@ setControlServerFns(startControlServer, stopControlServer);
 // Auto-start control server if previously enabled
 const initSettings = settingsService.getSettings();
 if (initSettings.controlServerEnabled) {
-  startControlServer(initSettings.controlServerPort ?? 7865);
+  startControlServer(initSettings.controlServerPort);
 }
 
 log.info('Proxima started');

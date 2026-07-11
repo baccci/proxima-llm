@@ -49,6 +49,19 @@ export function setPolicy(toolName: string, policy: ToolPolicy): void {
   save({ ...load(), [toolName]: policy });
 }
 
-export function listPolicies(): { name: string; policy: ToolPolicy }[] {
-  return TOOL_CATALOG.map(({ name }) => ({ name, policy: getPolicy(name) }));
+// The renderer's tool-policy list: each catalog entry (name + label + description)
+// joined with its current effective policy. getPolicy always resolves a policy,
+// so every entry has one.
+export function listPoliciesDetailed(): {
+  name: string;
+  label: string;
+  description: string;
+  policy: ToolPolicy;
+}[] {
+  return TOOL_CATALOG.map(({ name, label, description }) => ({
+    name,
+    label,
+    description,
+    policy: getPolicy(name),
+  }));
 }

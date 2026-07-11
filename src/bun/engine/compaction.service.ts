@@ -3,14 +3,16 @@ import type { MessageDTO } from '../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
 import * as chatService from '../features/chat/chat.repository';
 import { getLatestSnapshot, saveSnapshot } from '../features/compaction/compaction.repository';
+import { getModel } from '../features/model/model.repository';
 import { resolveTitleModel } from '../features/model/title-model.service';
+import { getApiKey } from '../infra/keychain';
 import { getAdapter } from '../infra/llm/providers/index';
 
 const KEEP_RECENT = 15;
 // A manual "compact now" (ring click) is an explicit free-context action, so it
-// keeps a smaller recent window than the automatic threshold pass — otherwise
-// clicking right after an auto-compaction is a no-op.
-export const MANUAL_KEEP_RECENT = 6;
+// keeps a smaller recent window than the automatic threshold pass. Otherwise
+// clicking right after an auto-compaction would be a no-op.
+const MANUAL_KEEP_RECENT = 6;
 
 function buildCompactionPrompt(
   previousSummary: string | undefined,
@@ -108,4 +110,40 @@ export async function compact(
   });
 
   return { status: 'ok', summarized: toSummarize.length };
+}
+
+// Resolve the model and API key a chat streams with. Throws a user-facing error
+// if the chat has no model set, the model id is unknown, or its provider has no
+// stored key. Shared by the manual and dev compaction entry points.
+function resolveChatModel(chatId: string): { model: ModelDTO; apiKey: string } {
+  const chat = chatService.getChat(chatId);
+  if (!chat?.modelId) {
+    throw new Error('No model selected for chat');
+  }
+
+  const model = getModel(chat.modelId);
+  if (!model) {
+    throw new Error(`Unknown model: ${chat.modelId}`);
+  }
+
+  const apiKey = getApiKey(model.provider);
+  if (!apiKey) {
+    throw new Error(`No API key for ${model.provider}`);
+  }
+
+  return { model, apiKey };
+}
+
+// Manual "compact now" (ring click): an explicit free-context action, so it keeps
+// a smaller recent window than the automatic pass.
+export function compactChatNow(chatId: string): Promise<CompactResult> {
+  const { model, apiKey } = resolveChatModel(chatId);
+  return compact(chatId, model, apiKey, { keepRecent: MANUAL_KEEP_RECENT });
+}
+
+// Dev tool "force compact": summarize the whole chat (keepRecent 0) so even a
+// short test conversation produces a snapshot.
+export function forceCompactChat(chatId: string): Promise<CompactResult> {
+  const { model, apiKey } = resolveChatModel(chatId);
+  return compact(chatId, model, apiKey, { keepRecent: 0 });
 }

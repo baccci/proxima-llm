@@ -141,3 +141,39 @@ export function getAttachmentBytes(
 export function listAttachments(chatId: string): AttachmentDTO[] {
   return db.select().from(attachments).where(eq(attachments.chatId, chatId)).all().map(rowToDTO);
 }
+
+export type AttachmentView = {
+  id: string;
+  kind: AttachmentKind;
+  mediaType: string;
+  name: string;
+  byteSize: number;
+  dataUrl: string;
+};
+
+// Build the renderer-facing view of an attachment: its metadata plus a data: URL
+// of the file bytes. Throws if the row or its file is missing so the caller can
+// surface a clear error.
+export function getAttachmentView(id: string): AttachmentView {
+  const att = getAttachment(id);
+  if (!att) {
+    throw new Error(`Attachment not found: ${id}`);
+  }
+
+  const bytes = getAttachmentBytes(id);
+  if (!bytes) {
+    throw new Error(`Attachment file missing: ${id}`);
+  }
+
+  const dataUrl = `data:${bytes.mediaType};base64,${bytes.bytes.toString('base64')}`;
+  const name = att.relPath.split('/').pop() ?? att.id;
+
+  return {
+    id: att.id,
+    kind: att.kind,
+    mediaType: att.mediaType,
+    name,
+    byteSize: att.byteSize,
+    dataUrl,
+  };
+}

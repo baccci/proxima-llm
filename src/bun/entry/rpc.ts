@@ -3,7 +3,6 @@ import { ProviderId } from '../../shared-contracts/providers/registry';
 import type { AppRPC } from '../../shared-contracts/rpc/app-rpc.types';
 import type { MemoryScope } from '../../shared-contracts/schemas/memory-slice.schema';
 import { RetryMessageInput, SendMessageInput } from '../../shared-contracts/schemas/message.schema';
-import { TOOL_CATALOG } from '../../shared-contracts/tools/tool-catalog';
 import { resolveApproval } from '../engine/chat-stream/approval-registry';
 import {
   cancelStream,
@@ -101,7 +100,9 @@ export function createRPC() {
         },
         deleteMemorySlice: ({ id }) => {
           const deleted = memoryService.deleteSlice(id);
-          if (deleted) memoryNotify.notifyMemoryChanged(deleted.scope, deleted.projectId);
+          if (deleted) {
+            memoryNotify.notifyMemoryChanged(deleted.scope, deleted.projectId);
+          }
         },
         getMemorySummary: ({ projectId }) => ({
           summary: projectService.getMemorySummary(projectId),
@@ -135,21 +136,7 @@ export function createRPC() {
               }
             : null;
         },
-        compactNow: async ({ chatId }) => {
-          const chat = chatService.getChat(chatId);
-          if (!chat?.modelId) throw new Error('No model selected for chat');
-          const model = modelService.getModel(chat.modelId);
-          if (!model) throw new Error(`Unknown model: ${chat.modelId}`);
-          const apiKey = keychain.getApiKey(model.provider);
-          if (!apiKey) throw new Error(`No API key for ${model.provider}`);
-          // Manual compaction keeps a smaller recent window than the auto pass, so
-          // an explicit click reliably frees context. No-op only if there are fewer
-          // than MANUAL_KEEP_RECENT messages past the last snapshot.
-          const result = await compactionService.compact(chatId, model, apiKey, {
-            keepRecent: compactionService.MANUAL_KEEP_RECENT,
-          });
-          return result;
-        },
+        compactNow: ({ chatId }) => compactionService.compactChatNow(chatId),
 
         sendMessage: (input) => {
           return startChatStream(SendMessageInput.parse(input));
@@ -170,15 +157,7 @@ export function createRPC() {
         },
 
         // Tool policies
-        listToolPolicies: () => {
-          const policies = toolPermissionService.listPolicies();
-          return TOOL_CATALOG.map((entry) => ({
-            name: entry.name,
-            label: entry.label,
-            description: entry.description,
-            policy: policies.find((p) => p.name === entry.name)?.policy ?? 'ask',
-          }));
-        },
+        listToolPolicies: () => toolPermissionService.listPoliciesDetailed(),
 
         setToolPolicy: ({ toolName, policy }) => {
           toolPermissionService.setPolicy(toolName, policy);
@@ -209,40 +188,22 @@ export function createRPC() {
 
         // Dev tools — no-ops unless process.env.TWEAK === '1'
         devSetOverride: ({ key, value }) => {
-          if (process.env.TWEAK === '1') devOverridesService.setOverride(key, value);
+          if (process.env.TWEAK === '1') {
+            devOverridesService.setOverride(key, value);
+          }
         },
         devForceCompact: async ({ chatId }) => {
-          if (process.env.TWEAK !== '1') return;
-          const chat = chatService.getChat(chatId);
-          if (!chat?.modelId) throw new Error('No model selected for chat');
-          const model = modelService.getModel(chat.modelId);
-          if (!model) throw new Error(`Unknown model: ${chat.modelId}`);
-          const apiKey = keychain.getApiKey(model.provider);
-          if (!apiKey) throw new Error(`No API key for ${model.provider}`);
-          // keepRecent: 0 → summarize the whole chat so even a short test
-          // conversation produces a snapshot (real auto-compaction keeps 15).
-          await compactionService.compact(chatId, model, apiKey, { keepRecent: 0 });
+          if (process.env.TWEAK !== '1') {
+            return;
+          }
+
+          await compactionService.forceCompactChat(chatId);
         },
 
         // Attachments
         uploadAttachment: (input) => attachmentService.saveAttachment(input),
 
-        getAttachment: (input) => {
-          const att = attachmentService.getAttachment(input.id);
-          if (!att) throw new Error(`Attachment not found: ${input.id}`);
-          const bytes = attachmentService.getAttachmentBytes(input.id);
-          if (!bytes) throw new Error(`Attachment file missing: ${input.id}`);
-          const dataUrl = `data:${bytes.mediaType};base64,${bytes.bytes.toString('base64')}`;
-          const name = att.relPath.split('/').pop() ?? att.id;
-          return {
-            id: att.id,
-            kind: att.kind,
-            mediaType: att.mediaType,
-            name,
-            byteSize: att.byteSize,
-            dataUrl,
-          };
-        },
+        getAttachment: (input) => attachmentService.getAttachmentView(input.id),
 
         // Settings
         getSettings: () => settingsService.getSettings(),
@@ -255,7 +216,7 @@ export function createRPC() {
           ) {
             const s = settingsService.getSettings();
             if (s.controlServerEnabled) {
-              _startServer?.(s.controlServerPort ?? 7865);
+              _startServer?.(s.controlServerPort);
             } else {
               _stopServer?.();
             }
