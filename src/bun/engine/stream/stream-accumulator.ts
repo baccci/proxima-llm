@@ -1,4 +1,4 @@
-import type { MessagePart } from '../../../shared-contracts/schemas/message.schema';
+import { type MessagePart, PartKind } from '../../../shared-contracts/schemas/message.schema';
 
 export type StreamAccumulator = {
   addText: (text: string) => void;
@@ -27,12 +27,12 @@ export function createStreamAccumulator(): StreamAccumulator {
     }
 
     const last = parts[parts.length - 1];
-    if (last?.type === 'text') {
+    if (last?.type === PartKind.enum.text) {
       last.text += text;
       return;
     }
 
-    parts.push({ type: 'text', text });
+    parts.push({ type: PartKind.enum.text, text });
   };
 
   const addReasoning = (text: string) => {
@@ -41,24 +41,24 @@ export function createStreamAccumulator(): StreamAccumulator {
     }
 
     const last = parts[parts.length - 1];
-    if (last?.type === 'reasoning') {
+    if (last?.type === PartKind.enum.reasoning) {
       last.text += text;
       return;
     }
 
-    parts.push({ type: 'reasoning', text });
+    parts.push({ type: PartKind.enum.reasoning, text });
   };
 
   const addSource = (url: string, title?: string) => {
-    parts.push({ type: 'source', url, title });
+    parts.push({ type: PartKind.enum.source, url, title });
   };
 
   const addToolCall = (toolCallId: string, toolName: string, input: unknown) => {
-    parts.push({ type: 'tool-call', toolCallId, toolName, input });
+    parts.push({ type: PartKind.enum['tool-call'], toolCallId, toolName, input });
   };
 
   const addToolResult = (toolCallId: string, toolName: string, output: unknown) => {
-    parts.push({ type: 'tool-result', toolCallId, toolName, output });
+    parts.push({ type: PartKind.enum['tool-result'], toolCallId, toolName, output });
   };
 
   const setError = (err: Error) => {
@@ -74,7 +74,7 @@ export function createStreamAccumulator(): StreamAccumulator {
       }
 
       const reasoningPart = parts.find(
-        (p): p is Extract<MessagePart, { type: 'reasoning' }> => p.type === 'reasoning',
+        (p): p is Extract<MessagePart, { type: 'reasoning' }> => p.type === PartKind.enum.reasoning,
       );
       if (reasoningPart) {
         reasoningPart.durationMs = reasoningEnd - reasoningStart;

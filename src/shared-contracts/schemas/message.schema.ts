@@ -1,31 +1,54 @@
 import { z } from 'zod'
 
+// Who authored a message. Compare with MessageRole.enum.user (not a bare string)
+// so a reader knows the value is a role. Persisted as literal text in the messages
+// table, so renaming a member is a DB migration.
 export const MessageRole = z.enum(['user', 'assistant', 'system'])
 export type MessageRole = z.infer<typeof MessageRole>
 
+// The kind tag on a MessagePart. Each MessagePart branch reads its literal from
+// here, so this enum is the single roster of part kinds. Persisted as literal
+// text inside messages.parts JSON, so renaming a member is a DB migration, not a
+// free rename. Compare with PartKind.enum.text (never a bare string) so a reader
+// can tell the value is a part kind and jump here for the full set.
+export const PartKind = z.enum([
+  'text',
+  'reasoning',
+  'image',
+  'file',
+  'tool-call',
+  'tool-result',
+  'source',
+])
+export type PartKind = z.infer<typeof PartKind>
+
 export const MessagePart = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('text'), text: z.string() }),
+  z.object({ type: z.literal(PartKind.enum.text), text: z.string() }),
   z.object({
-    type: z.literal('reasoning'),
+    type: z.literal(PartKind.enum.reasoning),
     text: z.string(),
     durationMs: z.number().int().optional(),
   }),
-  z.object({ type: z.literal('image'), attachmentId: z.string() }),
-  z.object({ type: z.literal('file'), attachmentId: z.string(), mediaType: z.string() }),
+  z.object({ type: z.literal(PartKind.enum.image), attachmentId: z.string() }),
   z.object({
-    type: z.literal('tool-call'),
+    type: z.literal(PartKind.enum.file),
+    attachmentId: z.string(),
+    mediaType: z.string(),
+  }),
+  z.object({
+    type: z.literal(PartKind.enum['tool-call']),
     toolCallId: z.string(),
     toolName: z.string(),
     input: z.unknown(),
   }),
   z.object({
-    type: z.literal('tool-result'),
+    type: z.literal(PartKind.enum['tool-result']),
     toolCallId: z.string(),
     toolName: z.string(),
     output: z.unknown(),
   }),
   z.object({
-    type: z.literal('source'),
+    type: z.literal(PartKind.enum.source),
     url: z.string(),
     title: z.string().optional(),
   }),
@@ -33,6 +56,9 @@ export const MessagePart = z.discriminatedUnion('type', [
 
 export type MessagePart = z.infer<typeof MessagePart>
 
+// Why a stream ended early, when it did not finish on its own. Compare with
+// StopReason.enum['user-cancel']. Persisted as literal text, so a rename is a
+// DB migration.
 export const StopReason = z.enum(['user-cancel', 'idle-timeout'])
 export type StopReason = z.infer<typeof StopReason>
 

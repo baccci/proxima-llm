@@ -1,4 +1,8 @@
-import type { MessageDTO } from '../../../shared-contracts/schemas/message.schema';
+import {
+  type MessageDTO,
+  MessageRole,
+  PartKind,
+} from '../../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
 
 const DEFAULT_CONTEXT_WINDOW = 200_000;
@@ -12,14 +16,14 @@ const CHARS_PER_TOKEN = 4;
 export function estimateContextTokens(history: MessageDTO[]): number {
   const lastAssistant = [...history]
     .reverse()
-    .find((m) => m.role === 'assistant' && m.usage != null);
+    .find((m) => m.role === MessageRole.enum.assistant && m.usage != null);
   if (lastAssistant?.usage?.inputTokens != null) {
     return lastAssistant.usage.inputTokens;
   }
 
   const chars = history.reduce((acc, m) => {
     for (const p of m.parts) {
-      if (p.type === 'text') {
+      if (p.type === PartKind.enum.text) {
         acc += p.text.length;
       }
     }

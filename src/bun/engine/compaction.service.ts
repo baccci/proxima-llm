@@ -1,5 +1,9 @@
 import { generateText } from 'ai';
-import type { MessageDTO } from '../../shared-contracts/schemas/message.schema';
+import {
+  type MessageDTO,
+  MessageRole,
+  PartKind,
+} from '../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
 import * as chatService from '../features/chat/chat.repository';
 import { getLatestSnapshot, saveSnapshot } from '../features/compaction/compaction.repository';
@@ -26,9 +30,12 @@ function buildCompactionPrompt(
   }
   lines.push('## Conversation turns to summarize');
   for (const m of messages) {
-    const role = m.role === 'user' ? 'User' : 'Assistant';
+    const role = m.role === MessageRole.enum.user ? 'User' : 'Assistant';
     const text = m.parts
-      .filter((p): p is Extract<MessageDTO['parts'][number], { type: 'text' }> => p.type === 'text')
+      .filter(
+        (p): p is Extract<MessageDTO['parts'][number], { type: 'text' }> =>
+          p.type === PartKind.enum.text,
+      )
       .map((p) => p.text)
       .join(' ');
     if (text) {

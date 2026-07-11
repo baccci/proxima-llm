@@ -1,5 +1,5 @@
 import type { LanguageModelUsage, ProviderMetadata } from 'ai';
-import type { StopReason, TokenUsage } from '../../../shared-contracts/schemas/message.schema';
+import { StopReason, type TokenUsage } from '../../../shared-contracts/schemas/message.schema';
 
 // The DOMException.name the idle guard aborts with. run.ts constructs it, this
 // module reads it back to tell an idle timeout apart from a user cancel.
@@ -12,8 +12,8 @@ export const IDLE_TIMEOUT_ERROR_NAME = 'TimeoutError';
 export function classifyAbort(signal: AbortSignal): StopReason {
   const reason = signal.reason;
   return reason instanceof DOMException && reason.name === IDLE_TIMEOUT_ERROR_NAME
-    ? 'idle-timeout'
-    : 'user-cancel';
+    ? StopReason.enum['idle-timeout']
+    : StopReason.enum['user-cancel'];
 }
 
 // Pull token counts out of the provider's raw usage. Cache-token reporting is

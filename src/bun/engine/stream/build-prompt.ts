@@ -1,5 +1,10 @@
 import type { ModelMessage } from 'ai';
-import type { MessageDTO } from '../../../shared-contracts/schemas/message.schema';
+import type { AttachmentKind } from '../../../shared-contracts/schemas/attachment.schema';
+import {
+  type MessageDTO,
+  MessageRole,
+  PartKind,
+} from '../../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
 import type { ProjectDTO } from '../../../shared-contracts/schemas/project.schema';
 import type { CompactionSnapshot } from '../../features/compaction/compaction.repository';
@@ -7,7 +12,7 @@ import { buildBaseSystemPrompt, MEMORY_GUIDANCE } from '../../infra/llm/system-p
 
 export type ResolveAttachment = (
   id: string,
-) => { dataBase64: string; mediaType: string; kind: 'image' | 'file' } | undefined;
+) => { dataBase64: string; mediaType: string; kind: AttachmentKind } | undefined;
 
 // Assemble the system prompt: base model prompt + project description + a memory
 // index (titles the model can read on demand) + project file names + any earlier
@@ -86,14 +91,14 @@ export function toCoreMessages(
     : history;
 
   for (const m of filtered) {
-    if (m.role === 'system') continue;
+    if (m.role === MessageRole.enum.system) continue;
 
-    if (m.role === 'user') {
+    if (m.role === MessageRole.enum.user) {
       const content: Array<CoreTextPart | CoreImagePart | CoreFilePart> = [];
       for (const p of m.parts) {
-        if (p.type === 'text') {
+        if (p.type === PartKind.enum.text) {
           content.push({ type: 'text', text: p.text });
-        } else if (p.type === 'image') {
+        } else if (p.type === PartKind.enum.image) {
           const resolved = resolveAttachment(p.attachmentId);
           if (resolved)
             content.push({
@@ -102,7 +107,7 @@ export function toCoreMessages(
               mediaType: resolved.mediaType,
             });
           else content.push({ type: 'text', text: '[missing attachment]' });
-        } else if (p.type === 'file') {
+        } else if (p.type === PartKind.enum.file) {
           const resolved = resolveAttachment(p.attachmentId);
           if (resolved)
             content.push({
@@ -117,21 +122,21 @@ export function toCoreMessages(
       continue;
     }
 
-    if (m.role === 'assistant') {
+    if (m.role === MessageRole.enum.assistant) {
       const assistantContent: Array<CoreTextPart | CoreToolCallPart> = [];
       const toolResults: CoreToolResultPart[] = [];
 
       for (const p of m.parts) {
-        if (p.type === 'text' || p.type === 'reasoning') {
+        if (p.type === PartKind.enum.text || p.type === PartKind.enum.reasoning) {
           assistantContent.push({ type: 'text', text: p.text });
-        } else if (p.type === 'tool-call') {
+        } else if (p.type === PartKind.enum['tool-call']) {
           assistantContent.push({
             type: 'tool-call',
             toolCallId: p.toolCallId,
             toolName: p.toolName,
             input: p.input,
           });
-        } else if (p.type === 'tool-result') {
+        } else if (p.type === PartKind.enum['tool-result']) {
           toolResults.push({
             type: 'tool-result',
             toolCallId: p.toolCallId,

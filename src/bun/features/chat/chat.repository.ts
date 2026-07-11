@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { asc, desc, eq, inArray } from 'drizzle-orm';
+import { AttachmentKind } from '../../../shared-contracts/schemas/attachment.schema';
 import {
   ChatComposerState,
   ChatDTO,
@@ -10,6 +11,8 @@ import type { SendMessageInput } from '../../../shared-contracts/schemas/message
 import {
   MessageDTO,
   type MessagePart,
+  MessageRole,
+  PartKind,
   type StopReason,
 } from '../../../shared-contracts/schemas/message.schema';
 import { db } from '../../infra/db/client';
@@ -162,21 +165,21 @@ export function createUserMessage(input: SendMessageInput): MessageDTO {
       continue;
     }
 
-    if (att.kind === 'image') {
-      parts.push({ type: 'image', attachmentId });
+    if (att.kind === AttachmentKind.enum.image) {
+      parts.push({ type: PartKind.enum.image, attachmentId });
     } else {
-      parts.push({ type: 'file', attachmentId, mediaType: att.mediaType });
+      parts.push({ type: PartKind.enum.file, attachmentId, mediaType: att.mediaType });
     }
   }
 
-  parts.push({ type: 'text', text: input.content });
+  parts.push({ type: PartKind.enum.text, text: input.content });
 
   const inserted = db
     .insert(messages)
     .values({
       id: randomUUID(),
       chatId: input.chatId,
-      role: 'user',
+      role: MessageRole.enum.user,
       modelId: input.modelId,
       parts,
       createdAt: now,
@@ -221,11 +224,11 @@ export function updateUserMessageText(messageId: string, content: string): void 
     return;
   }
 
-  const parts = row.parts.map((p) => (p.type === 'text' ? { ...p, text: content } : p));
+  const parts = row.parts.map((p) => (p.type === PartKind.enum.text ? { ...p, text: content } : p));
 
   // Append a text part if the message had none
-  if (!parts.some((p) => p.type === 'text')) {
-    parts.push({ type: 'text', text: content });
+  if (!parts.some((p) => p.type === PartKind.enum.text)) {
+    parts.push({ type: PartKind.enum.text, text: content });
   }
 
   db.update(messages).set({ parts }).where(eq(messages.id, messageId)).run();
@@ -245,7 +248,7 @@ export function saveAssistantMessage(
     .values({
       id: randomUUID(),
       chatId,
-      role: 'assistant',
+      role: MessageRole.enum.assistant,
       modelId,
       parts,
       usage,

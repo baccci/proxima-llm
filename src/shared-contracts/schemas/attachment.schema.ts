@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+// Whether an attachment is a viewable image or an opaque file. Compare with
+// AttachmentKind.enum.image. Persisted as literal text, so a rename is a DB migration.
 export const AttachmentKind = z.enum(['image', 'file'])
 export type AttachmentKind = z.infer<typeof AttachmentKind>
 
