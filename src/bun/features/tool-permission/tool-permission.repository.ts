@@ -1,4 +1,3 @@
-import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   defaultPolicyFor,
@@ -6,8 +5,7 @@ import {
   TOOL_CATALOG,
 } from '../../../shared-contracts/tools/tool-catalog';
 import { ToolPolicy } from '../../../shared-contracts/tools/tool-policy';
-import { db } from '../../infra/db/client';
-import { settings } from '../../infra/db/schema';
+import { readSettingsBlob, writeSettingsBlob } from '../../infra/db/settings-store';
 
 // This module owns the tool_policies slice of the shared settings table.
 const KEY = 'tool_policies';
@@ -16,15 +14,12 @@ const PolicyMap = z.record(z.string(), ToolPolicy);
 type PolicyMap = z.infer<typeof PolicyMap>;
 
 function load(): PolicyMap {
-  const row = db.select().from(settings).where(eq(settings.key, KEY)).get();
-  return row ? PolicyMap.parse(row.value) : {};
+  const raw = readSettingsBlob(KEY);
+  return raw !== undefined ? PolicyMap.parse(raw) : {};
 }
 
 function save(map: PolicyMap): void {
-  db.insert(settings)
-    .values({ key: KEY, value: map as unknown as string })
-    .onConflictDoUpdate({ target: settings.key, set: { value: map as unknown as string } })
-    .run();
+  writeSettingsBlob(KEY, map);
 }
 
 export function getPolicy(toolName: string): ToolPolicy {

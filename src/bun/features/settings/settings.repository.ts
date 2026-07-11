@@ -1,26 +1,26 @@
-import { eq } from 'drizzle-orm';
 import {
   DEFAULT_SETTINGS,
   SettingsDTO,
   type UpdateSettingsInput,
 } from '../../../shared-contracts/schemas/settings.schema';
-import { db } from '../../infra/db/client';
-import { settings } from '../../infra/db/schema';
+import { readSettingsBlob, writeSettingsBlob } from '../../infra/db/settings-store';
+
+// This module owns the 'app' slice of the shared settings table.
+const APP_KEY = 'app';
 
 export function getSettings(): SettingsDTO {
-  const row = db.select().from(settings).where(eq(settings.key, 'app')).get();
-  if (!row) return DEFAULT_SETTINGS;
+  const raw = readSettingsBlob(APP_KEY);
+  if (raw === undefined) {
+    return DEFAULT_SETTINGS;
+  }
   // Stored rows can predate newer fields, so validate what's there as a partial
   // (dropping anything unknown) and merge it over the current defaults.
-  const stored = SettingsDTO.partial().parse(row.value);
+  const stored = SettingsDTO.partial().parse(raw);
   return { ...DEFAULT_SETTINGS, ...stored };
 }
 
 export function updateSettings(patch: UpdateSettingsInput): void {
   const current = getSettings();
   const updated = { ...current, ...patch };
-  db.insert(settings)
-    .values({ key: 'app', value: updated as unknown as string })
-    .onConflictDoUpdate({ target: settings.key, set: { value: updated as unknown as string } })
-    .run();
+  writeSettingsBlob(APP_KEY, updated);
 }

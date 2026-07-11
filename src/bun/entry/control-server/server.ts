@@ -6,19 +6,28 @@ import { handleRequest } from './routes';
 let server: ReturnType<typeof Bun.serve> | null = null;
 
 export function startControlServer(port: number): void {
-  if (server) return;
+  // Idempotent: a second call while already running is a no-op.
+  if (server) {
+    return;
+  }
+
   server = Bun.serve<WsData>({
     hostname: '127.0.0.1',
     port,
     fetch(req, srv) {
-      // Upgrade WebSocket connections on /events
+      // The /events WebSocket upgrade must happen here at the Bun.serve boundary;
+      // every other route is delegated to handleRequest below.
       const url = new URL(req.url);
       if (url.pathname === '/events') {
         if (!authenticate(req)) {
           return new Response('Unauthorized', { status: 401 });
         }
+
         const upgraded = srv.upgrade(req, { data: { authenticated: true } });
-        if (upgraded) return undefined;
+        if (upgraded) {
+          return undefined;
+        }
+
         return new Response('Upgrade failed', { status: 500 });
       }
       return handleRequest(req).catch((e) => {
@@ -33,7 +42,10 @@ export function startControlServer(port: number): void {
 }
 
 export function stopControlServer(): void {
-  if (!server) return;
+  if (!server) {
+    return;
+  }
+
   server.stop(true);
   server = null;
   clearWsClients();

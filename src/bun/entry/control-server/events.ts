@@ -4,7 +4,17 @@ export interface WsData {
   authenticated: boolean;
 }
 
-type LifecycleKind = 'accepted' | 'started' | 'done' | 'error';
+// The stages a control client hears about over WS /events: a request was accepted,
+// its stream started, then finished or errored. Named so callers broadcast
+// LIFECYCLE_KIND.accepted, not a bare 'accepted'.
+export const LIFECYCLE_KIND = {
+  accepted: 'accepted',
+  started: 'started',
+  done: 'done',
+  error: 'error',
+} as const;
+export type LifecycleKind = (typeof LIFECYCLE_KIND)[keyof typeof LIFECYCLE_KIND];
+
 export interface LifecycleEvent {
   event: LifecycleKind;
   chatId: string;

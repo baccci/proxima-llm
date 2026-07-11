@@ -70,9 +70,13 @@ export const attachments = sqliteTable('attachments', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
+// A key -> JSON-blob key/value store shared by several subsystems ('app' settings,
+// 'control_server_tokens', 'tool_policies'). The value shape depends on the key, so
+// the column is typed unknown, not one $type; each caller validates with its own
+// schema on read. Go through infra/db/settings-store to move blobs in and out.
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
-  value: text('value', { mode: 'json' }).notNull(),
+  value: text('value', { mode: 'json' }).$type<unknown>().notNull(),
 });
 
 export const memorySlices = sqliteTable('memory_slices', {

@@ -6,8 +6,9 @@ import * as keychain from '../../infra/keychain';
 import { log } from '../../infra/logging/logger';
 import { getActiveChatId, pushControlNavigate } from '../rpc';
 import * as auth from './auth';
-import { broadcast } from './events';
+import { broadcast, LIFECYCLE_KIND } from './events';
 import { authenticate, err, json } from './http';
+import { streamCompletionsResponse } from './sse';
 
 type PromptBody = {
   text?: string;
@@ -18,18 +19,27 @@ type PromptBody = {
   focus?: boolean;
 };
 
+// Special values for PromptBody.target. Any other value is read as an explicit chat id.
+const PROMPT_TARGET = {
+  new: 'new',
+  active: 'active',
+} as const;
+
 type ResolveOk = { ok: true; chatId: string; modelId: string };
 type ResolveErr = { ok: false; response: Response };
 
 // Validate a /prompt or /completions body and resolve which chat it targets.
 // Returns either the resolved chat + model, or a ready-made error Response.
 function resolvePromptRequest(body: PromptBody | null): ResolveOk | ResolveErr {
-  if (!body?.text) return { ok: false, response: err('Missing text', 400) };
+  if (!body?.text) {
+    return { ok: false, response: err('Missing text', 400) };
+  }
 
   const settings = settingsService.getSettings();
   const modelId = body.model ?? settings.defaultModelId;
-  if (!modelId)
+  if (!modelId) {
     return { ok: false, response: err('No model specified and no default model configured', 400) };
+  }
 
   const model = modelService.getModel(modelId);
   if (!model) {
@@ -51,25 +61,34 @@ function resolvePromptRequest(body: PromptBody | null): ResolveOk | ResolveErr {
     };
   }
 
-  const target = body.target ?? 'new';
-  let chatId: string;
-  if (target === 'new') {
+  // Resolve which chat the prompt lands in: a brand-new chat, whatever the UI has
+  // open, or an explicit chat id. Each branch returns its own success so there is no
+  // shared mutable to carry down.
+  const target = body.target ?? PROMPT_TARGET.new;
+
+  if (target === PROMPT_TARGET.new) {
     const created = chatService.createChat({
       modelId,
       ...(body.project ? { projectId: body.project } : {}),
     });
-    chatId = created.id;
-  } else if (target === 'active') {
-    const active = getActiveChatId();
-    if (!active) return { ok: false, response: err('No active chat', 409) };
-    chatId = active;
-  } else {
-    const existing = chatService.getChat(target);
-    if (!existing) return { ok: false, response: err(`Chat not found: ${target}`, 404) };
-    chatId = target;
+    return { ok: true, chatId: created.id, modelId };
   }
 
-  return { ok: true, chatId, modelId };
+  if (target === PROMPT_TARGET.active) {
+    const active = getActiveChatId();
+    if (!active) {
+      return { ok: false, response: err('No active chat', 409) };
+    }
+
+    return { ok: true, chatId: active, modelId };
+  }
+
+  const existing = chatService.getChat(target);
+  if (!existing) {
+    return { ok: false, response: err(`Chat not found: ${target}`, 404) };
+  }
+
+  return { ok: true, chatId: target, modelId };
 }
 
 export async function handleRequest(req: Request): Promise<Response> {
@@ -92,15 +111,22 @@ export async function handleRequest(req: Request): Promise<Response> {
     // --- POST /pair (unauthenticated) ---
     if (pathname === '/pair' && req.method === 'POST') {
       const body = (await req.json().catch(() => ({}))) as { code?: string; label?: string };
-      if (!body.code) return err('Missing code', 400);
-      if (!auth.consumePairingCode(body.code)) return err('Invalid or expired code', 401);
+      if (!body.code) {
+        return err('Missing code', 400);
+      }
+      if (!auth.consumePairingCode(body.code)) {
+        return err('Invalid or expired code', 401);
+      }
+
       const label = body.label ?? 'Connected Client';
       const token = auth.mintToken(label);
       return json({ token });
     }
 
     // All other routes require a valid bearer token
-    if (!authenticate(req)) return err('Unauthorized', 401);
+    if (!authenticate(req)) {
+      return err('Unauthorized', 401);
+    }
 
     // --- GET /chats ---
     if (pathname === '/chats' && req.method === 'GET') {
@@ -126,11 +152,12 @@ export async function handleRequest(req: Request): Promise<Response> {
     if (pathname === '/prompt' && req.method === 'POST') {
       const body = (await req.json().catch(() => null)) as PromptBody | null;
       const resolved = resolvePromptRequest(body);
-      if (!resolved.ok) return resolved.response;
+      if (!resolved.ok) {
+        return resolved.response;
+      }
+
       const { chatId, modelId } = resolved;
       const focus = body?.focus ?? false;
-
-      // 409 for busy-chat queueing is deferred to pre-alpha-2 (roadmap #8).
 
       const { streamId, assistantMessageId } = startChatStream(
         { chatId, modelId, content: body!.text!, thinking: body?.thinking ?? false },
@@ -142,7 +169,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       );
 
       pushControlNavigate({ chatId, streamId, assistantMessageId, focus });
-      broadcast({ event: 'accepted', chatId, streamId });
+      broadcast({ event: LIFECYCLE_KIND.accepted, chatId, streamId });
 
       return json({ chatId, streamId }, 202);
     }
@@ -151,53 +178,15 @@ export async function handleRequest(req: Request): Promise<Response> {
     if (pathname === '/completions' && req.method === 'POST') {
       const body = (await req.json().catch(() => null)) as PromptBody | null;
       const resolved = resolvePromptRequest(body);
-      if (!resolved.ok) return resolved.response;
-      const { chatId, modelId } = resolved;
+      if (!resolved.ok) {
+        return resolved.response;
+      }
 
-      let closed = false;
-      const stream = new ReadableStream({
-        start(controller) {
-          const enc = new TextEncoder();
-          const send = (data: unknown) => {
-            if (closed) return;
-            try {
-              controller.enqueue(enc.encode(`data: ${JSON.stringify(data)}\n\n`));
-            } catch {
-              // Consumer disconnected — stop writing; let the in-app run finish.
-              closed = true;
-            }
-          };
-
-          send({ kind: 'accepted', chatId });
-
-          const { streamId } = startChatStream(
-            { chatId, modelId, content: body!.text!, thinking: body?.thinking ?? false },
-            {
-              onChunk: (chunk) => {
-                send(chunk);
-                if (chunk.kind === 'done' || chunk.kind === 'error') {
-                  closed = true;
-                  controller.close();
-                }
-              },
-              onLifecycle: (event, meta) =>
-                broadcast({ event, chatId: meta.chatId, streamId: meta.streamId }),
-            },
-          );
-
-          broadcast({ event: 'accepted', chatId, streamId });
-        },
-        cancel() {
-          // Client went away mid-stream; stop writing. The model run continues in-app.
-          closed = true;
-        },
-      });
-
-      return new Response(stream, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-        },
+      return streamCompletionsResponse({
+        chatId: resolved.chatId,
+        modelId: resolved.modelId,
+        content: body!.text!,
+        thinking: body?.thinking ?? false,
       });
     }
 
