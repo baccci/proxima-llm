@@ -7,7 +7,8 @@ import { ProjectFileDTO } from '../../../shared-contracts/schemas/project-file.s
 import { db } from '../../infra/db/client';
 import { projectFiles } from '../../infra/db/schema';
 
-const MAX_BYTE_SIZE = 20 * 1024 * 1024;
+const MAX_MB = 20;
+const MAX_BYTE_SIZE = MAX_MB * 1024 * 1024;
 
 const ALLOWED_TYPES = new Set(['text/markdown', 'text/plain', 'application/json', 'text/csv']);
 
@@ -104,7 +105,7 @@ export function saveProjectFile(input: {
 
   if (bytes.byteLength > MAX_BYTE_SIZE) {
     throw new Error(
-      `File too large: max 20 MB (got ${Math.round(bytes.byteLength / 1024 / 1024)} MB)`,
+      `File too large: max ${MAX_MB} MB (got ${Math.round(bytes.byteLength / 1024 / 1024)} MB)`,
     );
   }
 

@@ -106,6 +106,9 @@ async function maybeCompact(args: {
   }
 }
 
+// A freshly answered chat holds exactly one user turn plus one assistant reply.
+const FIRST_EXCHANGE_MESSAGE_COUNT = 2;
+
 // Auto-name a fresh chat after its first exchange (one user + one assistant turn,
 // still titled "New Chat"). Routes to the chat's own provider, reusing the key
 // already loaded for the stream; the title model self-heals dead ids.
@@ -117,7 +120,11 @@ async function maybeAutoTitle(args: {
 }): Promise<void> {
   const history = chatService.listMessages(args.chatId);
   const chat = chatService.getChat(args.chatId);
-  if (history.length !== 2 || chat?.title !== DEFAULT_CHAT_TITLE || !args.originalContent) {
+  if (
+    history.length !== FIRST_EXCHANGE_MESSAGE_COUNT ||
+    chat?.title !== DEFAULT_CHAT_TITLE ||
+    !args.originalContent
+  ) {
     return;
   }
 
