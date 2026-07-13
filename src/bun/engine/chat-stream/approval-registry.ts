@@ -1,4 +1,4 @@
-import type { ToolDecision } from '../../../shared-contracts/tools/tool-policy';
+import { ToolDecision } from '../../../shared-contracts/tools/tool-policy';
 
 // Tool-approval promise registry. When the stream engine hits an 'ask' tool it
 // parks on a promise keyed by stream+call; the RPC layer resolves it once the
@@ -40,7 +40,7 @@ export function settlePendingApprovals(streamId: string): void {
   for (const [key, resolve] of pending) {
     if (key.startsWith(prefix)) {
       pending.delete(key);
-      resolve({ decision: 'deny', remember: false });
+      resolve({ decision: ToolDecision.enum.deny, remember: false });
     }
   }
 }

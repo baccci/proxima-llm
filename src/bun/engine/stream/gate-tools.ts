@@ -2,7 +2,7 @@ import type { ToolCallOptions } from '@ai-sdk/provider-utils';
 import type { Tool } from 'ai';
 import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
 import { isAlwaysAllowed } from '../../../shared-contracts/tools/tool-catalog';
-import type { ToolDecision } from '../../../shared-contracts/tools/tool-policy';
+import { ToolDecision, ToolPolicy } from '../../../shared-contracts/tools/tool-policy';
 import { getPolicy } from '../../features/tool-permission/tool-permission.repository';
 import { BUILTIN_TOOLS } from '../tools/registry';
 
@@ -34,23 +34,25 @@ export function buildGatedTools(
     tools[name] = {
       ...resolvedTool,
       execute: async (input: unknown, callOpts: ToolCallOptions) => {
-        if (isAlwaysAllowed(name)) return originalExecute!(input as never, callOpts);
+        if (isAlwaysAllowed(name)) {
+          return originalExecute!(input as never, callOpts);
+        }
         const policy = getPolicy(name); // Layer 1 — global
 
-        if (policy === 'deny') {
+        if (policy === ToolPolicy.enum.deny) {
           return { blocked: true, reason: 'Denied by policy.' };
         }
 
-        if (policy === 'allow') {
+        if (policy === ToolPolicy.enum.allow) {
           return originalExecute!(input as never, callOpts);
         }
 
         // policy === 'ask' → Layer 2 — per-chat grant
         const grant = getToolGrant(name);
-        if (grant === 'deny') {
+        if (grant === ToolDecision.enum.deny) {
           return { blocked: true, reason: 'Denied for this chat.' };
         }
-        if (grant !== 'allow') {
+        if (grant !== ToolDecision.enum.allow) {
           onChunk({
             kind: 'tool-approval-request',
             toolCallId: callOpts.toolCallId,
@@ -58,8 +60,10 @@ export function buildGatedTools(
             input,
           });
           const { decision, remember } = await awaitApproval(callOpts.toolCallId, name, input);
-          if (remember) setToolGrant(name, decision === 'allow' ? 'allow' : 'deny');
-          if (decision === 'deny') {
+          if (remember) {
+            setToolGrant(name, decision);
+          }
+          if (decision === ToolDecision.enum.deny) {
             return { blocked: true, reason: 'Denied by user.' };
           }
         }

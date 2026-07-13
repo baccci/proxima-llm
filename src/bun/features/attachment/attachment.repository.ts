@@ -3,10 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { Utils } from 'electrobun/bun';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
-import {
-  AttachmentDTO,
-  type AttachmentKind,
-} from '../../../shared-contracts/schemas/attachment.schema';
+import { AttachmentDTO, AttachmentKind } from '../../../shared-contracts/schemas/attachment.schema';
 import { db } from '../../infra/db/client';
 import { attachments } from '../../infra/db/schema';
 
@@ -72,7 +69,9 @@ export function saveAttachment(input: {
   }
 
   const sha256 = createHash('sha256').update(bytes).digest('hex');
-  const kind = input.mediaType.startsWith('image/') ? 'image' : 'file';
+  const kind = input.mediaType.startsWith('image/')
+    ? AttachmentKind.enum.image
+    : AttachmentKind.enum.file;
   const ext = resolveExtension(input.name, input.mediaType);
   const relPath = `attachments/${input.chatId}/${sha256}.${ext}`;
   const absDir = join(Utils.paths.userData, 'attachments', input.chatId);
