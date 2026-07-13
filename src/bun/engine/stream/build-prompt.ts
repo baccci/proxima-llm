@@ -27,7 +27,9 @@ export function buildSystem(
 ): string {
   const parts: string[] = [buildBaseSystemPrompt(model, webSearchActive)];
 
-  if (project?.description) parts.push(project.description);
+  if (project?.description) {
+    parts.push(project.description);
+  }
 
   const globalTitles = sliceTitles?.global ?? [];
   const projectTitles = sliceTitles?.project ?? [];
@@ -91,7 +93,9 @@ export function toCoreMessages(
     : history;
 
   for (const m of filtered) {
-    if (m.role === MessageRole.enum.system) continue;
+    if (m.role === MessageRole.enum.system) {
+      continue;
+    }
 
     if (m.role === MessageRole.enum.user) {
       const content: Array<CoreTextPart | CoreImagePart | CoreFilePart> = [];
@@ -100,22 +104,26 @@ export function toCoreMessages(
           content.push({ type: 'text', text: p.text });
         } else if (p.type === PartKind.enum.image) {
           const resolved = resolveAttachment(p.attachmentId);
-          if (resolved)
+          if (resolved) {
             content.push({
               type: 'image',
               image: resolved.dataBase64,
               mediaType: resolved.mediaType,
             });
-          else content.push({ type: 'text', text: '[missing attachment]' });
+          } else {
+            content.push({ type: 'text', text: '[missing attachment]' });
+          }
         } else if (p.type === PartKind.enum.file) {
           const resolved = resolveAttachment(p.attachmentId);
-          if (resolved)
+          if (resolved) {
             content.push({
               type: 'file',
               data: resolved.dataBase64,
               mediaType: resolved.mediaType,
             });
-          else content.push({ type: 'text', text: '[missing attachment]' });
+          } else {
+            content.push({ type: 'text', text: '[missing attachment]' });
+          }
         }
       }
       result.push({ role: 'user', content } as ModelMessage);

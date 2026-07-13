@@ -12,7 +12,9 @@ const adapters: Record<ProviderId, ProviderAdapter> = {
 
 export function getAdapter(provider: string): ProviderAdapter {
   const adapter = adapters[provider as ProviderId];
-  if (!adapter) throw new Error(`Unknown provider: ${provider}`);
+  if (!adapter) {
+    throw new Error(`Unknown provider: ${provider}`);
+  }
   return adapter;
 }
 

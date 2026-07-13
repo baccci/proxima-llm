@@ -26,7 +26,9 @@ export class OpenRouterAdapter implements ProviderAdapter {
       opts.plugins = [{ id: 'web' }];
     }
 
-    if (Object.keys(opts).length === 0) return undefined;
+    if (Object.keys(opts).length === 0) {
+      return undefined;
+    }
     return { openrouter: opts };
   }
 

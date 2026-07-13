@@ -18,7 +18,9 @@ export function readMemoryTool(ctx: { projectId?: string }) {
       }
       const projectId = scope === 'project' ? (ctx.projectId ?? null) : null;
       const slice = memoryService.readByTitle(scope, projectId, title);
-      if (!slice) return { error: `Memory slice not found: "${title}"` };
+      if (!slice) {
+        return { error: `Memory slice not found: "${title}"` };
+      }
       return { title: slice.title, content: slice.content };
     },
   });

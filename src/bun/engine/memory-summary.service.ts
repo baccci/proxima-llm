@@ -18,7 +18,9 @@ function resolveGenArgs(
   let preferredProvider: ProviderId | null = null;
   if (defaultModelId) {
     const defaultModel = allModels.find((m) => m.id === defaultModelId && m.isEnabled);
-    if (defaultModel) preferredProvider = defaultModel.provider;
+    if (defaultModel) {
+      preferredProvider = defaultModel.provider;
+    }
   }
 
   const enabledProviders = [
@@ -30,9 +32,13 @@ function resolveGenArgs(
 
   for (const provider of providers) {
     const modelId = resolveTitleModel(provider);
-    if (!modelId) continue;
+    if (!modelId) {
+      continue;
+    }
     const apiKey = keychain.getApiKey(provider);
-    if (!apiKey) continue;
+    if (!apiKey) {
+      continue;
+    }
     return { provider, modelId, apiKey };
   }
 
@@ -56,11 +62,15 @@ export async function regenerateProjectSummary(projectId: string): Promise<void>
   }
 
   const args = resolveGenArgs(projectId);
-  if (!args) return;
+  if (!args) {
+    return;
+  }
 
   try {
     const summary = await generateMemorySummary(slices, args.provider, args.apiKey, args.modelId);
-    if (genTokens.get(projectId) !== token) return; // superseded by a newer regen
+    if (genTokens.get(projectId) !== token) {
+      return; // superseded by a newer regen
+    }
     projectService.setMemorySummary(projectId, summary);
     emitMemoryChanged('project', projectId);
   } catch (err) {

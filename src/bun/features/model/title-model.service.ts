@@ -10,7 +10,9 @@ const CHEAP_FAMILY_HINT: Partial<Record<ProviderId, AnthropicFamily>> = {
 };
 
 function priceOf(m: ModelDTO): number | null {
-  if (!m.pricing) return null;
+  if (!m.pricing) {
+    return null;
+  }
   return m.pricing.prompt + m.pricing.completion;
 }
 
@@ -30,12 +32,16 @@ function cheapestEnabled(provider: ProviderId): ModelDTO | undefined {
   const enabled = listModels().filter(
     (m) => m.provider === provider && m.isEnabled && !isFreeModel(m),
   );
-  if (enabled.length === 0) return undefined;
+  if (enabled.length === 0) {
+    return undefined;
+  }
 
   const priced = enabled
     .filter((m) => priceOf(m) !== null)
     .sort((a, b) => (priceOf(a) ?? 0) - (priceOf(b) ?? 0));
-  if (priced.length > 0) return priced[0];
+  if (priced.length > 0) {
+    return priced[0];
+  }
 
   const hint = CHEAP_FAMILY_HINT[provider];
   return enabled.find((m) => m.family === hint) ?? enabled[0];
@@ -51,7 +57,9 @@ export function resolveTitleModel(provider: ProviderId): string | null {
     const valid = listModels().some(
       (m) => m.id === cfg.modelId && m.provider === provider && m.isEnabled,
     );
-    if (valid) return cfg.modelId;
+    if (valid) {
+      return cfg.modelId;
+    }
   }
 
   return cheapestEnabled(provider)?.id ?? null;

@@ -29,12 +29,16 @@ export class AnthropicAdapter implements ProviderAdapter {
       }
     }
 
-    if (Object.keys(opts).length === 0) return undefined;
+    if (Object.keys(opts).length === 0) {
+      return undefined;
+    }
     return { anthropic: opts };
   }
 
   buildServerTools(_model: ModelDTO, req: ComposerRequest): Record<string, Tool> | undefined {
-    if (!req.webSearch) return undefined;
+    if (!req.webSearch) {
+      return undefined;
+    }
     return {
       // Cast bridges the provider-utils `Tool` returned by the factory to the `Tool` from `ai`
       // (version skew between the two packages); shapes are compatible at runtime.

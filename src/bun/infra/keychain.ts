@@ -72,13 +72,17 @@ function findItem(service: string, provider: string): Found | null {
     ptr(outItem),
   ) as number;
 
-  if (status !== 0) return null;
+  if (status !== 0) {
+    return null;
+  }
   return { itemRef: outItem[0], dataPtr: outData[0], dataLen: outLen[0] };
 }
 
 export function getApiKey(provider: ProviderId): string | undefined {
   const found = findItem(SERVICE, provider);
-  if (!found || found.dataPtr === 0n) return undefined;
+  if (!found || found.dataPtr === 0n) {
+    return undefined;
+  }
 
   // Copy the bytes before freeing — toBuffer references foreign memory
   // Second arg is byte OFFSET (not length); third arg is byteLength
@@ -91,8 +95,12 @@ export function setApiKey(provider: ProviderId, key: string): void {
   // Delete existing entry first; SecKeychainAddGenericPassword fails on duplicates
   const existing = findItem(SERVICE, provider);
   if (existing) {
-    if (existing.dataPtr !== 0n) symbols.SecKeychainItemFreeContent(null, asPtr(existing.dataPtr));
-    if (existing.itemRef !== 0n) symbols.SecKeychainItemDelete(asPtr(existing.itemRef));
+    if (existing.dataPtr !== 0n) {
+      symbols.SecKeychainItemFreeContent(null, asPtr(existing.dataPtr));
+    }
+    if (existing.itemRef !== 0n) {
+      symbols.SecKeychainItemDelete(asPtr(existing.itemRef));
+    }
   }
 
   const svc = enc(SERVICE);
@@ -117,14 +125,24 @@ export function setApiKey(provider: ProviderId, key: string): void {
 
 export function hasApiKey(provider: ProviderId): boolean {
   const found = findItem(SERVICE, provider);
-  if (!found) return false;
-  if (found.dataPtr !== 0n) symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
+  if (!found) {
+    return false;
+  }
+  if (found.dataPtr !== 0n) {
+    symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
+  }
   return true;
 }
 
 export function removeApiKey(provider: ProviderId): void {
   const found = findItem(SERVICE, provider);
-  if (!found) return;
-  if (found.dataPtr !== 0n) symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
-  if (found.itemRef !== 0n) symbols.SecKeychainItemDelete(asPtr(found.itemRef));
+  if (!found) {
+    return;
+  }
+  if (found.dataPtr !== 0n) {
+    symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
+  }
+  if (found.itemRef !== 0n) {
+    symbols.SecKeychainItemDelete(asPtr(found.itemRef));
+  }
 }

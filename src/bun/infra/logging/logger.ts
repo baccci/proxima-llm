@@ -87,8 +87,12 @@ function rendererError(msg: string, stack?: string, context?: Record<string, unk
     source: 'renderer',
     msg,
   };
-  if (stack) line.stack = stack;
-  if (context) line.context = context;
+  if (stack) {
+    line.stack = stack;
+  }
+  if (context) {
+    line.context = context;
+  }
 
   appendLine(line);
 }
