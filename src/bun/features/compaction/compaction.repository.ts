@@ -4,9 +4,9 @@ import { db } from '../../infra/db/client';
 import { compactionSnapshots } from '../../infra/db/schema';
 
 export type CompactionSnapshot = {
-  // Boundary the model summarizes through — messages newer than this are sent in full.
+  // Boundary the model summarizes through: messages newer than this are sent in full.
   coveredThroughAt: string;
-  // Chat tail at compaction time — where the UI divider renders (bottom). Falls back
+  // Chat tail at compaction time: where the UI divider renders (bottom). Falls back
   // to coveredThroughAt for pre-existing rows that predate the column.
   displayThroughAt: string;
   summaryText: string;

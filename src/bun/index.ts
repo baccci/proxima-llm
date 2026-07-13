@@ -23,7 +23,7 @@ log.init();
 log.installGlobalHandlers();
 
 const DEV_SERVER_PORT = 5173;
-// dev:hmr sets HMR=1 — under it, Vite and electrobun boot in parallel, so poll for the
+// dev:hmr sets HMR=1. Under it, Vite and electrobun boot in parallel, so poll for the
 // dev server instead of probing once (the one-shot check lost the race and fell back to
 // stale bundled assets). Outside HMR there's no server to wait for, so probe just once.
 const HMR_EXPECTED = process.env.HMR === '1';
@@ -52,7 +52,7 @@ async function getMainViewUrl(): Promise<string> {
 // Boot
 setupSchema();
 await seedModels();
-// Non-blocking background sync — UI renders from DB cache instantly
+// Non-blocking background sync: UI renders from DB cache instantly
 syncOpenRouterModels(pushModelsUpdated).catch((err) =>
   log.error('OpenRouter sync failed (non-fatal)', err),
 );

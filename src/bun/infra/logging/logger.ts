@@ -21,7 +21,7 @@ function appendLine(line: Record<string, unknown>): void {
   try {
     appendFileSync(currentFile(), `${JSON.stringify(line)}\n`);
   } catch {
-    // ignore write errors — never throw from the logger
+    // ignore write errors: never throw from the logger
   }
 }
 
@@ -99,7 +99,7 @@ function rendererError(msg: string, stack?: string, context?: Record<string, unk
 
 /**
  * The single entry point for all logging in the bun (main) process.
- * Renderer code can't import this — it logs over RPC via `logClientError`,
+ * Renderer code can't import this. It logs over RPC via `logClientError`,
  * which lands here through `log.rendererError`.
  */
 export const log = {
@@ -111,7 +111,7 @@ export const log = {
   // Errors forwarded from the renderer over RPC
   rendererError,
 
-  // Lifecycle — call once during boot
+  // Lifecycle: call once during boot
   init: () => {
     lastDateStr = todayStr();
     cleanup();
@@ -130,7 +130,7 @@ export const log = {
     });
   },
 
-  // Introspection — used by the logs service for the Diagnostics UI
+  // Introspection: used by the logs service for the Diagnostics UI
   dir: () => LOG_DIR,
   currentFile: () => currentFile(),
 };

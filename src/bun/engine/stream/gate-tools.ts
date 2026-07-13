@@ -37,7 +37,7 @@ export function buildGatedTools(
         if (isAlwaysAllowed(name)) {
           return originalExecute!(input as never, callOpts);
         }
-        const policy = getPolicy(name); // Layer 1 — global
+        const policy = getPolicy(name); // Layer 1, global
 
         if (policy === ToolPolicy.enum.deny) {
           return { blocked: true, reason: 'Denied by policy.' };
@@ -47,7 +47,7 @@ export function buildGatedTools(
           return originalExecute!(input as never, callOpts);
         }
 
-        // policy === 'ask' → Layer 2 — per-chat grant
+        // policy === 'ask' falls to Layer 2, the per-chat grant
         const grant = getToolGrant(name);
         if (grant === ToolDecision.enum.deny) {
           return { blocked: true, reason: 'Denied for this chat.' };

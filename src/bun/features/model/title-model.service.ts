@@ -17,7 +17,7 @@ function priceOf(m: ModelDTO): number | null {
 }
 
 // Free models (e.g. OpenRouter `:free` variants) get deactivated without notice,
-// so Auto must never pick one — it would resurrect the original title bug.
+// so Auto must never pick one, since it would resurrect the original title bug.
 export function isFreeModel(m: ModelDTO): boolean {
   return (
     m.id.endsWith(':free') ||

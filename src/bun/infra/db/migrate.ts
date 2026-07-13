@@ -1,6 +1,6 @@
 import { sqlite } from './client';
 
-// Add a column only if the table lacks it — SQLite has no idempotent ADD COLUMN.
+// Add a column only if the table lacks it: SQLite has no idempotent ADD COLUMN.
 // Returns whether it was just added, so callers can run one-time backfills.
 function addColumnIfMissing(table: string, column: string, type: string): boolean {
   const cols = sqlite.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
@@ -11,7 +11,7 @@ function addColumnIfMissing(table: string, column: string, type: string): boolea
   return true;
 }
 
-// Drop a column only if the table still has it — mirror of addColumnIfMissing for retired
+// Drop a column only if the table still has it. Mirror of addColumnIfMissing for retired
 // columns. Modern SQLite (Bun's) supports DROP COLUMN directly when no index depends on it.
 function dropColumnIfPresent(table: string, column: string): void {
   const cols = sqlite.query(`PRAGMA table_info(${table})`).all() as { name: string }[];

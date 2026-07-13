@@ -4,7 +4,7 @@ import { log } from './logging/logger';
 
 const SERVICE = 'com.proxima.apikeys';
 
-// SecKeychainAddGenericPassword / SecKeychainFindGenericPassword — the older
+// SecKeychainAddGenericPassword / SecKeychainFindGenericPassword: the older
 // (deprecated-in-12) but simpler C API. SecItem* requires CFDictionary marshalling
 // which is significantly more FFI plumbing for no functional benefit here.
 const { symbols } = dlopen('/System/Library/Frameworks/Security.framework/Security', {
@@ -84,7 +84,7 @@ export function getApiKey(provider: ProviderId): string | undefined {
     return undefined;
   }
 
-  // Copy the bytes before freeing — toBuffer references foreign memory
+  // Copy the bytes before freeing: toBuffer references foreign memory
   // Second arg is byte OFFSET (not length); third arg is byteLength
   const bytes = new Uint8Array(toBuffer(asPtr(found.dataPtr), 0, found.dataLen));
   symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));

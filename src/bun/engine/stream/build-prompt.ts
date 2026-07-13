@@ -78,7 +78,7 @@ type CoreToolResultPart = {
 };
 
 // Map stored chat history into the provider's message format. Drops system
-// messages, resolves image/file attachments to bytes, and — critically —
+// messages, resolves image/file attachments to bytes, and, critically,
 // backfills a synthetic 'interrupted' tool-result for any assistant tool-call
 // that never got one (a cancelled run), so the provider payload is never left
 // with a dangling tool-call it would reject.

@@ -52,7 +52,7 @@ function buildCompactionPrompt(
 export type CompactOptions = {
   signal?: AbortSignal;
   timeoutMs?: number;
-  // Dev override (Force compact) — summarize down to this many recent turns
+  // Dev override (Force compact): summarize down to this many recent turns
   // instead of KEEP_RECENT, so a short chat actually compacts. 0 = summarize all.
   keepRecent?: number;
 };
@@ -78,7 +78,7 @@ export async function compact(
   }
 
   const boundary = toSummarize.at(-1)!;
-  // Chat tail at compaction time — divider display anchor (kept-full recent messages
+  // Chat tail at compaction time: the divider display anchor (kept-full recent messages
   // sit between `boundary` and this, above the line).
   const displayBoundary = since.at(-1)!;
   const titleModelId = resolveTitleModel(model.provider);

@@ -70,7 +70,7 @@ export function setSendMemoryChanged(
   memoryNotify.setMemoryChangedPush(fn);
 }
 
-// Lazy import — control server module is only used when it exists.
+// Lazy import: control server module is only used when it exists.
 // We use dynamic require to avoid circular deps with the conditional boot path.
 let _startServer: ((port: number) => void) | null = null;
 let _stopServer: (() => void) | null = null;
@@ -192,7 +192,7 @@ export function createRPC() {
           Utils.quit();
         },
 
-        // Dev tools — no-ops unless DEV_TOOLS_ENABLED
+        // Dev tools: no-ops unless DEV_TOOLS_ENABLED
         devSetOverride: ({ key, value }) => {
           if (DEV_TOOLS_ENABLED) {
             devOverridesService.setOverride(key, value);
