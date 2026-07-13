@@ -16,6 +16,7 @@ import { getModel } from '../features/model/model.repository';
 import { resolveTitleModel } from '../features/model/title-model.service';
 import { getApiKey } from '../infra/keychain';
 import { getAdapter } from '../infra/llm/providers/index';
+import { selectCompaction } from './compaction-selection';
 
 const KEEP_RECENT = 15;
 // A manual "compact now" (ring click) is an explicit free-context action, so it
@@ -61,38 +62,6 @@ export type CompactOptions = {
   // instead of KEEP_RECENT, so a short chat actually compacts. 0 = summarize all.
   keepRecent?: number;
 };
-
-// Which stored messages a compaction run folds into the summary, plus the boundary
-// markers it saves. Pure (no DB or model calls), so the slice math stays testable in
-// isolation.
-export type CompactionSelection = {
-  toSummarize: MessageDTO[];
-  // Last summarized message: the snapshot's coveredThrough boundary.
-  boundary: MessageDTO;
-  // Chat tail at compaction time: the divider display anchor. Kept-full recent
-  // messages sit between boundary and this, above the line.
-  displayBoundary: MessageDTO;
-};
-
-// Returns null when there is nothing older than the previous snapshot to summarize.
-export function selectCompaction(
-  all: MessageDTO[],
-  prevCoveredThroughAt: string | undefined,
-  keep: number,
-): CompactionSelection | null {
-  const since = prevCoveredThroughAt ? all.filter((m) => m.createdAt > prevCoveredThroughAt) : all;
-  // slice(0, -0) is slice(0, 0) = [], so keep<=0 (summarize everything) must copy explicitly.
-  const toSummarize = keep > 0 ? since.slice(0, -keep) : since.slice();
-  if (toSummarize.length === 0) {
-    return null;
-  }
-
-  return {
-    toSummarize,
-    boundary: toSummarize.at(-1)!,
-    displayBoundary: since.at(-1)!,
-  };
-}
 
 export async function compact(
   chatId: string,
