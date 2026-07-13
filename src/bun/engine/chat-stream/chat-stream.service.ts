@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import type { AppRPC, StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
+import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
 import { DEFAULT_CHAT_TITLE } from '../../../shared-contracts/schemas/chat.schema';
 import type {
   MessageDTO,
@@ -93,7 +94,7 @@ async function maybeCompact(args: {
     return;
   }
 
-  args.emitChunk({ kind: 'compacting', active: true });
+  args.emitChunk({ kind: STREAM_CHUNK_KIND.compacting, active: true });
   try {
     await compactionService.compact(args.chatId, args.model, args.apiKey, {
       signal: args.signal,
@@ -102,7 +103,7 @@ async function maybeCompact(args: {
   } catch (err) {
     log.error('Context compaction failed (non-fatal)', err);
   } finally {
-    args.emitChunk({ kind: 'compacting', active: false });
+    args.emitChunk({ kind: STREAM_CHUNK_KIND.compacting, active: false });
   }
 }
 
@@ -165,7 +166,7 @@ function runStreamForChat(
   }
 
   const assistantMsgId = randomUUID();
-  emitChunk({ kind: 'start', assistantMessageId: assistantMsgId });
+  emitChunk({ kind: STREAM_CHUNK_KIND.start, assistantMessageId: assistantMsgId });
 
   const chatRow = chatService.getChat(chatId);
   const grants = { ...(chatRow?.composer.toolGrants ?? {}) };
@@ -225,7 +226,8 @@ function runStreamForChat(
           emitChunk(chunk);
           if (
             !startedEmitted &&
-            (chunk.kind === 'text-delta' || chunk.kind === 'reasoning-delta')
+            (chunk.kind === STREAM_CHUNK_KIND.textDelta ||
+              chunk.kind === STREAM_CHUNK_KIND.reasoningDelta)
           ) {
             startedEmitted = true;
             opts?.onLifecycle?.('started', meta);
@@ -247,7 +249,7 @@ function runStreamForChat(
           ? undefined
           : chatService.saveAssistantMessage(chatId, modelId, parts, usage, stopReason);
       opts?.onLifecycle?.('done', meta);
-      emitChunk({ kind: 'done', message: saved });
+      emitChunk({ kind: STREAM_CHUNK_KIND.done, message: saved });
 
       try {
         await maybeAutoTitle({ chatId, model, apiKey, originalContent });
@@ -256,7 +258,7 @@ function runStreamForChat(
       }
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
-      emitChunk({ kind: 'error', error });
+      emitChunk({ kind: STREAM_CHUNK_KIND.error, error });
       opts?.onLifecycle?.('error', meta);
     } finally {
       settlePendingApprovals(streamId);

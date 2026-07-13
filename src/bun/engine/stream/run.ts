@@ -1,6 +1,7 @@
 import { stepCountIs, streamText } from 'ai';
 import { providerSupportsWebSearch } from '../../../shared-contracts/providers/registry';
 import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
+import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
 import type {
   MessageDTO,
   MessagePart,
@@ -114,22 +115,22 @@ export async function runStream(opts: StreamOptions): Promise<{
 
       switch (delta.type) {
         case 'text-delta':
-          opts.onChunk({ kind: 'text-delta', delta: delta.text });
+          opts.onChunk({ kind: STREAM_CHUNK_KIND.textDelta, delta: delta.text });
           acc.addText(delta.text);
           break;
         case 'reasoning-delta':
-          opts.onChunk({ kind: 'reasoning-delta', delta: delta.text });
+          opts.onChunk({ kind: STREAM_CHUNK_KIND.reasoningDelta, delta: delta.text });
           acc.addReasoning(delta.text);
           break;
         case 'source':
           if (delta.sourceType === 'url') {
-            opts.onChunk({ kind: 'source', url: delta.url, title: delta.title });
+            opts.onChunk({ kind: STREAM_CHUNK_KIND.source, url: delta.url, title: delta.title });
             acc.addSource(delta.url, delta.title);
           }
           break;
         case 'tool-call':
           opts.onChunk({
-            kind: 'tool-call',
+            kind: STREAM_CHUNK_KIND.toolCall,
             toolCallId: delta.toolCallId,
             toolName: String(delta.toolName),
             input: delta.input,
@@ -137,7 +138,11 @@ export async function runStream(opts: StreamOptions): Promise<{
           acc.addToolCall(delta.toolCallId, String(delta.toolName), delta.input);
           break;
         case 'tool-result':
-          opts.onChunk({ kind: 'tool-result', toolCallId: delta.toolCallId, output: delta.output });
+          opts.onChunk({
+            kind: STREAM_CHUNK_KIND.toolResult,
+            toolCallId: delta.toolCallId,
+            output: delta.output,
+          });
           acc.addToolResult(delta.toolCallId, String(delta.toolName), delta.output);
           break;
         case 'error':

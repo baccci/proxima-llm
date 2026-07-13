@@ -1,3 +1,4 @@
+import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
 import { startChatStream } from '../../engine/chat-stream/chat-stream.service';
 import { broadcast, LIFECYCLE_KIND } from './events';
 
@@ -41,7 +42,7 @@ export function streamCompletionsResponse(params: CompletionsParams): Response {
         {
           onChunk: (chunk) => {
             send(chunk);
-            if (chunk.kind === 'done' || chunk.kind === 'error') {
+            if (chunk.kind === STREAM_CHUNK_KIND.done || chunk.kind === STREAM_CHUNK_KIND.error) {
               closed = true;
               controller.close();
             }

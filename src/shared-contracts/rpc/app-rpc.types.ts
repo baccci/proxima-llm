@@ -17,18 +17,9 @@ import type {
 } from '../schemas/project-file.schema'
 import type { SettingsDTO, UpdateSettingsInput } from '../schemas/settings.schema'
 import type { ToolDecision, ToolPolicy } from '../tools/tool-policy'
+import type { StreamChunk } from './stream-chunk'
 
-export type StreamChunk =
-  | { kind: 'start'; assistantMessageId: string }
-  | { kind: 'compacting'; active: boolean }
-  | { kind: 'text-delta'; delta: string }
-  | { kind: 'reasoning-delta'; delta: string }
-  | { kind: 'source'; url: string; title?: string }
-  | { kind: 'tool-call'; toolCallId: string; toolName: string; input: unknown }
-  | { kind: 'tool-result'; toolCallId: string; output: unknown }
-  | { kind: 'tool-approval-request'; toolCallId: string; toolName: string; input: unknown }
-  | { kind: 'done'; message?: MessageDTO }
-  | { kind: 'error'; error: string }
+export type { StreamChunk }
 
 export type AppRPC = {
   bun: {

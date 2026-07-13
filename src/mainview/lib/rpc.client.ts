@@ -1,4 +1,5 @@
 import type { AppRPC, StreamChunk } from '@shared/rpc/app-rpc.types'
+import { STREAM_CHUNK_KIND } from '@shared/rpc/stream-chunk'
 import Electrobun, { Electroview } from 'electrobun/view'
 import { onControlNavigate } from '@/features/chat/lib/on-control-navigate'
 import { queryClient } from './query-client'
@@ -14,7 +15,7 @@ export const rpc = Electroview.defineRPC<AppRPC>({
     messages: {
       streamChunk: ({ streamId, chunk }) => {
         streamSubscribers.get(streamId)?.forEach((cb) => cb(chunk))
-        if (chunk.kind === 'done' || chunk.kind === 'error') {
+        if (chunk.kind === STREAM_CHUNK_KIND.done || chunk.kind === STREAM_CHUNK_KIND.error) {
           streamSubscribers.delete(streamId)
         }
       },

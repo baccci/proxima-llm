@@ -1,6 +1,7 @@
 import type { ToolCallOptions } from '@ai-sdk/provider-utils';
 import type { Tool } from 'ai';
 import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
+import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
 import { isAlwaysAllowed } from '../../../shared-contracts/tools/tool-catalog';
 import { ToolDecision, ToolPolicy } from '../../../shared-contracts/tools/tool-policy';
 import { getPolicy } from '../../features/tool-permission/tool-permission.repository';
@@ -54,7 +55,7 @@ export function buildGatedTools(
         }
         if (grant !== ToolDecision.enum.allow) {
           onChunk({
-            kind: 'tool-approval-request',
+            kind: STREAM_CHUNK_KIND.toolApprovalRequest,
             toolCallId: callOpts.toolCallId,
             toolName: name,
             input,
