@@ -4,6 +4,11 @@ import { log } from './logging/logger';
 
 const SERVICE = 'com.proxima.apikeys';
 
+// OSStatus success code (errSecSuccess) returned by the Security framework calls.
+const SEC_SUCCESS = 0;
+// Null address in the out-pointers the keychain fills in: no data / no item ref.
+const NULL_PTR = 0n;
+
 // SecKeychainAddGenericPassword / SecKeychainFindGenericPassword: the older
 // (deprecated-in-12) but simpler C API. SecItem* requires CFDictionary marshalling
 // which is significantly more FFI plumbing for no functional benefit here.
@@ -72,7 +77,7 @@ function findItem(service: string, provider: string): Found | null {
     ptr(outItem),
   ) as number;
 
-  if (status !== 0) {
+  if (status !== SEC_SUCCESS) {
     return null;
   }
   return { itemRef: outItem[0], dataPtr: outData[0], dataLen: outLen[0] };
@@ -80,7 +85,7 @@ function findItem(service: string, provider: string): Found | null {
 
 export function getApiKey(provider: ProviderId): string | undefined {
   const found = findItem(SERVICE, provider);
-  if (!found || found.dataPtr === 0n) {
+  if (!found || found.dataPtr === NULL_PTR) {
     return undefined;
   }
 
@@ -95,10 +100,10 @@ export function setApiKey(provider: ProviderId, key: string): void {
   // Delete existing entry first; SecKeychainAddGenericPassword fails on duplicates
   const existing = findItem(SERVICE, provider);
   if (existing) {
-    if (existing.dataPtr !== 0n) {
+    if (existing.dataPtr !== NULL_PTR) {
       symbols.SecKeychainItemFreeContent(null, asPtr(existing.dataPtr));
     }
-    if (existing.itemRef !== 0n) {
+    if (existing.itemRef !== NULL_PTR) {
       symbols.SecKeychainItemDelete(asPtr(existing.itemRef));
     }
   }
@@ -118,7 +123,7 @@ export function setApiKey(provider: ProviderId, key: string): void {
     null,
   ) as number;
 
-  if (status !== 0) {
+  if (status !== SEC_SUCCESS) {
     log.error(`[keychain] SecKeychainAddGenericPassword failed (OSStatus ${status})`);
   }
 }
@@ -128,7 +133,7 @@ export function hasApiKey(provider: ProviderId): boolean {
   if (!found) {
     return false;
   }
-  if (found.dataPtr !== 0n) {
+  if (found.dataPtr !== NULL_PTR) {
     symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
   }
   return true;
@@ -139,10 +144,10 @@ export function removeApiKey(provider: ProviderId): void {
   if (!found) {
     return;
   }
-  if (found.dataPtr !== 0n) {
+  if (found.dataPtr !== NULL_PTR) {
     symbols.SecKeychainItemFreeContent(null, asPtr(found.dataPtr));
   }
-  if (found.itemRef !== 0n) {
+  if (found.itemRef !== NULL_PTR) {
     symbols.SecKeychainItemDelete(asPtr(found.itemRef));
   }
 }

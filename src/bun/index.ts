@@ -23,6 +23,9 @@ log.init();
 log.installGlobalHandlers();
 
 const DEV_SERVER_PORT = 5173;
+const HEAD_PROBE_TIMEOUT_MS = 500;
+const RETRY_BACKOFF_MS = 250;
+const HMR_POLL_ATTEMPTS = 20;
 // dev:hmr sets HMR=1. Under it, Vite and electrobun boot in parallel, so poll for the
 // dev server instead of probing once (the one-shot check lost the race and fell back to
 // stale bundled assets). Outside HMR there's no server to wait for, so probe just once.
@@ -31,18 +34,18 @@ const HMR_EXPECTED = process.env.HMR === '1';
 async function getMainViewUrl(): Promise<string> {
   const channel = await Updater.localInfo.channel();
   if (channel === 'dev') {
-    const attempts = HMR_EXPECTED ? 20 : 1;
+    const attempts = HMR_EXPECTED ? HMR_POLL_ATTEMPTS : 1;
     for (let i = 0; i < attempts; i++) {
       try {
         await fetch(`http://localhost:${DEV_SERVER_PORT}`, {
           method: 'HEAD',
-          signal: AbortSignal.timeout(500),
+          signal: AbortSignal.timeout(HEAD_PROBE_TIMEOUT_MS),
         });
         console.log(`HMR enabled: http://localhost:${DEV_SERVER_PORT}`);
         return `http://localhost:${DEV_SERVER_PORT}`;
       } catch {
         if (i < attempts - 1) {
-          await Bun.sleep(250);
+          await Bun.sleep(RETRY_BACKOFF_MS);
         }
       }
     }

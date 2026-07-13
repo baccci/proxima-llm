@@ -3,7 +3,11 @@ import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs
 import { join } from 'path';
 
 const LOG_RETENTION_DAYS = 14;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const LOG_DIR = Utils.paths.userLogs;
+
+type LogLevel = 'error' | 'warn' | 'info';
+type LogSource = 'main' | 'renderer';
 
 mkdirSync(LOG_DIR, { recursive: true });
 
@@ -26,7 +30,7 @@ function appendLine(line: Record<string, unknown>): void {
 }
 
 function cleanup(): void {
-  const cutoff = Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - LOG_RETENTION_DAYS * MS_PER_DAY;
   try {
     const files = readdirSync(LOG_DIR).filter((f) => f.endsWith('.log'));
     for (const file of files) {
@@ -53,12 +57,7 @@ function maybeRollover(): void {
   }
 }
 
-function write(
-  level: 'error' | 'warn' | 'info',
-  source: 'main' | 'renderer',
-  msg: string,
-  errOrCtx?: unknown,
-): void {
+function write(level: LogLevel, source: LogSource, msg: string, errOrCtx?: unknown): void {
   maybeRollover();
 
   const line: Record<string, unknown> = {
