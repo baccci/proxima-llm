@@ -1,4 +1,4 @@
-import type { MemoryScope } from '../../../shared-contracts/schemas/memory-slice.schema';
+import { MemoryScope } from '../../../shared-contracts/schemas/memory-slice.schema';
 
 type Push = (scope: MemoryScope, projectId: string | null) => void;
 type RegenHook = (projectId: string) => void;
@@ -27,5 +27,7 @@ export function emitMemoryChanged(scope: MemoryScope, projectId: string | null):
 // kicks off async summary regen for project scope.
 export function notifyMemoryChanged(scope: MemoryScope, projectId: string | null): void {
   emitMemoryChanged(scope, projectId);
-  if (scope === 'project' && projectId) regenProjectSummary?.(projectId);
+  if (scope === MemoryScope.enum.project && projectId) {
+    regenProjectSummary?.(projectId);
+  }
 }
