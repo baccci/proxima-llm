@@ -23,6 +23,8 @@ log.init();
 log.installGlobalHandlers();
 
 const DEV_SERVER_PORT = 5173;
+const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
+const BUNDLED_VIEW_URL = 'views://mainview/index.html';
 const HEAD_PROBE_TIMEOUT_MS = 500;
 const RETRY_BACKOFF_MS = 250;
 const HMR_POLL_ATTEMPTS = 20;
@@ -31,27 +33,39 @@ const HMR_POLL_ATTEMPTS = 20;
 // stale bundled assets). Outside HMR there's no server to wait for, so probe just once.
 const HMR_EXPECTED = process.env.HMR === '1';
 
-async function getMainViewUrl(): Promise<string> {
-  const channel = await Updater.localInfo.channel();
-  if (channel === 'dev') {
-    const attempts = HMR_EXPECTED ? HMR_POLL_ATTEMPTS : 1;
-    for (let i = 0; i < attempts; i++) {
-      try {
-        await fetch(`http://localhost:${DEV_SERVER_PORT}`, {
-          method: 'HEAD',
-          signal: AbortSignal.timeout(HEAD_PROBE_TIMEOUT_MS),
-        });
-        console.log(`HMR enabled: http://localhost:${DEV_SERVER_PORT}`);
-        return `http://localhost:${DEV_SERVER_PORT}`;
-      } catch {
-        if (i < attempts - 1) {
-          await Bun.sleep(RETRY_BACKOFF_MS);
-        }
+// Poll the Vite dev server until a HEAD probe succeeds. Returns false if it never
+// answered within the attempt budget, so the caller falls back to bundled assets.
+async function probeDevServer(): Promise<boolean> {
+  const attempts = HMR_EXPECTED ? HMR_POLL_ATTEMPTS : 1;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await fetch(DEV_SERVER_URL, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(HEAD_PROBE_TIMEOUT_MS),
+      });
+      return true;
+    } catch {
+      if (i < attempts - 1) {
+        await Bun.sleep(RETRY_BACKOFF_MS);
       }
     }
-    console.log('Vite server not running — using bundled assets. Run "bun run dev:hmr" for HMR.');
   }
-  return 'views://mainview/index.html';
+  return false;
+}
+
+async function getMainViewUrl(): Promise<string> {
+  const channel = await Updater.localInfo.channel();
+  if (channel !== 'dev') {
+    return BUNDLED_VIEW_URL;
+  }
+
+  if (await probeDevServer()) {
+    console.log(`HMR enabled: ${DEV_SERVER_URL}`);
+    return DEV_SERVER_URL;
+  }
+
+  console.log('Vite server not running — using bundled assets. Run "bun run dev:hmr" for HMR.');
+  return BUNDLED_VIEW_URL;
 }
 
 // Boot
@@ -117,25 +131,31 @@ ApplicationMenu.setApplicationMenu([
   },
 ]);
 
-// Wire bun → webview push (for streaming chunks, model updates, control navigate)
-setSendToWebview((msg) => {
-  mainWindow.webview.rpc?.send.streamChunk(msg);
-});
-setSendModelsUpdated(() => {
-  mainWindow.webview.rpc?.send.modelsUpdated({});
-});
-setSendChatsUpdated(() => {
-  mainWindow.webview.rpc?.send.chatsUpdated({});
-});
-setSendMemoryChanged((scope, projectId) => {
-  mainWindow.webview.rpc?.send.memoryChanged({ scope, projectId });
-});
+// Wire bun → webview push: streaming chunks, model/chat updates, memory changes,
+// and control navigation. Each bridges an engine or feature notifier to a webview
+// RPC send on the main window.
+function wireWebviewPush(): void {
+  setSendToWebview((msg) => {
+    mainWindow.webview.rpc?.send.streamChunk(msg);
+  });
+  setSendModelsUpdated(() => {
+    mainWindow.webview.rpc?.send.modelsUpdated({});
+  });
+  setSendChatsUpdated(() => {
+    mainWindow.webview.rpc?.send.chatsUpdated({});
+  });
+  setSendMemoryChanged((scope, projectId) => {
+    mainWindow.webview.rpc?.send.memoryChanged({ scope, projectId });
+  });
+  setSendControlNavigate((msg) => {
+    mainWindow.webview.rpc?.send.controlNavigate(msg);
+  });
+}
+
+wireWebviewPush();
 // Project-summary regen coordinates model + project + llm, so the workflow lives
 // in engine/; wire it into the memory feature's change notifier here.
 setMemoryRegenHook(regenerateProjectSummary);
-setSendControlNavigate((msg) => {
-  mainWindow.webview.rpc?.send.controlNavigate(msg);
-});
 
 // Register control server start/stop with rpc.ts so updateSettings can toggle it
 setControlServerFns(startControlServer, stopControlServer);
