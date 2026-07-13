@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { startChatStream } from '../../engine/chat-stream/chat-stream.service';
 import * as chatService from '../../features/chat/chat.repository';
 import * as modelService from '../../features/model/model.repository';
@@ -10,14 +11,19 @@ import { broadcast, LIFECYCLE_KIND } from './events';
 import { authenticate, err, json } from './http';
 import { streamCompletionsResponse } from './sse';
 
-type PromptBody = {
-  text?: string;
-  target?: string;
-  model?: string;
-  project?: string;
-  thinking?: boolean;
-  focus?: boolean;
-};
+const PairBody = z.object({
+  code: z.string().optional(),
+  label: z.string().optional(),
+});
+
+const PromptBody = z.object({
+  text: z.string().optional(),
+  target: z.string().optional(),
+  model: z.string().optional(),
+  project: z.string().optional(),
+  thinking: z.boolean().default(false),
+  focus: z.boolean().default(false),
+});
 
 // Special values for PromptBody.target. Any other value is read as an explicit chat id.
 const PROMPT_TARGET = {
@@ -25,15 +31,32 @@ const PROMPT_TARGET = {
   active: 'active',
 } as const;
 
-type ResolveOk = { ok: true; chatId: string; modelId: string };
+type ResolveOk = {
+  ok: true;
+  chatId: string;
+  modelId: string;
+  content: string;
+  thinking: boolean;
+  focus: boolean;
+};
 type ResolveErr = { ok: false; response: Response };
 
 // Validate a /prompt or /completions body and resolve which chat it targets.
 // Returns either the resolved chat + model, or a ready-made error Response.
-function resolvePromptRequest(body: PromptBody | null): ResolveOk | ResolveErr {
-  if (!body?.text) {
+function resolvePromptRequest(raw: unknown): ResolveOk | ResolveErr {
+  const parsed = PromptBody.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, response: err('Invalid request body', 400) };
+  }
+
+  const body = parsed.data;
+  if (!body.text) {
     return { ok: false, response: err('Missing text', 400) };
   }
+
+  // Parsed body already confirmed these, so hand them down instead of
+  // re-reaching into body (and re-asserting text) at each call site.
+  const requestFields = { content: body.text, thinking: body.thinking, focus: body.focus };
 
   const settings = settingsService.getSettings();
   const modelId = body.model ?? settings.defaultModelId;
@@ -71,7 +94,7 @@ function resolvePromptRequest(body: PromptBody | null): ResolveOk | ResolveErr {
       modelId,
       ...(body.project ? { projectId: body.project } : {}),
     });
-    return { ok: true, chatId: created.id, modelId };
+    return { ok: true, chatId: created.id, modelId, ...requestFields };
   }
 
   if (target === PROMPT_TARGET.active) {
@@ -80,7 +103,7 @@ function resolvePromptRequest(body: PromptBody | null): ResolveOk | ResolveErr {
       return { ok: false, response: err('No active chat', 409) };
     }
 
-    return { ok: true, chatId: active, modelId };
+    return { ok: true, chatId: active, modelId, ...requestFields };
   }
 
   const existing = chatService.getChat(target);
@@ -88,7 +111,7 @@ function resolvePromptRequest(body: PromptBody | null): ResolveOk | ResolveErr {
     return { ok: false, response: err(`Chat not found: ${target}`, 404) };
   }
 
-  return { ok: true, chatId: target, modelId };
+  return { ok: true, chatId: target, modelId, ...requestFields };
 }
 
 export async function handleRequest(req: Request): Promise<Response> {
@@ -110,7 +133,12 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     // --- POST /pair (unauthenticated) ---
     if (pathname === '/pair' && req.method === 'POST') {
-      const body = (await req.json().catch(() => ({}))) as { code?: string; label?: string };
+      const parsed = PairBody.safeParse(await req.json().catch(() => null));
+      if (!parsed.success) {
+        return err('Invalid request body', 400);
+      }
+
+      const body = parsed.data;
       if (!body.code) {
         return err('Missing code', 400);
       }
@@ -150,17 +178,15 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     // --- POST /prompt ---
     if (pathname === '/prompt' && req.method === 'POST') {
-      const body = (await req.json().catch(() => null)) as PromptBody | null;
-      const resolved = resolvePromptRequest(body);
+      const resolved = resolvePromptRequest(await req.json().catch(() => null));
       if (!resolved.ok) {
         return resolved.response;
       }
 
-      const { chatId, modelId } = resolved;
-      const focus = body?.focus ?? false;
+      const { chatId, modelId, content, thinking, focus } = resolved;
 
       const { streamId, assistantMessageId } = startChatStream(
-        { chatId, modelId, content: body!.text!, thinking: body?.thinking ?? false },
+        { chatId, modelId, content, thinking },
         {
           onLifecycle: (event, meta) => {
             broadcast({ event, chatId: meta.chatId, streamId: meta.streamId });
@@ -176,8 +202,7 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     // --- POST /completions ---  (SSE: streams the response back to the caller)
     if (pathname === '/completions' && req.method === 'POST') {
-      const body = (await req.json().catch(() => null)) as PromptBody | null;
-      const resolved = resolvePromptRequest(body);
+      const resolved = resolvePromptRequest(await req.json().catch(() => null));
       if (!resolved.ok) {
         return resolved.response;
       }
@@ -185,8 +210,8 @@ export async function handleRequest(req: Request): Promise<Response> {
       return streamCompletionsResponse({
         chatId: resolved.chatId,
         modelId: resolved.modelId,
-        content: body!.text!,
-        thinking: body?.thinking ?? false,
+        content: resolved.content,
+        thinking: resolved.thinking,
       });
     }
 
