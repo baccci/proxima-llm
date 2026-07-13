@@ -17,6 +17,7 @@ import type {
 } from '../schemas/project-file.schema'
 import type { SettingsDTO, UpdateSettingsInput } from '../schemas/settings.schema'
 import type { ToolDecision, ToolPolicy } from '../tools/tool-policy'
+import type { CompactResult } from './compact-result'
 import type { StreamChunk } from './stream-chunk'
 
 export type { StreamChunk }
@@ -71,9 +72,7 @@ export type AppRPC = {
       }
       compactNow: {
         params: { chatId: string }
-        response:
-          | { status: 'ok'; summarized: number }
-          | { status: 'noop'; reason: 'nothing-to-summarize' | 'no-title-model' | 'empty-summary' }
+        response: CompactResult
       }
       sendMessage: {
         params: SendMessageInput

@@ -1,5 +1,10 @@
 import { generateText } from 'ai';
 import {
+  COMPACT_NOOP_REASON,
+  COMPACT_STATUS,
+  type CompactResult,
+} from '../../shared-contracts/rpc/compact-result';
+import {
   type MessageDTO,
   MessageRole,
   PartKind,
@@ -57,10 +62,6 @@ export type CompactOptions = {
   keepRecent?: number;
 };
 
-export type CompactResult =
-  | { status: 'ok'; summarized: number }
-  | { status: 'noop'; reason: 'nothing-to-summarize' | 'no-title-model' | 'empty-summary' };
-
 export async function compact(
   chatId: string,
   model: ModelDTO,
@@ -74,7 +75,7 @@ export async function compact(
   // slice(0, -0) is slice(0, 0) = [], so handle keep<=0 explicitly.
   const toSummarize = keep > 0 ? since.slice(0, -keep) : since.slice();
   if (toSummarize.length === 0) {
-    return { status: 'noop', reason: 'nothing-to-summarize' };
+    return { status: COMPACT_STATUS.noop, reason: COMPACT_NOOP_REASON.nothingToSummarize };
   }
 
   const boundary = toSummarize.at(-1)!;
@@ -83,7 +84,7 @@ export async function compact(
   const displayBoundary = since.at(-1)!;
   const titleModelId = resolveTitleModel(model.provider);
   if (!titleModelId) {
-    return { status: 'noop', reason: 'no-title-model' };
+    return { status: COMPACT_STATUS.noop, reason: COMPACT_NOOP_REASON.noTitleModel };
   }
 
   // Bound the summary call so a slow/hung cheap model can't block stream start.
@@ -105,7 +106,7 @@ export async function compact(
   });
   const summaryText = text.trim();
   if (!summaryText) {
-    return { status: 'noop', reason: 'empty-summary' };
+    return { status: COMPACT_STATUS.noop, reason: COMPACT_NOOP_REASON.emptySummary };
   }
 
   saveSnapshot({
@@ -116,7 +117,7 @@ export async function compact(
     summaryText,
   });
 
-  return { status: 'ok', summarized: toSummarize.length };
+  return { status: COMPACT_STATUS.ok, summarized: toSummarize.length };
 }
 
 // Resolve the model and API key a chat streams with. Throws a user-facing error

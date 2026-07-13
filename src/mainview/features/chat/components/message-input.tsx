@@ -1,4 +1,5 @@
 import { effortLevelsForModel } from '@shared/models/effort'
+import { COMPACT_NOOP_REASON, COMPACT_STATUS } from '@shared/rpc/compact-result'
 import type { ChatDTO } from '@shared/schemas/chat.schema'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import React from 'react'
@@ -89,14 +90,14 @@ export function MessageInput({
     }
     try {
       const result = await chat.compactNow(chatId)
-      if (result.status === 'ok') {
+      if (result.status === COMPACT_STATUS.ok) {
         const n = result.summarized
         showNote(`Summarized ${n} earlier message${n === 1 ? '' : 's'} to save context`)
       } else {
         showNote(
-          result.reason === 'nothing-to-summarize'
+          result.reason === COMPACT_NOOP_REASON.nothingToSummarize
             ? 'Already compact — nothing older to summarize'
-            : result.reason === 'no-title-model'
+            : result.reason === COMPACT_NOOP_REASON.noTitleModel
               ? 'No model available to summarize'
               : 'Compaction produced no summary',
         )
