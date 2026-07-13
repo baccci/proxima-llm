@@ -41,7 +41,9 @@ async function getMainViewUrl(): Promise<string> {
         console.log(`HMR enabled: http://localhost:${DEV_SERVER_PORT}`);
         return `http://localhost:${DEV_SERVER_PORT}`;
       } catch {
-        if (i < attempts - 1) await Bun.sleep(250);
+        if (i < attempts - 1) {
+          await Bun.sleep(250);
+        }
       }
     }
     console.log('Vite server not running — using bundled assets. Run "bun run dev:hmr" for HMR.');
