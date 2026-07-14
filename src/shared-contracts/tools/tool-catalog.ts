@@ -67,7 +67,7 @@ export const TOOL_CATALOG = [
     doneLabel: 'Checked capabilities',
     description: 'Lets the model fetch detail about an app feature on demand.',
     group: 'app',
-    defaultPolicy: 'ask',
+    defaultPolicy: 'allow',
     alwaysAllow: true,
     silent: true,
   },
@@ -79,3 +79,13 @@ const META: Map<string, ToolCatalogEntry> = new Map(TOOL_CATALOG.map((t) => [t.n
 export const isAlwaysAllowed = (n: string) => META.get(n)?.alwaysAllow ?? false
 export const isSilentTool = (n: string) => META.get(n)?.silent ?? false
 export const defaultPolicyFor = (n: string): ToolPolicy => META.get(n)?.defaultPolicy ?? 'ask'
+
+// alwaysAllow tools bypass the gate, so their defaultPolicy is never consulted. Require it to
+// read 'allow' so the metadata matches the real behavior, not a misleading 'ask' that never fires.
+for (const t of META.values()) {
+  if (t.alwaysAllow && t.defaultPolicy !== 'allow') {
+    throw new Error(
+      `tool-catalog: ${t.name} is alwaysAllow but defaultPolicy is '${t.defaultPolicy}'`,
+    )
+  }
+}
