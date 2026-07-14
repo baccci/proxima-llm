@@ -10,6 +10,8 @@ import type {
   SendMessageInput,
 } from '../../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
+import type { ProjectDTO } from '../../../shared-contracts/schemas/project.schema';
+import type { ToolDecision } from '../../../shared-contracts/tools/tool-policy';
 import * as attachmentService from '../../features/attachment/attachment.repository';
 import * as chatService from '../../features/chat/chat.repository';
 import { getLatestSnapshot } from '../../features/compaction/compaction.repository';
@@ -24,6 +26,7 @@ import * as settingsService from '../../features/settings/settings.repository';
 import * as keychain from '../../infra/keychain';
 import { log } from '../../infra/logging/logger';
 import * as compactionService from '../compaction.service';
+import type { ResolveAttachment } from '../stream/build-prompt';
 import { runStream } from '../stream/run';
 import { awaitApproval, settlePendingApprovals } from './approval-registry';
 import {
@@ -72,7 +75,7 @@ export interface StartChatStreamResult {
   assistantMessageId: string;
 }
 
-interface RunStreamForChatParams {
+interface LaunchTurnParams {
   chatId: string;
   modelId: string;
   thinking: boolean;
@@ -177,50 +180,117 @@ function resolveModelAndKey(modelId: string): { model: ModelDTO; apiKey: string 
   return { model, apiKey };
 }
 
-function runStreamForChat(
-  params: RunStreamForChatParams,
-  streamId: string,
-  controller: AbortController,
-  emitChunk: (chunk: StreamChunk) => void,
-  opts?: StartChatStreamOpts,
-): string {
-  const { chatId, modelId, thinking, webSearch, effort, originalContent } = params;
+// Everything the prompt reads from the chat row: the saved tool grants, the
+// project, and the memory slice titles plus file names the model can index.
+type TurnContext = {
+  grants: Record<string, ToolDecision>;
+  project: ProjectDTO | null;
+  globalSliceTitles: string[];
+  projectSliceTitles: string[];
+  projectFileNames: string[];
+};
 
-  // Look up the model and its key up front; either being missing throws here.
-  const { model, apiKey } = resolveModelAndKey(modelId);
+// The chat's project, or null when the chat doesn't belong to one.
+function loadProject(projectId: string | null | undefined): ProjectDTO | null {
+  if (!projectId) {
+    return null;
+  }
 
-  const assistantMsgId = randomUUID();
-  // Tell the window a reply is starting and hand it the id for an empty bubble.
-  emitChunk({ kind: STREAM_CHUNK_KIND.start, assistantMessageId: assistantMsgId });
+  return projectService.getProject(projectId) ?? null;
+}
 
-  // Read the chat row once; it carries the saved tool grants and the project link.
+// Read the chat row once and gather what the turn needs from it. The prompt only
+// wants slice titles, not their bodies. Project-scoped slices and files come along
+// only when the chat is in a project.
+function gatherTurnContext(chatId: string): TurnContext {
   const chatRow = chatService.getChat(chatId);
-  // Start from a copy of the saved grants, so the turn can mutate them and write them back.
+  // Copy the saved grants so the turn can mutate them and write them back.
   const grants = { ...(chatRow?.composer.toolGrants ?? {}) };
-  const project = chatRow?.projectId
-    ? (projectService.getProject(chatRow.projectId) ?? null)
-    : null;
-
-  // The prompt only needs memory slice titles, not their bodies. Global scope first.
   const globalSliceTitles = memoryService.listSlices(MemoryScope.enum.global).map((s) => s.title);
 
-  // Then the project's own slices, when this chat belongs to a project.
-  const projectSliceTitles = project
-    ? memoryService.listSlices(MemoryScope.enum.project, project.id).map((s) => s.title)
-    : [];
-  const projectFileNames = project
-    ? projectFileService.listProjectFiles(project.id).map((f) => f.name)
-    : [];
+  const project = loadProject(chatRow?.projectId);
+  if (!project) {
+    return {
+      grants,
+      project: null,
+      globalSliceTitles,
+      projectSliceTitles: [],
+      projectFileNames: [],
+    };
+  }
+
+  const projectSliceTitles = memoryService
+    .listSlices(MemoryScope.enum.project, project.id)
+    .map((s) => s.title);
+  const projectFileNames = projectFileService.listProjectFiles(project.id).map((f) => f.name);
+
+  return { grants, project, globalSliceTitles, projectSliceTitles, projectFileNames };
+}
+
+// Turn an attachment id into the base64 payload the stream engine hands the model,
+// or undefined when the attachment is gone.
+const toAttachmentPayload: ResolveAttachment = (id) => {
+  const attachment = attachmentService.getAttachmentBytes(id);
+  if (!attachment) {
+    return undefined;
+  }
+
+  return {
+    dataBase64: attachment.bytes.toString('base64'),
+    mediaType: attachment.mediaType,
+    kind: attachment.kind,
+  };
+};
+
+/**
+ * Shared setup for both send and retry. Resolves the model and its key first, so an
+ * unknown model or missing key throws before the stream is registered and leaks
+ * nothing. Then it registers the stream, wires the chunk sink, emits `start`,
+ * gathers the turn's context, and fires the detached turn.
+ *
+ * @param params - the chat, model, and per-turn flags; `originalContent` is set for
+ *   a new message (which enables auto-title) and omitted for a retry.
+ * @returns the stream id and the assistant message id, both available synchronously
+ *   while the turn itself keeps running in the background.
+ */
+function launchTurn(
+  params: LaunchTurnParams,
+  opts?: StartChatStreamOpts,
+): { streamId: string; assistantMessageId: string } {
+  const { chatId, modelId, thinking, webSearch, effort, originalContent } = params;
+
+  // Resolve model and key before registering, so a preflight failure throws without
+  // leaving a dead entry in activeStreams.
+  const { model, apiKey } = resolveModelAndKey(modelId);
+
+  const streamId = randomUUID();
+  const controller = new AbortController();
+  activeStreams.set(streamId, controller);
+
+  const emitChunk = (chunk: StreamChunk) => {
+    sendToWebview?.({ streamId, chunk });
+    opts?.onChunk?.(chunk);
+  };
+
+  const assistantMessageId = randomUUID();
+  // Tell the window a reply is starting and hand it the id for an empty bubble.
+  emitChunk({ kind: STREAM_CHUNK_KIND.start, assistantMessageId });
+
+  const { grants, project, globalSliceTitles, projectSliceTitles, projectFileNames } =
+    gatherTurnContext(chatId);
 
   const gateApproval = (toolCallId: string, _toolName: string, _input: unknown) =>
     awaitApproval(streamId, toolCallId);
 
   // Ids for the lifecycle callback; startedEmitted keeps 'started' firing only once.
-  const meta: LifecycleMeta = { streamId, chatId, assistantMessageId: assistantMsgId };
+  const meta: LifecycleMeta = { streamId, chatId, assistantMessageId };
   let startedEmitted = false;
 
-  // The turn itself runs detached (fire-and-forget): the caller already has the
-  // assistant message id, and progress arrives later as stream chunks.
+  /**
+   * The turn itself, run detached (fire-and-forget). The caller already holds the
+   * assistant message id; progress arrives later as stream chunks. Every error is
+   * caught and surfaced as an error chunk, and the finally always cleans up.
+   */
   const runTurn = async (): Promise<void> => {
     try {
       const currentSettings = settingsService.getSettings();
@@ -270,19 +340,16 @@ function runStreamForChat(
         awaitApproval: gateApproval,
         maxRetries: currentSettings.maxRetries,
         requestTimeoutMs: currentSettings.requestTimeoutMs,
-        resolveAttachment: (id) => {
-          const a = attachmentService.getAttachmentBytes(id);
-          return a
-            ? { dataBase64: a.bytes.toString('base64'), mediaType: a.mediaType, kind: a.kind }
-            : undefined;
-        },
+        resolveAttachment: toAttachmentPayload,
       });
 
-      // A stopped reply with no content isn't worth saving; otherwise persist it.
-      const saved =
-        stopReason && parts.length === 0
-          ? undefined
-          : chatService.saveAssistantMessage(chatId, modelId, parts, usage, stopReason);
+      // A stopped reply with no content isn't worth saving; keep everything else.
+      const droppedEmpty = stopReason != null && parts.length === 0;
+      let saved: MessageDTO | undefined;
+      if (!droppedEmpty) {
+        saved = chatService.saveAssistantMessage(chatId, modelId, parts, usage, stopReason);
+      }
+
       opts?.onLifecycle?.('done', meta);
       emitChunk({ kind: STREAM_CHUNK_KIND.done, message: saved });
 
@@ -303,36 +370,24 @@ function runStreamForChat(
 
   void runTurn();
 
-  return assistantMsgId;
-}
-
-// Register a fresh stream and kick off its turn. Both send and retry share this:
-// mint the streamId + AbortController, wire the chunk sink, then run the turn.
-function launch(
-  params: RunStreamForChatParams,
-  opts?: StartChatStreamOpts,
-): { streamId: string; assistantMessageId: string } {
-  const streamId = randomUUID();
-  const controller = new AbortController();
-  activeStreams.set(streamId, controller);
-
-  const emitChunk = (chunk: StreamChunk) => {
-    sendToWebview?.({ streamId, chunk });
-    opts?.onChunk?.(chunk);
-  };
-
-  const assistantMessageId = runStreamForChat(params, streamId, controller, emitChunk, opts);
-
   return { streamId, assistantMessageId };
 }
 
+/**
+ * Public entry for a brand-new message. Saves the user's message, then launches the
+ * assistant turn. Passing the original content through is what lets the turn
+ * auto-title a fresh chat after its first exchange.
+ *
+ * @returns the stream id plus both message ids, so the caller can render the user
+ *   bubble and the pending assistant bubble right away.
+ */
 export function startChatStream(
   input: SendMessageInput,
   opts?: StartChatStreamOpts,
 ): StartChatStreamResult {
   const userMsg = chatService.createUserMessage(input);
 
-  const { streamId, assistantMessageId } = launch(
+  const { streamId, assistantMessageId } = launchTurn(
     {
       chatId: input.chatId,
       modelId: input.modelId,
@@ -347,6 +402,13 @@ export function startChatStream(
   return { streamId, userMessageId: userMsg.id, assistantMessageId };
 }
 
+/**
+ * Public entry for a retry. Overwrites the user message text when it was edited,
+ * drops every message after it, then launches a fresh turn. No original content is
+ * passed, so a retry never auto-titles.
+ *
+ * @returns the stream id and the (new) assistant message id.
+ */
 export function retryChatStream(
   input: RetryMessageInput,
   opts?: StartChatStreamOpts,
@@ -357,7 +419,7 @@ export function retryChatStream(
   chatService.truncateMessagesAfter(input.chatId, input.userMessageId);
 
   // No originalContent, so a retried turn never triggers auto-title.
-  return launch(
+  return launchTurn(
     {
       chatId: input.chatId,
       modelId: input.modelId,
@@ -369,6 +431,10 @@ export function retryChatStream(
   );
 }
 
+/**
+ * Cancel an in-flight stream. Settles any pending tool approvals so the turn stops
+ * waiting on the user, aborts the request, and drops the stream from the registry.
+ */
 export function cancelStream(streamId: string): void {
   settlePendingApprovals(streamId);
   activeStreams.get(streamId)?.abort(new DOMException('user-cancel', 'AbortError'));
