@@ -1,7 +1,6 @@
 import { stepCountIs, streamText } from 'ai';
 import { providerSupportsWebSearch } from '../../../shared-contracts/providers/registry';
 import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
-import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
 import type {
   MessageDTO,
   MessagePart,
@@ -14,9 +13,11 @@ import type { ToolDecision } from '../../../shared-contracts/tools/tool-policy';
 import type { CompactionSnapshot } from '../../features/compaction/compaction.repository';
 import { buildModel, getAdapter } from '../../infra/llm/providers/index';
 import { buildSystem, type ResolveAttachment, toCoreMessages } from './build-prompt';
+import { consumeStream } from './consume-stream';
 import { type ApprovalResult, buildGatedTools } from './gate-tools';
+import { createIdleTimeout } from './idle-timeout';
 import { createStreamAccumulator } from './stream-accumulator';
-import { classifyAbort, extractUsage, IDLE_TIMEOUT_ERROR_NAME } from './stream-result';
+import { classifyAbort, extractUsage } from './stream-result';
 
 // Max agentic steps before the run stops on its own (tool-call round trips).
 const MAX_STEPS = 5;
@@ -47,6 +48,7 @@ export async function runStream(opts: StreamOptions): Promise<{
   usage: TokenUsage | null;
   stopReason?: StopReason;
 }> {
+  // 1. Assemble the request: web-search gate, model, system prompt, tools.
   const webSearchActive =
     opts.webSearch &&
     providerSupportsWebSearch(opts.model.provider) &&
@@ -77,17 +79,10 @@ export async function runStream(opts: StreamOptions): Promise<{
     ...(serverTools ?? {}),
   };
 
-  const idleController = new AbortController();
-  let idleTimer: ReturnType<typeof setTimeout> | undefined;
-  const resetIdle = () => {
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(
-      () => idleController.abort(new DOMException('idle-timeout', IDLE_TIMEOUT_ERROR_NAME)),
-      opts.requestTimeoutMs,
-    );
-  };
-  resetIdle();
-  const abortSignal = AbortSignal.any([opts.signal, idleController.signal]);
+  // 2. Arm the idle guard and merge it with the user-cancel signal. Either one
+  // aborting ends the turn: a stalled model (idle) or the renderer's stop button.
+  const idle = createIdleTimeout(opts.requestTimeoutMs);
+  const abortSignal = AbortSignal.any([opts.signal, idle.signal]);
 
   const providerOptions = getAdapter(opts.model.provider).buildProviderOptions(opts.model, {
     thinking: opts.thinking,
@@ -95,6 +90,7 @@ export async function runStream(opts: StreamOptions): Promise<{
     webSearch: webSearchActive,
   }) as Parameters<typeof streamText>[0]['providerOptions'];
 
+  // 3. Kick off the stream. stopWhen caps the agentic tool round-trips.
   const result = streamText({
     model: languageModel,
     system,
@@ -106,65 +102,33 @@ export async function runStream(opts: StreamOptions): Promise<{
     ...(providerOptions ? { providerOptions } : {}),
   });
 
+  // 4. Drain the stream into live chunks + the accumulator, poking the idle guard
+  // on every delta. An abort arrives one of two ways: thrown out of the loop
+  // (caught here) or as an error delta that ends the loop cleanly (recovered in
+  // phase 5). Either way the merged signal is aborted, so we classify from it.
   const acc = createStreamAccumulator();
   let stopReason: StopReason | undefined;
 
   try {
-    for await (const delta of result.fullStream) {
-      resetIdle();
-
-      switch (delta.type) {
-        case 'text-delta':
-          opts.onChunk({ kind: STREAM_CHUNK_KIND.textDelta, delta: delta.text });
-          acc.addText(delta.text);
-          break;
-        case 'reasoning-delta':
-          opts.onChunk({ kind: STREAM_CHUNK_KIND.reasoningDelta, delta: delta.text });
-          acc.addReasoning(delta.text);
-          break;
-        case 'source':
-          if (delta.sourceType === 'url') {
-            opts.onChunk({ kind: STREAM_CHUNK_KIND.source, url: delta.url, title: delta.title });
-            acc.addSource(delta.url, delta.title);
-          }
-          break;
-        case 'tool-call':
-          opts.onChunk({
-            kind: STREAM_CHUNK_KIND.toolCall,
-            toolCallId: delta.toolCallId,
-            toolName: String(delta.toolName),
-            input: delta.input,
-          });
-          acc.addToolCall(delta.toolCallId, String(delta.toolName), delta.input);
-          break;
-        case 'tool-result':
-          opts.onChunk({
-            kind: STREAM_CHUNK_KIND.toolResult,
-            toolCallId: delta.toolCallId,
-            output: delta.output,
-          });
-          acc.addToolResult(delta.toolCallId, String(delta.toolName), delta.output);
-          break;
-        case 'error':
-          acc.setError(delta.error instanceof Error ? delta.error : new Error(String(delta.error)));
-          break;
-      }
-    }
+    await consumeStream(result.fullStream, {
+      onChunk: opts.onChunk,
+      acc,
+      onActivity: idle.reset,
+    });
   } catch (err) {
-    if (abortSignal.aborted) {
-      stopReason = classifyAbort(abortSignal);
-    } else {
-      clearTimeout(idleTimer);
+    if (!abortSignal.aborted) {
       throw err;
     }
+
+    stopReason = classifyAbort(abortSignal);
   } finally {
-    clearTimeout(idleTimer);
+    idle.clear();
   }
 
+  // 5. Finish: build the parts, recover a clean-loop abort, then either surface a
+  // real error or return the parsed usage.
   const { parts, error: streamError } = acc.finish();
 
-  // A clean-loop abort (an error delta, nothing thrown) leaves stopReason unset.
-  // Recover it from the signal so that path doesn't surface as a real error.
   if (!stopReason && abortSignal.aborted) {
     stopReason = classifyAbort(abortSignal);
   }
