@@ -1,3 +1,4 @@
+import type { DevOverrideKey } from '../dev/dev-override-keys'
 import type { AttachmentDTO, AttachmentKind } from '../schemas/attachment.schema'
 import type { ChatComposerState, ChatDTO, CreateChatInput } from '../schemas/chat.schema'
 import type {
@@ -173,7 +174,7 @@ export type AppRPC = {
 
       // Dev tools (TWEAK=1 only — handlers are no-ops in prod)
       devSetOverride: {
-        params: { key: string; value: number | string | boolean | null }
+        params: { key: DevOverrideKey; value: number | string | boolean | null }
         response: void
       }
       devForceCompact: { params: { chatId: string }; response: void }

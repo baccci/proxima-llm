@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { DevOverrideKey } from '../../../shared-contracts/dev/dev-override-keys';
 import type { AppRPC, StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
 import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
 import { DEFAULT_CHAT_TITLE } from '../../../shared-contracts/schemas/chat.schema';
@@ -89,8 +90,11 @@ async function maybeCompact(args: {
   emitChunk: (chunk: StreamChunk) => void;
 }): Promise<void> {
   const tokens =
-    devOverrides.getOverride<number>('forcedContextTokens') ?? estimateContextTokens(args.history);
-  const ratio = devOverrides.getOverride<number>('compactionRatio') ?? DEFAULT_COMPACTION_RATIO;
+    devOverrides.getOverride<number>(DevOverrideKey.enum.forcedContextTokens) ??
+    estimateContextTokens(args.history);
+  const ratio =
+    devOverrides.getOverride<number>(DevOverrideKey.enum.compactionRatio) ??
+    DEFAULT_COMPACTION_RATIO;
   if (!exceedsCompactionThreshold(tokens, args.model, ratio)) {
     return;
   }
