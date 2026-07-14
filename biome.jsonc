@@ -54,7 +54,10 @@
       "javascript": { "formatter": { "semicolons": "always" } },
       "linter": {
         "rules": {
-          "style": { "noNonNullAssertion": "off" }
+          // Machine-enforced half of R37 (no nested ternaries). Scoped to bun for
+          // now; the renderer has 6 pre-existing violations to clean in the Phase 2
+          // sweep, then this can move up to the base rules.
+          "style": { "noNestedTernary": "error", "noNonNullAssertion": "off" }
         }
       }
     },
