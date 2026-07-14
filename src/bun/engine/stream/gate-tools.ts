@@ -3,9 +3,10 @@ import type { Tool } from 'ai';
 import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
 import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
 import { isAlwaysAllowed } from '../../../shared-contracts/tools/tool-catalog';
-import { ToolDecision, ToolPolicy } from '../../../shared-contracts/tools/tool-policy';
+import { ToolDecision } from '../../../shared-contracts/tools/tool-policy';
 import { getPolicy } from '../../features/tool-permission/tool-permission.repository';
 import { BUILTIN_TOOLS } from '../tools/registry';
+import { decideToolGate, GATE_ACTION, GATE_BLOCK_REASON } from './gate-decision';
 
 export type ApprovalResult = { decision: ToolDecision; remember: boolean };
 
@@ -35,37 +36,34 @@ export function buildGatedTools(
     tools[name] = {
       ...resolvedTool,
       execute: async (input: unknown, callOpts: ToolCallOptions) => {
-        if (isAlwaysAllowed(name)) {
-          return originalExecute!(input as never, callOpts);
-        }
-        const policy = getPolicy(name); // Layer 1, global
+        const decision = decideToolGate({
+          alwaysAllowed: isAlwaysAllowed(name),
+          policy: getPolicy(name),
+          grant: getToolGrant(name),
+        });
 
-        if (policy === ToolPolicy.enum.deny) {
-          return { blocked: true, reason: 'Denied by policy.' };
-        }
-
-        if (policy === ToolPolicy.enum.allow) {
-          return originalExecute!(input as never, callOpts);
+        if (decision.action === GATE_ACTION.block) {
+          return { blocked: true, reason: decision.reason };
         }
 
-        // policy === 'ask' falls to Layer 2, the per-chat grant
-        const grant = getToolGrant(name);
-        if (grant === ToolDecision.enum.deny) {
-          return { blocked: true, reason: 'Denied for this chat.' };
-        }
-        if (grant !== ToolDecision.enum.allow) {
+        // policy 'ask' with no per-chat grant: prompt the user, then run or block on the answer.
+        if (decision.action === GATE_ACTION.ask) {
           onChunk({
             kind: STREAM_CHUNK_KIND.toolApprovalRequest,
             toolCallId: callOpts.toolCallId,
             toolName: name,
             input,
           });
-          const { decision, remember } = await awaitApproval(callOpts.toolCallId, name, input);
+          const { decision: userDecision, remember } = await awaitApproval(
+            callOpts.toolCallId,
+            name,
+            input,
+          );
           if (remember) {
-            setToolGrant(name, decision);
+            setToolGrant(name, userDecision);
           }
-          if (decision === ToolDecision.enum.deny) {
-            return { blocked: true, reason: 'Denied by user.' };
+          if (userDecision === ToolDecision.enum.deny) {
+            return { blocked: true, reason: GATE_BLOCK_REASON.user };
           }
         }
 
