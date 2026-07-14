@@ -34,18 +34,21 @@ import {
 
 // In-flight streams: streamId -> AbortController
 export const activeStreams = new Map<string, AbortController>();
-
+// [comment]
 let sendToWebview: ((chunk: AppRPC['webview']['messages']['streamChunk']) => void) | null = null;
 let sendChatsUpdated: (() => void) | null = null;
 
+// [comment]
 export function setSendToWebview(fn: typeof sendToWebview): void {
   sendToWebview = fn;
 }
 
+// [comment]
 export function setSendChatsUpdated(fn: () => void): void {
   sendChatsUpdated = fn;
 }
 
+// [comment]
 export function pushChatsUpdated(): void {
   sendChatsUpdated?.();
 }
@@ -89,9 +92,11 @@ async function maybeCompact(args: {
   signal: AbortSignal;
   emitChunk: (chunk: StreamChunk) => void;
 }): Promise<void> {
+  // [comment] brief explanatory in what and how
   const tokens =
     devOverrides.getOverride<number>(DevOverrideKey.enum.forcedContextTokens) ??
     estimateContextTokens(args.history);
+  // [comment] brief explanatory in what and how
   const ratio =
     devOverrides.getOverride<number>(DevOverrideKey.enum.compactionRatio) ??
     DEFAULT_COMPACTION_RATIO;
@@ -99,6 +104,7 @@ async function maybeCompact(args: {
     return;
   }
 
+  // [comment]
   args.emitChunk({ kind: STREAM_CHUNK_KIND.compacting, active: true });
   try {
     await compactionService.compact(args.chatId, args.model, args.apiKey, {
@@ -126,6 +132,7 @@ async function maybeAutoTitle(args: {
 }): Promise<void> {
   const history = chatService.listMessages(args.chatId);
   const chat = chatService.getChat(args.chatId);
+  // [comment]
   if (
     history.length !== FIRST_EXCHANGE_MESSAGE_COUNT ||
     chat?.title !== DEFAULT_CHAT_TITLE ||
@@ -134,6 +141,7 @@ async function maybeAutoTitle(args: {
     return;
   }
 
+  // [comment]
   const titleModelId = resolveTitleModel(args.model.provider);
   if (!titleModelId) {
     return;
@@ -151,15 +159,9 @@ async function maybeAutoTitle(args: {
   }
 }
 
-function runStreamForChat(
-  params: RunStreamForChatParams,
-  streamId: string,
-  controller: AbortController,
-  emitChunk: (chunk: StreamChunk) => void,
-  opts?: StartChatStreamOpts,
-): string {
-  const { chatId, modelId, thinking, webSearch, effort, originalContent } = params;
-
+// Resolve the model and its API key up front, or throw. Returns non-null values,
+// so the turn body doesn't have to lean on control-flow narrowing from guards.
+function resolveModelAndKey(modelId: string): { model: ModelDTO; apiKey: string } {
   const model = getModel(modelId);
   if (!model) {
     throw new Error(`Unknown model: ${modelId}`);
@@ -169,6 +171,20 @@ function runStreamForChat(
   if (!apiKey) {
     throw new Error(`No API key configured for ${model.provider}`);
   }
+
+  return { model, apiKey };
+}
+
+function runStreamForChat(
+  params: RunStreamForChatParams,
+  streamId: string,
+  controller: AbortController,
+  emitChunk: (chunk: StreamChunk) => void,
+  opts?: StartChatStreamOpts,
+): string {
+  const { chatId, modelId, thinking, webSearch, effort, originalContent } = params;
+
+  const { model, apiKey } = resolveModelAndKey(modelId);
 
   const assistantMsgId = randomUUID();
   emitChunk({ kind: STREAM_CHUNK_KIND.start, assistantMessageId: assistantMsgId });
@@ -194,9 +210,7 @@ function runStreamForChat(
   let startedEmitted = false;
 
   // The turn itself runs detached (fire-and-forget): the caller already has the
-  // assistant message id, and progress arrives later as stream chunks. An arrow
-  // expression here (not a hoisted declaration) keeps the model/apiKey narrowing
-  // from the guards above.
+  // assistant message id, and progress arrives later as stream chunks.
   const runTurn = async (): Promise<void> => {
     try {
       const currentSettings = settingsService.getSettings();
