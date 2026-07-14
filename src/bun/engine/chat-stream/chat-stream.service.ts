@@ -34,21 +34,22 @@ import {
 
 // In-flight streams: streamId -> AbortController
 export const activeStreams = new Map<string, AbortController>();
-// [comment]
+// Two push channels into the window, injected at boot by index.ts. They start
+// null because this module loads before the window exists.
 let sendToWebview: ((chunk: AppRPC['webview']['messages']['streamChunk']) => void) | null = null;
 let sendChatsUpdated: (() => void) | null = null;
 
-// [comment]
+// Boot injects the sender that pushes a stream chunk to the window.
 export function setSendToWebview(fn: typeof sendToWebview): void {
   sendToWebview = fn;
 }
 
-// [comment]
+// Boot injects the sender that tells the window the chat list changed.
 export function setSendChatsUpdated(fn: () => void): void {
   sendChatsUpdated = fn;
 }
 
-// [comment]
+// Nudge the window to refetch its chat list; a no-op until the sender is wired.
 export function pushChatsUpdated(): void {
   sendChatsUpdated?.();
 }
@@ -92,11 +93,12 @@ async function maybeCompact(args: {
   signal: AbortSignal;
   emitChunk: (chunk: StreamChunk) => void;
 }): Promise<void> {
-  // [comment] brief explanatory in what and how
+  // How many tokens the context holds now. A dev override can pin this for testing,
+  // otherwise estimate it from the history.
   const tokens =
     devOverrides.getOverride<number>(DevOverrideKey.enum.forcedContextTokens) ??
     estimateContextTokens(args.history);
-  // [comment] brief explanatory in what and how
+  // The fraction of the window at which we start compacting. A dev override can pin it too.
   const ratio =
     devOverrides.getOverride<number>(DevOverrideKey.enum.compactionRatio) ??
     DEFAULT_COMPACTION_RATIO;
@@ -104,7 +106,7 @@ async function maybeCompact(args: {
     return;
   }
 
-  // [comment]
+  // Show the "compacting" divider in the window; the finally below clears it.
   args.emitChunk({ kind: STREAM_CHUNK_KIND.compacting, active: true });
   try {
     await compactionService.compact(args.chatId, args.model, args.apiKey, {
@@ -132,7 +134,7 @@ async function maybeAutoTitle(args: {
 }): Promise<void> {
   const history = chatService.listMessages(args.chatId);
   const chat = chatService.getChat(args.chatId);
-  // [comment]
+  // Only name the very first exchange, and only while it still has the default title.
   if (
     history.length !== FIRST_EXCHANGE_MESSAGE_COUNT ||
     chat?.title !== DEFAULT_CHAT_TITLE ||
@@ -141,7 +143,7 @@ async function maybeAutoTitle(args: {
     return;
   }
 
-  // [comment]
+  // Pick a cheap title model on the chat's provider; skip titling if none fits.
   const titleModelId = resolveTitleModel(args.model.provider);
   if (!titleModelId) {
     return;
@@ -184,18 +186,25 @@ function runStreamForChat(
 ): string {
   const { chatId, modelId, thinking, webSearch, effort, originalContent } = params;
 
+  // Look up the model and its key up front; either being missing throws here.
   const { model, apiKey } = resolveModelAndKey(modelId);
 
   const assistantMsgId = randomUUID();
+  // Tell the window a reply is starting and hand it the id for an empty bubble.
   emitChunk({ kind: STREAM_CHUNK_KIND.start, assistantMessageId: assistantMsgId });
 
+  // Read the chat row once; it carries the saved tool grants and the project link.
   const chatRow = chatService.getChat(chatId);
+  // Start from a copy of the saved grants, so the turn can mutate them and write them back.
   const grants = { ...(chatRow?.composer.toolGrants ?? {}) };
   const project = chatRow?.projectId
     ? (projectService.getProject(chatRow.projectId) ?? null)
     : null;
 
+  // The prompt only needs memory slice titles, not their bodies. Global scope first.
   const globalSliceTitles = memoryService.listSlices(MemoryScope.enum.global).map((s) => s.title);
+
+  // Then the project's own slices, when this chat belongs to a project.
   const projectSliceTitles = project
     ? memoryService.listSlices(MemoryScope.enum.project, project.id).map((s) => s.title)
     : [];
@@ -206,6 +215,7 @@ function runStreamForChat(
   const gateApproval = (toolCallId: string, _toolName: string, _input: unknown) =>
     awaitApproval(streamId, toolCallId);
 
+  // Ids for the lifecycle callback; startedEmitted keeps 'started' firing only once.
   const meta: LifecycleMeta = { streamId, chatId, assistantMessageId: assistantMsgId };
   let startedEmitted = false;
 
@@ -228,6 +238,7 @@ function runStreamForChat(
 
       const snapshot = getLatestSnapshot(chatId);
 
+      // The one call into the stream engine: it produces and streams the reply.
       const { parts, usage, stopReason } = await runStream({
         model,
         apiKey,
@@ -267,6 +278,7 @@ function runStreamForChat(
         },
       });
 
+      // A stopped reply with no content isn't worth saving; otherwise persist it.
       const saved =
         stopReason && parts.length === 0
           ? undefined
