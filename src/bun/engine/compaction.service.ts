@@ -4,11 +4,6 @@ import {
   COMPACT_STATUS,
   type CompactResult,
 } from '../../shared-contracts/rpc/compact-result';
-import {
-  type MessageDTO,
-  MessageRole,
-  PartKind,
-} from '../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
 import * as chatService from '../features/chat/chat.repository';
 import { getLatestSnapshot, saveSnapshot } from '../features/compaction/compaction.repository';
@@ -16,6 +11,7 @@ import { getModel } from '../features/model/model.repository';
 import { resolveTitleModel } from '../features/model/title-model.service';
 import { getApiKey } from '../infra/keychain';
 import { getAdapter } from '../infra/llm/providers/index';
+import { buildCompactionPrompt } from './compaction-prompt';
 import { selectCompaction } from './compaction-selection';
 
 const KEEP_RECENT = 15;
@@ -23,37 +19,6 @@ const KEEP_RECENT = 15;
 // keeps a smaller recent window than the automatic threshold pass. Otherwise
 // clicking right after an auto-compaction would be a no-op.
 const MANUAL_KEEP_RECENT = 6;
-
-function buildCompactionPrompt(
-  previousSummary: string | undefined,
-  messages: MessageDTO[],
-): string {
-  const lines: string[] = [];
-  if (previousSummary) {
-    lines.push('## Previous conversation summary');
-    lines.push(previousSummary);
-    lines.push('');
-  }
-  lines.push('## Conversation turns to summarize');
-  for (const m of messages) {
-    const role = m.role === MessageRole.enum.user ? 'User' : 'Assistant';
-    const text = m.parts
-      .filter(
-        (p): p is Extract<MessageDTO['parts'][number], { type: 'text' }> =>
-          p.type === PartKind.enum.text,
-      )
-      .map((p) => p.text)
-      .join(' ');
-    if (text) {
-      lines.push(`${role}: ${text}`);
-    }
-  }
-  lines.push('');
-  lines.push(
-    'Write a dense summary of this conversation (incorporating any prior summary). Preserve all key decisions, facts, and context. Be thorough but concise.',
-  );
-  return lines.join('\n');
-}
 
 export type CompactOptions = {
   signal?: AbortSignal;
