@@ -1,5 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
+import { toErrorMessage } from '../../../utils/to-error';
 import * as projectFileService from '../project-file.repository';
 
 export function readProjectFileTool(ctx: { projectId?: string }) {
@@ -17,7 +18,7 @@ export function readProjectFileTool(ctx: { projectId?: string }) {
         const content = projectFileService.readProjectFileTextByName(ctx.projectId, name);
         return { name, content };
       } catch (err) {
-        return { error: err instanceof Error ? err.message : String(err) };
+        return { error: toErrorMessage(err) };
       }
     },
   });

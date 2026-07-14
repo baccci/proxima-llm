@@ -1,6 +1,7 @@
 import { Utils } from 'electrobun/bun';
 import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs';
 import { join } from 'path';
+import { toError } from '../../utils/to-error';
 
 const LOG_RETENTION_DAYS = 14;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -120,12 +121,7 @@ export const log = {
       write('error', 'main', 'Uncaught exception', err);
     });
     process.on('unhandledRejection', (reason) => {
-      write(
-        'error',
-        'main',
-        'Unhandled rejection',
-        reason instanceof Error ? reason : new Error(String(reason)),
-      );
+      write('error', 'main', 'Unhandled rejection', toError(reason));
     });
   },
 

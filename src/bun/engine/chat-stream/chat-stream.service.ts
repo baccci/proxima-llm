@@ -25,6 +25,7 @@ import * as projectFileService from '../../features/project-file/project-file.re
 import * as settingsService from '../../features/settings/settings.repository';
 import * as keychain from '../../infra/keychain';
 import { log } from '../../infra/logging/logger';
+import { toErrorMessage } from '../../utils/to-error';
 import * as compactionService from '../compaction.service';
 import type { ResolveAttachment } from '../stream/build-prompt';
 import { runStream } from '../stream/run';
@@ -359,7 +360,7 @@ function launchTurn(
         log.error('Title generation failed (non-fatal)', err);
       }
     } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
+      const error = toErrorMessage(err);
       emitChunk({ kind: STREAM_CHUNK_KIND.error, error });
       opts?.onLifecycle?.('error', meta);
     } finally {

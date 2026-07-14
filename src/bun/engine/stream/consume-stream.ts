@@ -1,6 +1,7 @@
 import type { TextStreamPart, ToolSet } from 'ai';
 import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
 import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
+import { toError } from '../../utils/to-error';
 import type { StreamAccumulator } from './stream-accumulator';
 
 type ConsumeDeps = {
@@ -8,16 +9,6 @@ type ConsumeDeps = {
   acc: StreamAccumulator;
   onActivity: () => void;
 };
-
-// The SDK types an error delta's payload as unknown; coerce it to an Error so the
-// accumulator always stores a real Error.
-function toError(value: unknown): Error {
-  if (value instanceof Error) {
-    return value;
-  }
-
-  return new Error(String(value));
-}
 
 // Drain the SDK's delta stream. Each delta does two things: emit a live chunk to
 // the renderer (onChunk) and fold into the accumulator (acc). onActivity fires

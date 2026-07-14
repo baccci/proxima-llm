@@ -1,4 +1,5 @@
 import { log } from '../../infra/logging/logger';
+import { toErrorMessage } from '../../utils/to-error';
 import { clearWsClients, type WsData, wsHandlers } from './events';
 import { authenticate, err } from './http';
 import { handleRequest } from './routes';
@@ -31,7 +32,7 @@ export function startControlServer(port: number): void {
         return new Response('Upgrade failed', { status: 500 });
       }
       return handleRequest(req).catch((e) => {
-        const message = e instanceof Error ? e.message : String(e);
+        const message = toErrorMessage(e);
         log.error('[control-server] Unhandled fetch error', e);
         return err(message, 500);
       });

@@ -5,6 +5,7 @@ import * as modelService from '../../features/model/model.repository';
 import * as settingsService from '../../features/settings/settings.repository';
 import * as keychain from '../../infra/keychain';
 import { log } from '../../infra/logging/logger';
+import { toErrorMessage } from '../../utils/to-error';
 import { getActiveChatId, pushControlNavigate } from '../rpc';
 import * as auth from './auth';
 import { broadcast, LIFECYCLE_KIND } from './events';
@@ -217,7 +218,7 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     return err('Not found', 404);
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
+    const message = toErrorMessage(e);
     log.error('[control-server] Unhandled error', e);
     return err(message, 500);
   }
