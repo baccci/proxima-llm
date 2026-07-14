@@ -189,7 +189,11 @@ function runStreamForChat(
   const meta: LifecycleMeta = { streamId, chatId, assistantMessageId: assistantMsgId };
   let startedEmitted = false;
 
-  (async () => {
+  // The turn itself runs detached (fire-and-forget): the caller already has the
+  // assistant message id, and progress arrives later as stream chunks. An arrow
+  // expression here (not a hoisted declaration) keeps the model/apiKey narrowing
+  // from the guards above.
+  const runTurn = async (): Promise<void> => {
     try {
       const currentSettings = settingsService.getSettings();
       const history = chatService.listMessages(chatId);
@@ -265,16 +269,19 @@ function runStreamForChat(
       settlePendingApprovals(streamId);
       activeStreams.delete(streamId);
     }
-  })();
+  };
+
+  void runTurn();
 
   return assistantMsgId;
 }
 
-export function startChatStream(
-  input: SendMessageInput,
+// Register a fresh stream and kick off its turn. Both send and retry share this:
+// mint the streamId + AbortController, wire the chunk sink, then run the turn.
+function launch(
+  params: RunStreamForChatParams,
   opts?: StartChatStreamOpts,
-): StartChatStreamResult {
-  const userMsg = chatService.createUserMessage(input);
+): { streamId: string; assistantMessageId: string } {
   const streamId = randomUUID();
   const controller = new AbortController();
   activeStreams.set(streamId, controller);
@@ -284,7 +291,18 @@ export function startChatStream(
     opts?.onChunk?.(chunk);
   };
 
-  const assistantMessageId = runStreamForChat(
+  const assistantMessageId = runStreamForChat(params, streamId, controller, emitChunk, opts);
+
+  return { streamId, assistantMessageId };
+}
+
+export function startChatStream(
+  input: SendMessageInput,
+  opts?: StartChatStreamOpts,
+): StartChatStreamResult {
+  const userMsg = chatService.createUserMessage(input);
+
+  const { streamId, assistantMessageId } = launch(
     {
       chatId: input.chatId,
       modelId: input.modelId,
@@ -293,9 +311,6 @@ export function startChatStream(
       effort: input.effort ?? null,
       originalContent: input.content,
     },
-    streamId,
-    controller,
-    emitChunk,
     opts,
   );
 
@@ -311,16 +326,8 @@ export function retryChatStream(
   }
   chatService.truncateMessagesAfter(input.chatId, input.userMessageId);
 
-  const streamId = randomUUID();
-  const controller = new AbortController();
-  activeStreams.set(streamId, controller);
-
-  const emitChunk = (chunk: StreamChunk) => {
-    sendToWebview?.({ streamId, chunk });
-    opts?.onChunk?.(chunk);
-  };
-
-  const assistantMessageId = runStreamForChat(
+  // No originalContent, so a retried turn never triggers auto-title.
+  return launch(
     {
       chatId: input.chatId,
       modelId: input.modelId,
@@ -328,13 +335,8 @@ export function retryChatStream(
       webSearch: input.webSearch ?? false,
       effort: input.effort ?? null,
     },
-    streamId,
-    controller,
-    emitChunk,
     opts,
   );
-
-  return { streamId, assistantMessageId };
 }
 
 export function cancelStream(streamId: string): void {
