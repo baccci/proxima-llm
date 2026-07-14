@@ -1,9 +1,9 @@
 import { randomUUID } from 'crypto';
 import { and, eq, isNull, type SQL } from 'drizzle-orm';
 import {
-  type MemoryScope,
+  MemoryScope,
   MemorySliceDTO,
-  type MemorySource,
+  MemorySource,
   type UpsertMemorySliceInput,
 } from '../../../shared-contracts/schemas/memory-slice.schema';
 import { db } from '../../infra/db/client';
@@ -44,9 +44,9 @@ function rowToDTO(row: typeof memorySlices.$inferSelect): MemorySliceDTO {
 
 export function listSlices(scope: MemoryScope, projectId?: string | null): MemorySliceDTO[] {
   const conditions =
-    scope === 'global'
-      ? eq(memorySlices.scope, 'global')
-      : and(eq(memorySlices.scope, 'project'), projectIdCond(projectId));
+    scope === MemoryScope.enum.global
+      ? eq(memorySlices.scope, MemoryScope.enum.global)
+      : and(eq(memorySlices.scope, MemoryScope.enum.project), projectIdCond(projectId));
 
   return db.select().from(memorySlices).where(conditions).all().map(rowToDTO);
 }
@@ -109,7 +109,7 @@ export function upsertSlice(input: UpsertMemorySliceInput): MemorySliceDTO {
       projectId: input.projectId ?? null,
       title: input.title,
       content: input.content,
-      source: input.source ?? 'user',
+      source: input.source ?? MemorySource.enum.user,
       createdAt: now,
       updatedAt: now,
     })
@@ -149,7 +149,7 @@ export function writeByTitle(
   projectId: string | null,
   title: string,
   content: string,
-  source: MemorySource = 'model',
+  source: MemorySource = MemorySource.enum.model,
 ): MemorySliceDTO {
   return upsertSlice({ scope, projectId, title, content, source });
 }

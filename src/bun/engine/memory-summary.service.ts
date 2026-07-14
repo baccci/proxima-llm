@@ -1,4 +1,5 @@
 import type { ProviderId } from '../../shared-contracts/providers/registry';
+import { MemoryScope } from '../../shared-contracts/schemas/memory-slice.schema';
 import { listSlices } from '../features/memory/memory.repository';
 import { emitMemoryChanged } from '../features/memory/memory-notify';
 import { generateMemorySummary } from '../features/memory/memory-summary-llm';
@@ -53,11 +54,11 @@ export async function regenerateProjectSummary(projectId: string): Promise<void>
   const token = (genTokens.get(projectId) ?? 0) + 1;
   genTokens.set(projectId, token);
 
-  const slices = listSlices('project', projectId);
+  const slices = listSlices(MemoryScope.enum.project, projectId);
 
   if (slices.length === 0) {
     projectService.setMemorySummary(projectId, null);
-    emitMemoryChanged('project', projectId);
+    emitMemoryChanged(MemoryScope.enum.project, projectId);
     return;
   }
 
@@ -72,7 +73,7 @@ export async function regenerateProjectSummary(projectId: string): Promise<void>
       return; // superseded by a newer regen
     }
     projectService.setMemorySummary(projectId, summary);
-    emitMemoryChanged('project', projectId);
+    emitMemoryChanged(MemoryScope.enum.project, projectId);
   } catch (err) {
     log.error('Memory summary generation failed (non-fatal)', err);
   }

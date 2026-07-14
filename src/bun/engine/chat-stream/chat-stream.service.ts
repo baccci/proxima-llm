@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import type { AppRPC, StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
 import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
 import { DEFAULT_CHAT_TITLE } from '../../../shared-contracts/schemas/chat.schema';
+import { MemoryScope } from '../../../shared-contracts/schemas/memory-slice.schema';
 import type {
   MessageDTO,
   RetryMessageInput,
@@ -174,9 +175,9 @@ function runStreamForChat(
     ? (projectService.getProject(chatRow.projectId) ?? null)
     : null;
 
-  const globalSliceTitles = memoryService.listSlices('global').map((s) => s.title);
+  const globalSliceTitles = memoryService.listSlices(MemoryScope.enum.global).map((s) => s.title);
   const projectSliceTitles = project
-    ? memoryService.listSlices('project', project.id).map((s) => s.title)
+    ? memoryService.listSlices(MemoryScope.enum.project, project.id).map((s) => s.title)
     : [];
   const projectFileNames = project
     ? projectFileService.listProjectFiles(project.id).map((f) => f.name)
