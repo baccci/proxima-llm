@@ -1,6 +1,7 @@
 import { BrowserView, type RPCSchema, Utils } from 'electrobun/bun';
 import { ProviderId } from '../../shared-contracts/providers/registry';
 import type { AppRPC } from '../../shared-contracts/rpc/app-rpc.types';
+import { SaveAttachmentInput } from '../../shared-contracts/schemas/attachment.schema';
 import type { MemoryScope } from '../../shared-contracts/schemas/memory-slice.schema';
 import { RetryMessageInput, SendMessageInput } from '../../shared-contracts/schemas/message.schema';
 import { resolveApproval } from '../engine/chat-stream/approval-registry';
@@ -207,7 +208,8 @@ export function createRPC() {
         },
 
         // Attachments
-        uploadAttachment: (input) => attachmentService.saveAttachment(input),
+        uploadAttachment: (input) =>
+          attachmentService.saveAttachment(SaveAttachmentInput.parse(input)),
 
         getAttachment: (input) => attachmentService.getAttachmentView(input.id),
 

@@ -17,3 +17,16 @@ export const AttachmentDTO = z.object({
 })
 
 export type AttachmentDTO = z.infer<typeof AttachmentDTO>
+
+// Untrusted upload payload from the renderer. chatId is constrained to a uuid because
+// it flows straight into the on-disk storage path: a value containing path separators
+// would let a write escape the attachments directory. The media-type allowlist and
+// size cap stay in saveAttachment so their specific errors survive.
+export const SaveAttachmentInput = z.object({
+  chatId: z.string().uuid(),
+  name: z.string(),
+  data: z.string(),
+  mediaType: z.string(),
+})
+
+export type SaveAttachmentInput = z.infer<typeof SaveAttachmentInput>
