@@ -4,6 +4,7 @@ import type { AppRPC } from '../../shared-contracts/rpc/app-rpc.types';
 import { SaveAttachmentInput } from '../../shared-contracts/schemas/attachment.schema';
 import type { MemoryScope } from '../../shared-contracts/schemas/memory-slice.schema';
 import { RetryMessageInput, SendMessageInput } from '../../shared-contracts/schemas/message.schema';
+import { AddProjectFileInput } from '../../shared-contracts/schemas/project-file.schema';
 import { resolveApproval } from '../engine/chat-stream/approval-registry';
 import {
   cancelStream,
@@ -117,7 +118,8 @@ export function createRPC() {
 
         // Project files
         listProjectFiles: ({ projectId }) => projectFileService.listProjectFiles(projectId),
-        addProjectFile: (input) => projectFileService.saveProjectFile(input),
+        addProjectFile: (input) =>
+          projectFileService.saveProjectFile(AddProjectFileInput.parse(input)),
         readProjectFile: ({ projectId, fileId }) =>
           projectFileService.readProjectFileText(projectId, fileId),
         deleteProjectFile: ({ id }) => {

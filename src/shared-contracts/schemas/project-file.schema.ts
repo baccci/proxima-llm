@@ -13,8 +13,11 @@ export const ProjectFileDTO = z.object({
 
 export type ProjectFileDTO = z.infer<typeof ProjectFileDTO>
 
+// Untrusted upload payload from the renderer. projectId is constrained to a uuid because
+// it flows straight into the on-disk storage path: a value containing path separators
+// would let a write escape the project files directory. Mirrors SaveAttachmentInput.
 export const AddProjectFileInput = z.object({
-  projectId: z.string(),
+  projectId: z.string().uuid(),
   name: z.string().min(1),
   data: z.string(),
   mediaType: z.string(),
