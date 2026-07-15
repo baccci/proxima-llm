@@ -1,4 +1,3 @@
-import { effortLevelsForModel } from '@shared/models/effort'
 import type { ChatDTO } from '@shared/schemas/chat.schema'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import React from 'react'
@@ -6,10 +5,12 @@ import { IconArrowUp } from '@/components/icons/icon-arrow-up'
 import { IconStop } from '@/components/icons/icon-stop'
 import { TooltipWrapper } from '@/components/tooltip'
 import { UsageRing } from '@/components/usage-ring'
-import { supportsThinking, supportsWebSearch } from '@/entities/model/capabilities'
 import { chat } from '@/features/chat/chat.api'
 import { AttachmentChip } from '@/features/chat/components/attachment-chip'
 import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
+import { attachmentAccept, getCapabilities } from '@/features/chat/helpers/composer-capabilities'
+import { reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
+import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
 import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-textarea'
 import { useCompactNow } from '@/features/chat/hooks/use-compact-now'
 import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachments'
@@ -21,8 +22,7 @@ import { errorMessage } from '@/utils/error-message'
 import { cn } from '@/utils/tailwind-class-merge'
 import { ModelSwitcher } from '../model-switcher'
 import { ComposerButton } from './composer-stop-button'
-import { COMPACT_HINT_THRESHOLD, IMAGE_ACCEPT, PDF_ACCEPT } from './constants'
-import { getCapabilities } from './utils'
+import { COMPACT_HINT_THRESHOLD } from './constants'
 
 type MessageInputProps = {
   chatItem: ChatDTO
@@ -65,7 +65,7 @@ export function MessageInput({
   const canSubmit =
     (text.trim().length > 0 || pending.length > 0) && !isStreaming && !!currentModelId
 
-  const accept = [...(canVision ? [IMAGE_ACCEPT] : []), ...(canPdf ? [PDF_ACCEPT] : [])].join(',')
+  const accept = attachmentAccept({ canVision, canPdf })
 
   const placeholder = isStreaming
     ? 'Waiting for response…'
@@ -116,14 +116,7 @@ export function MessageInput({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key !== 'Enter') {
-      return
-    }
-
-    // Enter sends the message. When send-on-enter is off, only Cmd/Ctrl+Enter sends.
-    const sendOnEnter = settings?.sendOnEnter ?? true
-    const shouldSend = sendOnEnter ? !e.shiftKey : e.metaKey || e.ctrlKey
-    if (!shouldSend) {
+    if (!shouldSendOnEnter(e, settings?.sendOnEnter ?? true)) {
       return
     }
 
@@ -147,20 +140,11 @@ export function MessageInput({
       return
     }
 
-    // Turn off any composer option the new model can't do.
-    const composerPatch: { thinking?: boolean; webSearch?: boolean; effort?: string | null } = {}
-    if (thinkingEnabled && !supportsThinking(model)) {
-      composerPatch.thinking = false
-    }
-    if (browserEnabled && !supportsWebSearch(model)) {
-      composerPatch.webSearch = false
-    }
-    // Drop the effort if the new model doesn't offer it (covers losing thinking
-    // entirely and switching to a narrower level set, e.g. opus 'max' → an OR model).
-    if (effortValue && !effortLevelsForModel(model).includes(effortValue)) {
-      composerPatch.effort = null
-    }
-
+    const composerPatch = reconcileComposer(model, {
+      thinking: thinkingEnabled,
+      webSearch: browserEnabled,
+      effort: effortValue,
+    })
     const hasPatch = Object.keys(composerPatch).length > 0
     chat.update({
       id: chatId,

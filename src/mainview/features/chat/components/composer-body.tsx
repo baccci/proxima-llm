@@ -1,18 +1,14 @@
-import { effortLevelsForModel } from '@shared/models/effort'
 import { PROVIDER_IDS } from '@shared/providers/registry'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { IconArrowUp } from '@/components/icons/icon-arrow-up'
 import { IconStop } from '@/components/icons/icon-stop'
-import {
-  supportsPdf,
-  supportsThinking,
-  supportsVision,
-  supportsWebSearch,
-} from '@/entities/model/capabilities'
 import { chat } from '@/features/chat/chat.api'
 import { AttachmentChip } from '@/features/chat/components/attachment-chip'
 import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
+import { attachmentAccept, getCapabilities } from '@/features/chat/helpers/composer-capabilities'
+import { reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
+import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
 import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachments'
 import { useStreamingMessage } from '@/features/chat/hooks/use-streaming-message'
 import { useChatStore } from '@/features/chat/store/chat.store'
@@ -54,25 +50,32 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   const [currentModelId, setCurrentModelId] = React.useState<string | null>(null)
   const modelId = currentModelId ?? defaultModelId
   const selectedModel = allModels.find((m) => m.id === modelId)
-  const canThink = selectedModel ? supportsThinking(selectedModel) : false
-  const canBrowse = selectedModel ? supportsWebSearch(selectedModel) : false
-  const canVision = selectedModel ? supportsVision(selectedModel) : false
-  const canPdf = selectedModel ? supportsPdf(selectedModel) : false
+  const { canThink, canVision, canPdf, canBrowse } = getCapabilities(selectedModel)
   const canSubmit = (text.trim().length > 0 || pending.length > 0) && !isStreaming && !!modelId
 
-  const accept = [
-    ...(canVision ? ['image/png,image/jpeg,image/webp,image/gif'] : []),
-    ...(canPdf ? ['application/pdf'] : []),
-  ].join(',')
+  const accept = attachmentAccept({ canVision, canPdf })
 
   function handleModelChange(id: string) {
     setCurrentModelId(id)
-    const m = allModels.find((m) => m.id === id)
-    if (thinkingEnabled && m && !supportsThinking(m)) setThinkingEnabled(false)
-    if (browserEnabled && m && !supportsWebSearch(m)) setBrowserEnabled(false)
-    // Drop the effort if the new model doesn't offer it (covers losing thinking
-    // entirely and switching to a narrower level set, e.g. opus 'max' → an OR model).
-    if (effortValue && m && !effortLevelsForModel(m).includes(effortValue)) setEffortValue(null)
+    const model = allModels.find((m) => m.id === id)
+    if (!model) {
+      return
+    }
+
+    const patch = reconcileComposer(model, {
+      thinking: thinkingEnabled,
+      webSearch: browserEnabled,
+      effort: effortValue,
+    })
+    if (patch.thinking === false) {
+      setThinkingEnabled(false)
+    }
+    if (patch.webSearch === false) {
+      setBrowserEnabled(false)
+    }
+    if (patch.effort === null) {
+      setEffortValue(null)
+    }
   }
 
   async function handleSubmit() {
@@ -133,16 +136,12 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const sendOnEnter = settings?.sendOnEnter ?? true
-    if (e.key === 'Enter') {
-      if (sendOnEnter && !e.shiftKey) {
-        e.preventDefault()
-        handleSubmit()
-      } else if (!sendOnEnter && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        handleSubmit()
-      }
+    if (!shouldSendOnEnter(e, settings?.sendOnEnter ?? true)) {
+      return
     }
+
+    e.preventDefault()
+    handleSubmit()
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
