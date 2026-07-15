@@ -128,6 +128,13 @@ export function MessageInput({
 
   const accept = [...(canVision ? [IMAGE_ACCEPT] : []), ...(canPdf ? [PDF_ACCEPT] : [])].join(',')
 
+  const placeholder = isStreaming
+    ? 'Waiting for response…'
+    : `Reply to ${selectedModel?.displayName ?? 'AI'}…`
+  const sendHint = settings?.sendOnEnter
+    ? 'Enter to send · Shift+Enter for newline'
+    : '⌘+Enter to send · Enter for newline'
+
   function autoResize(el: HTMLTextAreaElement) {
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_H)}px`
@@ -295,11 +302,7 @@ export function MessageInput({
             autoResize(e.target)
           }}
           onKeyDown={handleKeyDown}
-          placeholder={
-            isStreaming
-              ? 'Waiting for response…'
-              : `Reply to ${selectedModel?.displayName ?? 'AI'}…`
-          }
+          placeholder={placeholder}
           disabled={isStreaming}
           rows={1}
           className="w-full resize-none overflow-y-auto bg-transparent px-4 pt-3 pb-2 text-base text-foreground placeholder:text-subtle outline-none disabled:opacity-50"
@@ -345,9 +348,8 @@ export function MessageInput({
                 aria-label="Compact conversation to free up context"
                 className={cn(
                   'flex items-center justify-center h-8 w-8 rounded-lg text-accent-500 transition-colors',
-                  isCompacting
-                    ? 'animate-pulse cursor-default'
-                    : 'hover:text-accent-400 hover:bg-surface-hover cursor-pointer',
+                  isCompacting && 'animate-pulse cursor-default',
+                  !isCompacting && 'hover:text-accent-400 hover:bg-surface-hover cursor-pointer',
                 )}
               >
                 <UsageRing fraction={contextFraction} size={16} />
@@ -357,22 +359,15 @@ export function MessageInput({
 
           <div className="flex-1" />
 
-          {isStreaming ? (
-            <StopButton onClick={handleStopClick} />
-          ) : (
-            <SendButton onClick={handleSubmit} disabled={!canSubmit} />
-          )}
+          {isStreaming && <StopButton onClick={handleStopClick} />}
+          {!isStreaming && <SendButton onClick={handleSubmit} disabled={!canSubmit} />}
         </div>
 
         {attachError && <p className="px-4 pb-2 text-xs text-danger">{attachError}</p>}
         {compactNote && <p className="px-4 pb-2 text-xs text-subtle">{compactNote}</p>}
       </div>
 
-      <p className="mt-1.5 text-center text-2xs text-subtle">
-        {settings?.sendOnEnter
-          ? 'Enter to send · Shift+Enter for newline'
-          : '⌘+Enter to send · Enter for newline'}
-      </p>
+      <p className="mt-1.5 text-center text-2xs text-subtle">{sendHint}</p>
     </div>
   )
 }
