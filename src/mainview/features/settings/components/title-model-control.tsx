@@ -1,4 +1,4 @@
-import type { ModelDTO } from '@shared/schemas/model.schema'
+import { isFreeModel } from '@shared/models/pricing'
 import { useMutation } from '@tanstack/react-query'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
@@ -25,15 +25,6 @@ type TitleModelControlProps = {
   syncable: boolean
   accent?: string
   foreground?: string
-}
-
-// Mirrors resolveTitleModel/isFreeModel on the backend: free models get
-// deactivated without notice, so Auto skips them and Custom warns about them.
-function isFreeModel(m: ModelDTO): boolean {
-  return (
-    m.id.endsWith(':free') ||
-    (m.pricing != null && m.pricing.prompt === 0 && m.pricing.completion === 0)
-  )
 }
 
 export function TitleModelControl({

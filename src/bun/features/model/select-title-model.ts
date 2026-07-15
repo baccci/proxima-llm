@@ -1,4 +1,5 @@
 import type { AnthropicFamily } from '../../../shared-contracts/models/families';
+import { isFreeModel } from '../../../shared-contracts/models/pricing';
 import type { ProviderId } from '../../../shared-contracts/providers/registry';
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
 import type { ProviderTitleConfig } from '../../../shared-contracts/schemas/settings.schema';
@@ -14,15 +15,6 @@ function priceOf(m: ModelDTO): number | null {
   }
 
   return m.pricing.prompt + m.pricing.completion;
-}
-
-// Free models (e.g. OpenRouter `:free` variants) get deactivated without notice,
-// so Auto must never pick one, since it would resurrect the original title bug.
-export function isFreeModel(m: ModelDTO): boolean {
-  return (
-    m.id.endsWith(':free') ||
-    (m.pricing != null && m.pricing.prompt === 0 && m.pricing.completion === 0)
-  );
 }
 
 // Cheapest enabled NON-FREE model for the provider. Priced models rank by total

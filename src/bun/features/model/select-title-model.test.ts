@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { ProviderId } from '../../../shared-contracts/providers/registry';
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
 import type { ProviderTitleConfig } from '../../../shared-contracts/schemas/settings.schema';
-import { isFreeModel, selectTitleModel } from './select-title-model';
+import { selectTitleModel } from './select-title-model';
 
 function model(over: Partial<ModelDTO> = {}): ModelDTO {
   return {
@@ -29,24 +29,6 @@ function model(over: Partial<ModelDTO> = {}): ModelDTO {
 
 const custom = (modelId: string | null): ProviderTitleConfig => ({ mode: 'custom', modelId });
 const auto: ProviderTitleConfig = { mode: 'auto', modelId: null };
-
-describe('isFreeModel', () => {
-  test('a :free id is free', () => {
-    expect(isFreeModel(model({ id: 'x/y:free' }))).toBe(true);
-  });
-
-  test('zero prompt and completion price is free', () => {
-    expect(isFreeModel(model({ pricing: { prompt: 0, completion: 0 } }))).toBe(true);
-  });
-
-  test('null pricing is not free (unknown, not zero)', () => {
-    expect(isFreeModel(model({ pricing: null }))).toBe(false);
-  });
-
-  test('a priced model is not free', () => {
-    expect(isFreeModel(model({ pricing: { prompt: 2, completion: 3 } }))).toBe(false);
-  });
-});
 
 describe('selectTitleModel', () => {
   test('auto picks the cheapest enabled non-free model by total price', () => {

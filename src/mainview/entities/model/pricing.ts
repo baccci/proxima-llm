@@ -1,8 +1,5 @@
+import { isFreeModel } from '@shared/models/pricing'
 import type { ModelDTO } from '@shared/schemas/model.schema'
-
-export function isFreeModel(model: ModelDTO): boolean {
-  return model.pricing !== null && model.pricing.prompt === 0 && model.pricing.completion === 0
-}
 
 export function formatPricing(model: ModelDTO): string {
   if (model.pricing === null) return '—'

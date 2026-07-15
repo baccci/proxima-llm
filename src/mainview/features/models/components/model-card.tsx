@@ -1,3 +1,4 @@
+import { isFreeModel } from '@shared/models/pricing'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import { formatTokens } from '@utils/format-tokens'
 import { cn } from '@utils/tailwind-class-merge'
@@ -9,7 +10,7 @@ import { IconWrench } from '@/components/icons/icon-wrench'
 import { Switch } from '@/components/switch'
 import { TooltipWrapper } from '@/components/tooltip'
 import { modelCompany } from '@/entities/model/company'
-import { formatPricing, isFreeModel } from '@/entities/model/pricing'
+import { formatPricing } from '@/entities/model/pricing'
 import { shortModelName } from '@/entities/model/short-name'
 import { models } from '@/features/models/models.api'
 
