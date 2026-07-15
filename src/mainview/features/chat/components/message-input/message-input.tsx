@@ -6,12 +6,7 @@ import { IconArrowUp } from '@/components/icons/icon-arrow-up'
 import { IconStop } from '@/components/icons/icon-stop'
 import { TooltipWrapper } from '@/components/tooltip'
 import { UsageRing } from '@/components/usage-ring'
-import {
-  supportsPdf,
-  supportsThinking,
-  supportsVision,
-  supportsWebSearch,
-} from '@/entities/model/capabilities'
+import { supportsThinking, supportsWebSearch } from '@/entities/model/capabilities'
 import { chat } from '@/features/chat/chat.api'
 import { AttachmentChip } from '@/features/chat/components/attachment-chip'
 import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
@@ -24,40 +19,10 @@ import { useModels } from '@/features/models/hooks/use-models'
 import { useSettings } from '@/features/settings/hooks/use-settings'
 import { errorMessage } from '@/utils/error-message'
 import { cn } from '@/utils/tailwind-class-merge'
-import { ModelSwitcher } from './model-switcher'
-
-// File-picker accept lists, gated by what the model can read.
-const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
-const PDF_ACCEPT = 'application/pdf'
-// Show the compact button once context usage passes this fraction.
-const COMPACT_HINT_THRESHOLD = 0.6
-
-type StopButtonProps = { onClick: () => void }
-
-function StopButton({ onClick }: StopButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center justify-center h-8 w-8 rounded-full bg-brand text-brand-foreground hover:bg-brand-hover transition cursor-pointer pointer-fine:active:transform-[scale(0.97)]"
-    >
-      <IconStop width={12} />
-    </button>
-  )
-}
-
-type SendButtonProps = { onClick: () => void; disabled: boolean }
-
-function SendButton({ onClick, disabled }: SendButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="flex items-center justify-center h-8 w-8 rounded-full bg-brand text-brand-foreground hover:bg-brand-hover transition duration-150 cursor-pointer disabled:opacity-0 disabled:pointer-events-none pointer-fine:active:transform-[scale(0.97)]"
-    >
-      <IconArrowUp width={16} />
-    </button>
-  )
-}
+import { ModelSwitcher } from '../model-switcher'
+import { ComposerButton } from './composer-stop-button'
+import { COMPACT_HINT_THRESHOLD, IMAGE_ACCEPT, PDF_ACCEPT } from './constants'
+import { getCapabilities } from './utils'
 
 type MessageInputProps = {
   chatItem: ChatDTO
@@ -94,10 +59,7 @@ export function MessageInput({
   const selectedModel: ModelDTO | undefined = allModels.find((m) => m.id === currentModelId)
 
   // What the selected model can do drives which composer controls are enabled.
-  const canThink = selectedModel ? supportsThinking(selectedModel) : false
-  const canVision = selectedModel ? supportsVision(selectedModel) : false
-  const canPdf = selectedModel ? supportsPdf(selectedModel) : false
-  const canBrowse = selectedModel ? supportsWebSearch(selectedModel) : false
+  const { canThink, canVision, canPdf, canBrowse } = getCapabilities(selectedModel)
 
   const isStreaming = !!streaming && !streaming.done
   const canSubmit =
@@ -304,8 +266,17 @@ export function MessageInput({
 
           <div className="flex-1" />
 
-          {isStreaming && <StopButton onClick={handleStopClick} />}
-          {!isStreaming && <SendButton onClick={handleSubmit} disabled={!canSubmit} />}
+          {isStreaming && (
+            <ComposerButton onClick={handleStopClick}>
+              <IconStop width={12} />
+            </ComposerButton>
+          )}
+          {!isStreaming && (
+            <ComposerButton onClick={handleSubmit} disabled={!canSubmit}>
+              {' '}
+              <IconArrowUp width={16} />
+            </ComposerButton>
+          )}
         </div>
 
         {attachError && <p className="px-4 pb-2 text-xs text-danger">{attachError}</p>}

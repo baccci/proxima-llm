@@ -12,7 +12,7 @@ import { groupIntoExchanges } from '@/features/focus-mode/entities/group-into-ex
 import { useModels } from '@/features/models/hooks/use-models'
 import { useProjects } from '@/features/projects/hooks/use-projects'
 import { ChatActionsMenu } from './chat-actions-menu'
-import { MessageInput } from './message-input'
+import { MessageInput } from './message-input/message-input'
 import { MessageList } from './message-list'
 import { WelcomeComposer } from './welcome-composer'
 
