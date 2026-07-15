@@ -6,8 +6,9 @@ import { IconStop } from '@/components/icons/icon-stop'
 import { TooltipWrapper } from '@/components/tooltip'
 import { UsageRing } from '@/components/usage-ring'
 import { chat } from '@/features/chat/chat.api'
-import { AttachmentChip } from '@/features/chat/components/attachment-chip'
 import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
+import { ComposerAttachmentRow } from '@/features/chat/components/composer-attachment-row'
+import { ComposerButton } from '@/features/chat/components/composer-button'
 import { attachmentAccept, getCapabilities } from '@/features/chat/helpers/composer-capabilities'
 import { reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
 import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
@@ -21,7 +22,6 @@ import { useSettings } from '@/features/settings/hooks/use-settings'
 import { errorMessage } from '@/utils/error-message'
 import { cn } from '@/utils/tailwind-class-merge'
 import { ModelSwitcher } from '../model-switcher'
-import { ComposerButton } from './composer-stop-button'
 import { COMPACT_HINT_THRESHOLD } from './constants'
 
 type MessageInputProps = {
@@ -164,26 +164,7 @@ export function MessageInput({
   return (
     <div className="shrink-0 px-6 pb-5 pt-2">
       <div className="max-w-(--layout-content-w) mx-auto rounded-2xl border border-border bg-panel shadow-input focus-within:border-border-strong transition-colors">
-        {pending.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-4 pt-3">
-            {pending.map((att) => (
-              <AttachmentChip
-                key={att.localId}
-                attachment={{
-                  id: att.localId,
-                  chatId,
-                  kind: att.kind,
-                  mediaType: att.mediaType,
-                  byteSize: att.byteSize,
-                  sha256: '',
-                  relPath: att.name,
-                  createdAt: new Date().toISOString(),
-                }}
-                onRemove={() => removeAttachment(att.localId)}
-              />
-            ))}
-          </div>
-        )}
+        <ComposerAttachmentRow pending={pending} chatId={chatId} onRemove={removeAttachment} />
 
         <textarea
           ref={textareaRef}
@@ -256,8 +237,11 @@ export function MessageInput({
             </ComposerButton>
           )}
           {!isStreaming && (
-            <ComposerButton onClick={handleSubmit} disabled={!canSubmit}>
-              {' '}
+            <ComposerButton
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className="disabled:opacity-0 disabled:pointer-events-none"
+            >
               <IconArrowUp width={16} />
             </ComposerButton>
           )}

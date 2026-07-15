@@ -4,8 +4,9 @@ import React from 'react'
 import { IconArrowUp } from '@/components/icons/icon-arrow-up'
 import { IconStop } from '@/components/icons/icon-stop'
 import { chat } from '@/features/chat/chat.api'
-import { AttachmentChip } from '@/features/chat/components/attachment-chip'
 import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
+import { ComposerAttachmentRow } from '@/features/chat/components/composer-attachment-row'
+import { ComposerButton } from '@/features/chat/components/composer-button'
 import { attachmentAccept, getCapabilities } from '@/features/chat/helpers/composer-capabilities'
 import { reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
 import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
@@ -144,6 +145,13 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
     handleSubmit()
   }
 
+  function handleStopClick() {
+    if (streaming) {
+      chat.cancelStream(streaming.streamId)
+    }
+    finishStreaming()
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
       addFiles(e.target.files, selectedModel)
@@ -154,26 +162,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   return (
     <div className={cn(className, 'w-full flex flex-col gap-2')}>
       <div className="w-full rounded-2xl border border-border bg-panel focus-within:border-border-strong transition-colors">
-        {pending.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-4 pt-3">
-            {pending.map((att) => (
-              <AttachmentChip
-                key={att.localId}
-                attachment={{
-                  id: att.localId,
-                  chatId: '',
-                  kind: att.kind,
-                  mediaType: att.mediaType,
-                  byteSize: att.byteSize,
-                  sha256: '',
-                  relPath: att.name,
-                  createdAt: new Date().toISOString(),
-                }}
-                onRemove={() => removeAttachment(att.localId)}
-              />
-            ))}
-          </div>
-        )}
+        <ComposerAttachmentRow pending={pending} chatId="" onRemove={removeAttachment} />
 
         <textarea
           ref={textareaRef}
@@ -217,31 +206,19 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
 
           <div className="flex-1" />
 
-          {isStreaming ? (
-            <button
-              onClick={() => {
-                if (streaming) chat.cancelStream(streaming.streamId)
-                finishStreaming()
-              }}
-              className={cn(
-                'flex items-center justify-center h-8 w-8 rounded-full bg-brand text-brand-foreground hover:bg-brand-hover transition-colors cursor-pointer',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              )}
-            >
+          {isStreaming && (
+            <ComposerButton onClick={handleStopClick}>
               <IconStop width={12} />
-            </button>
-          ) : (
-            <button
+            </ComposerButton>
+          )}
+          {!isStreaming && (
+            <ComposerButton
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className={cn(
-                'flex items-center justify-center h-8 w-8 rounded-full bg-brand text-brand-foreground hover:bg-brand-hover transition duration-150 cursor-pointer',
-                'disabled:opacity-0 disabled:pointer-events-none',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              )}
+              className="disabled:opacity-0 disabled:pointer-events-none"
             >
               <IconArrowUp width={16} />
-            </button>
+            </ComposerButton>
           )}
         </div>
 
