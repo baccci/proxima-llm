@@ -1,5 +1,4 @@
 import { effortLevelsForModel } from '@shared/models/effort'
-import { COMPACT_NOOP_REASON, COMPACT_STATUS, type CompactResult } from '@shared/rpc/compact-result'
 import type { ChatDTO } from '@shared/schemas/chat.schema'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import React from 'react'
@@ -16,42 +15,22 @@ import {
 import { chat } from '@/features/chat/chat.api'
 import { AttachmentChip } from '@/features/chat/components/attachment-chip'
 import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
+import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-textarea'
+import { useCompactNow } from '@/features/chat/hooks/use-compact-now'
 import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachments'
 import { useStreamingMessage } from '@/features/chat/hooks/use-streaming-message'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useModels } from '@/features/models/hooks/use-models'
 import { useSettings } from '@/features/settings/hooks/use-settings'
+import { errorMessage } from '@/utils/error-message'
 import { cn } from '@/utils/tailwind-class-merge'
 import { ModelSwitcher } from './model-switcher'
 
-// Max height (px) the composer grows to before it starts scrolling.
-const COMPOSER_MAX_H = 272
-// How long the post-compaction note stays on screen.
-const COMPACT_NOTE_TIMEOUT_MS = 4000
-// Show the compact button once context usage passes this fraction.
-const COMPACT_HINT_THRESHOLD = 0.6
 // File-picker accept lists, gated by what the model can read.
 const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
 const PDF_ACCEPT = 'application/pdf'
-
-// Turn a compaction result into the note we show the user.
-function compactionNote(result: CompactResult): string {
-  if (result.status === COMPACT_STATUS.ok) {
-    const n = result.summarized
-    return `Summarized ${n} earlier message${n === 1 ? '' : 's'} to save context`
-  }
-
-  const noopMessages: Record<string, string> = {
-    [COMPACT_NOOP_REASON.nothingToSummarize]: 'Already compact — nothing older to summarize',
-    [COMPACT_NOOP_REASON.noTitleModel]: 'No model available to summarize',
-  }
-  return noopMessages[result.reason] ?? 'Compaction produced no summary'
-}
-
-// Human-readable message from a caught error, or a fallback when it is not an Error.
-function errorMessage(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback
-}
+// Show the compact button once context usage passes this fraction.
+const COMPACT_HINT_THRESHOLD = 0.6
 
 type StopButtonProps = { onClick: () => void }
 
@@ -96,9 +75,6 @@ export function MessageInput({
   contextRingTooltip,
 }: MessageInputProps) {
   const [text, setText] = React.useState('')
-  const [isCompacting, setIsCompacting] = React.useState(false)
-  const [compactNote, setCompactNote] = React.useState<string | null>(null)
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const chatId = chatItem.id
@@ -110,9 +86,10 @@ export function MessageInput({
   const { data: allModels = [] } = useModels()
   const failStreaming = useChatStore((s) => s.failStreaming)
   const finishStreaming = useChatStore((s) => s.finishStreaming)
-  const setCompactingChatId = useChatStore((s) => s.setCompactingChatId)
   const { streaming, send } = useStreamingMessage(chatId)
   const { pending, attachError, addFiles, removeAttachment, flush, clear } = usePendingAttachments()
+  const { ref: textareaRef, autoResize, reset: resetTextarea } = useAutoResizeTextarea()
+  const { isCompacting, note: compactNote, compact } = useCompactNow(chatId)
 
   const selectedModel: ModelDTO | undefined = allModels.find((m) => m.id === currentModelId)
 
@@ -135,36 +112,6 @@ export function MessageInput({
     ? 'Enter to send · Shift+Enter for newline'
     : '⌘+Enter to send · Enter for newline'
 
-  function autoResize(el: HTMLTextAreaElement) {
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_H)}px`
-  }
-
-  async function handleCompactClick() {
-    if (isCompacting || isStreaming) {
-      return
-    }
-
-    setIsCompacting(true)
-    setCompactNote(null)
-    setCompactingChatId(chatId)
-
-    const showNote = (msg: string) => {
-      setCompactNote(msg)
-      window.setTimeout(() => setCompactNote(null), COMPACT_NOTE_TIMEOUT_MS)
-    }
-
-    try {
-      const result = await chat.compactNow(chatId)
-      showNote(compactionNote(result))
-    } catch (err) {
-      showNote(errorMessage(err, 'Compaction failed'))
-    } finally {
-      setIsCompacting(false)
-      setCompactingChatId(null)
-    }
-  }
-
   async function handleSubmit() {
     if (!canSubmit) {
       return
@@ -172,9 +119,7 @@ export function MessageInput({
 
     const content = text.trim()
     setText('')
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
+    resetTextarea()
 
     try {
       const attachmentIds = await flush(chatId)
@@ -299,7 +244,7 @@ export function MessageInput({
           value={text}
           onChange={(e) => {
             setText(e.target.value)
-            autoResize(e.target)
+            autoResize()
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
@@ -343,7 +288,7 @@ export function MessageInput({
             <TooltipWrapper content={isCompacting ? 'Compacting…' : contextRingTooltip} side="top">
               <button
                 type="button"
-                onClick={handleCompactClick}
+                onClick={compact}
                 disabled={isCompacting || isStreaming}
                 aria-label="Compact conversation to free up context"
                 className={cn(
