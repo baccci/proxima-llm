@@ -1,5 +1,5 @@
 import { effortLevelsForModel } from '@shared/models/effort'
-import { COMPACT_NOOP_REASON, COMPACT_STATUS } from '@shared/rpc/compact-result'
+import { COMPACT_NOOP_REASON, COMPACT_STATUS, type CompactResult } from '@shared/rpc/compact-result'
 import type { ChatDTO } from '@shared/schemas/chat.schema'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import React from 'react'
@@ -24,7 +24,63 @@ import { useSettings } from '@/features/settings/hooks/use-settings'
 import { cn } from '@/utils/tailwind-class-merge'
 import { ModelSwitcher } from './model-switcher'
 
-interface Props {
+// Max height (px) the composer grows to before it starts scrolling.
+const COMPOSER_MAX_H = 272
+// How long the post-compaction note stays on screen.
+const COMPACT_NOTE_TIMEOUT_MS = 4000
+// Show the compact button once context usage passes this fraction.
+const COMPACT_HINT_THRESHOLD = 0.6
+// File-picker accept lists, gated by what the model can read.
+const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
+const PDF_ACCEPT = 'application/pdf'
+
+// Turn a compaction result into the note we show the user.
+function compactionNote(result: CompactResult): string {
+  if (result.status === COMPACT_STATUS.ok) {
+    const n = result.summarized
+    return `Summarized ${n} earlier message${n === 1 ? '' : 's'} to save context`
+  }
+
+  const noopMessages: Record<string, string> = {
+    [COMPACT_NOOP_REASON.nothingToSummarize]: 'Already compact — nothing older to summarize',
+    [COMPACT_NOOP_REASON.noTitleModel]: 'No model available to summarize',
+  }
+  return noopMessages[result.reason] ?? 'Compaction produced no summary'
+}
+
+// Human-readable message from a caught error, or a fallback when it is not an Error.
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback
+}
+
+type StopButtonProps = { onClick: () => void }
+
+function StopButton({ onClick }: StopButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center justify-center h-8 w-8 rounded-full bg-brand text-brand-foreground hover:bg-brand-hover transition cursor-pointer pointer-fine:active:transform-[scale(0.97)]"
+    >
+      <IconStop width={12} />
+    </button>
+  )
+}
+
+type SendButtonProps = { onClick: () => void; disabled: boolean }
+
+function SendButton({ onClick, disabled }: SendButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="flex items-center justify-center h-8 w-8 rounded-full bg-brand text-brand-foreground hover:bg-brand-hover transition duration-150 cursor-pointer disabled:opacity-0 disabled:pointer-events-none pointer-fine:active:transform-[scale(0.97)]"
+    >
+      <IconArrowUp width={16} />
+    </button>
+  )
+}
+
+type MessageInputProps = {
   chatItem: ChatDTO
   contextUsed?: number
   contextCached?: number
@@ -38,7 +94,7 @@ export function MessageInput({
   contextCached,
   contextFraction,
   contextRingTooltip,
-}: Props) {
+}: MessageInputProps) {
   const [text, setText] = React.useState('')
   const [isCompacting, setIsCompacting] = React.useState(false)
   const [compactNote, setCompactNote] = React.useState<string | null>(null)
@@ -59,20 +115,18 @@ export function MessageInput({
   const { pending, attachError, addFiles, removeAttachment, flush, clear } = usePendingAttachments()
 
   const selectedModel: ModelDTO | undefined = allModels.find((m) => m.id === currentModelId)
+
+  // What the selected model can do drives which composer controls are enabled.
   const canThink = selectedModel ? supportsThinking(selectedModel) : false
   const canVision = selectedModel ? supportsVision(selectedModel) : false
   const canPdf = selectedModel ? supportsPdf(selectedModel) : false
   const canBrowse = selectedModel ? supportsWebSearch(selectedModel) : false
+
   const isStreaming = !!streaming && !streaming.done
   const canSubmit =
     (text.trim().length > 0 || pending.length > 0) && !isStreaming && !!currentModelId
 
-  const accept = [
-    ...(canVision ? ['image/png,image/jpeg,image/webp,image/gif'] : []),
-    ...(canPdf ? ['application/pdf'] : []),
-  ].join(',')
-
-  const COMPOSER_MAX_H = 272
+  const accept = [...(canVision ? [IMAGE_ACCEPT] : []), ...(canPdf ? [PDF_ACCEPT] : [])].join(',')
 
   function autoResize(el: HTMLTextAreaElement) {
     el.style.height = 'auto'
@@ -80,28 +134,24 @@ export function MessageInput({
   }
 
   async function handleCompactClick() {
-    if (isCompacting || isStreaming) return
+    if (isCompacting || isStreaming) {
+      return
+    }
+
     setIsCompacting(true)
     setCompactNote(null)
     setCompactingChatId(chatId)
+
     const showNote = (msg: string) => {
       setCompactNote(msg)
-      window.setTimeout(() => setCompactNote(null), 4000)
+      window.setTimeout(() => setCompactNote(null), COMPACT_NOTE_TIMEOUT_MS)
     }
+
     try {
       const result = await chat.compactNow(chatId)
-      if (result.status === COMPACT_STATUS.ok) {
-        const n = result.summarized
-        showNote(`Summarized ${n} earlier message${n === 1 ? '' : 's'} to save context`)
-      } else {
-        const noopMessages: Record<string, string> = {
-          [COMPACT_NOOP_REASON.nothingToSummarize]: 'Already compact — nothing older to summarize',
-          [COMPACT_NOOP_REASON.noTitleModel]: 'No model available to summarize',
-        }
-        showNote(noopMessages[result.reason] ?? 'Compaction produced no summary')
-      }
+      showNote(compactionNote(result))
     } catch (err) {
-      showNote(err instanceof Error ? err.message : 'Compaction failed')
+      showNote(errorMessage(err, 'Compaction failed'))
     } finally {
       setIsCompacting(false)
       setCompactingChatId(null)
@@ -109,11 +159,15 @@ export function MessageInput({
   }
 
   async function handleSubmit() {
-    const content = text.trim()
-    if ((!content && pending.length === 0) || !currentModelId || isStreaming) return
+    if (!canSubmit) {
+      return
+    }
 
+    const content = text.trim()
     setText('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
 
     try {
       const attachmentIds = await flush(chatId)
@@ -143,45 +197,70 @@ export function MessageInput({
       chat.invalidateList()
       await send(streamId, assistantMessageId)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong'
-      failStreaming(message)
+      failStreaming(errorMessage(err, 'Something went wrong'))
     }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const sendOnEnter = settings?.sendOnEnter ?? true
-    if (e.key === 'Enter') {
-      if (sendOnEnter && !e.shiftKey) {
-        e.preventDefault()
-        handleSubmit()
-      } else if (!sendOnEnter && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        handleSubmit()
-      }
+    if (e.key !== 'Enter') {
+      return
     }
+
+    // Enter sends the message. When send-on-enter is off, only Cmd/Ctrl+Enter sends.
+    const sendOnEnter = settings?.sendOnEnter ?? true
+    const shouldSend = sendOnEnter ? !e.shiftKey : e.metaKey || e.ctrlKey
+    if (!shouldSend) {
+      return
+    }
+
+    e.preventDefault()
+    handleSubmit()
+  }
+
+  function handleStopClick() {
+    if (streaming) {
+      chat.cancelStream(streaming.streamId)
+    }
+    finishStreaming()
   }
 
   function handleModelChange(id: string) {
-    const m = allModels.find((model) => model.id === id)
+    const model = allModels.find((m) => m.id === id)
+
+    // Unknown model id: switch without reconciling composer flags.
+    if (!model) {
+      chat.update({ id: chatId, modelId: id })
+      return
+    }
+
+    // Turn off any composer option the new model can't do.
     const composerPatch: { thinking?: boolean; webSearch?: boolean; effort?: string | null } = {}
-    if (thinkingEnabled && m && !supportsThinking(m)) composerPatch.thinking = false
-    if (browserEnabled && m && !supportsWebSearch(m)) composerPatch.webSearch = false
+    if (thinkingEnabled && !supportsThinking(model)) {
+      composerPatch.thinking = false
+    }
+    if (browserEnabled && !supportsWebSearch(model)) {
+      composerPatch.webSearch = false
+    }
     // Drop the effort if the new model doesn't offer it (covers losing thinking
     // entirely and switching to a narrower level set, e.g. opus 'max' → an OR model).
-    if (effortValue && m && !effortLevelsForModel(m).includes(effortValue))
+    if (effortValue && !effortLevelsForModel(model).includes(effortValue)) {
       composerPatch.effort = null
+    }
+
+    const hasPatch = Object.keys(composerPatch).length > 0
     chat.update({
       id: chatId,
       modelId: id,
-      ...(Object.keys(composerPatch).length > 0 ? { composer: composerPatch } : {}),
+      ...(hasPatch ? { composer: composerPatch } : {}),
     })
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files) {
-      addFiles(e.target.files, selectedModel)
-      e.target.value = ''
+    if (!e.target.files) {
+      return
     }
+    addFiles(e.target.files, selectedModel)
+    e.target.value = ''
   }
 
   return (
@@ -257,7 +336,7 @@ export function MessageInput({
             effort={effortValue}
           />
 
-          {contextFraction != null && contextFraction >= 0.6 && (
+          {contextFraction != null && contextFraction >= COMPACT_HINT_THRESHOLD && (
             <TooltipWrapper content={isCompacting ? 'Compacting…' : contextRingTooltip} side="top">
               <button
                 type="button"
@@ -279,25 +358,9 @@ export function MessageInput({
           <div className="flex-1" />
 
           {isStreaming ? (
-            <button
-              onClick={() => {
-                if (streaming) chat.cancelStream(streaming.streamId)
-                finishStreaming()
-              }}
-              className="flex items-center justify-center h-8 w-8 rounded-full bg-brand text-brand-foreground hover:bg-brand-hover transition cursor-pointer pointer-fine:active:transform-[scale(0.97)]"
-            >
-              <IconStop width={12} />
-            </button>
+            <StopButton onClick={handleStopClick} />
           ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className={cn(
-                'flex items-center justify-center h-8 w-8 rounded-full bg-brand text-brand-foreground hover:bg-brand-hover transition duration-150 cursor-pointer disabled:opacity-0 disabled:pointer-events-none pointer-fine:active:transform-[scale(0.97)]',
-              )}
-            >
-              <IconArrowUp width={16} />
-            </button>
+            <SendButton onClick={handleSubmit} disabled={!canSubmit} />
           )}
         </div>
 
