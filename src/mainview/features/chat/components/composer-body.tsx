@@ -10,6 +10,7 @@ import { ComposerButton } from '@/features/chat/components/composer-button'
 import { attachmentAccept, getCapabilities } from '@/features/chat/helpers/composer-capabilities'
 import { reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
 import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
+import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-textarea'
 import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachments'
 import { useStreamingMessage } from '@/features/chat/hooks/use-streaming-message'
 import { useChatStore } from '@/features/chat/store/chat.store'
@@ -27,8 +28,8 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false)
   const [browserEnabled, setBrowserEnabled] = React.useState(false)
   const [effortValue, setEffortValue] = React.useState<string | null>(null)
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const { ref: textareaRef, autoResize, reset: resetTextarea } = useAutoResizeTextarea()
 
   const { data: settings } = useSettings()
   const { data: allModels = [] } = useModels()
@@ -84,7 +85,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
     if ((!content && pending.length === 0) || !modelId || isStreaming) return
 
     setText('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    resetTextarea()
     let createdId: string | null = null
 
     try {
@@ -167,7 +168,10 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
         <textarea
           ref={textareaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value)
+            autoResize()
+          }}
           onKeyDown={handleKeyDown}
           placeholder="Message…"
           disabled={isStreaming}
