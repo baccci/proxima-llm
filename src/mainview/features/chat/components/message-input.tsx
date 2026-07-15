@@ -94,13 +94,11 @@ export function MessageInput({
         const n = result.summarized
         showNote(`Summarized ${n} earlier message${n === 1 ? '' : 's'} to save context`)
       } else {
-        showNote(
-          result.reason === COMPACT_NOOP_REASON.nothingToSummarize
-            ? 'Already compact — nothing older to summarize'
-            : result.reason === COMPACT_NOOP_REASON.noTitleModel
-              ? 'No model available to summarize'
-              : 'Compaction produced no summary',
-        )
+        const noopMessages: Record<string, string> = {
+          [COMPACT_NOOP_REASON.nothingToSummarize]: 'Already compact — nothing older to summarize',
+          [COMPACT_NOOP_REASON.noTitleModel]: 'No model available to summarize',
+        }
+        showNote(noopMessages[result.reason] ?? 'Compaction produced no summary')
       }
     } catch (err) {
       showNote(err instanceof Error ? err.message : 'Compaction failed')

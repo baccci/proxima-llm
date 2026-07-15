@@ -11,6 +11,12 @@ interface Props {
   tokenEstimate?: number
 }
 
+function thinkingLabel(active: boolean | undefined, durationLabel: string | undefined) {
+  if (active) return 'Thinking…'
+  if (durationLabel) return `Thought for ${durationLabel}`
+  return 'Thought'
+}
+
 export function ThinkingBlock({
   messageId,
   reasoning,
@@ -21,7 +27,7 @@ export function ThinkingBlock({
   const { thinkingExpanded, setThinkingExpanded } = useChatStore()
   const expanded = thinkingExpanded[messageId] ?? false
 
-  const label = active ? 'Thinking…' : durationLabel ? `Thought for ${durationLabel}` : 'Thought'
+  const label = thinkingLabel(active, durationLabel)
 
   return (
     <div className="mb-3">

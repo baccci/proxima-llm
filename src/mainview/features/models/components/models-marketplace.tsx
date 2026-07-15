@@ -40,6 +40,55 @@ function syncedAgo(ts: number | null | undefined): string {
   return `${Math.floor(diff / 86_400_000)}d ago`
 }
 
+type MarketplaceEmptyStateProps = {
+  currentProvider: string
+  search: string
+  filterMode: 'all' | 'enabled'
+  syncing: boolean
+  onResync: () => void
+}
+
+// Shown when the current filter yields no models. Picks the message by why the
+// list is empty: an unsynced OpenRouter tab, an empty "enabled" filter, or a
+// search with no matches.
+function MarketplaceEmptyState({
+  currentProvider,
+  search,
+  filterMode,
+  syncing,
+  onResync,
+}: MarketplaceEmptyStateProps) {
+  if (currentProvider === ProviderId.enum.openrouter && !search && filterMode === 'all') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+        <p className="text-sm text-muted">No OpenRouter models synced yet.</p>
+        <button
+          type="button"
+          onClick={onResync}
+          disabled={syncing}
+          className="text-sm text-selected-foreground hover:text-selected-border transition-colors disabled:opacity-50 cursor-pointer"
+        >
+          {syncing ? 'Syncing…' : 'Sync models now'}
+        </button>
+      </div>
+    )
+  }
+
+  if (filterMode === 'enabled') {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-sm text-muted">No enabled models yet — toggle some on.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-center h-full">
+      <p className="text-sm text-muted">No models match your search.</p>
+    </div>
+  )
+}
+
 export function ModelsMarketplace() {
   const { data: allModels = [] } = useModels()
   const { data: syncInfo } = useModelSyncInfo()
@@ -225,29 +274,14 @@ export function ModelsMarketplace() {
             </div>
 
             <div className="h-[440px] overflow-y-auto pr-1 pb-1">
-              {filtered.length === 0 &&
-              currentProvider === ProviderId.enum.openrouter &&
-              !search &&
-              filterMode === 'all' ? (
-                <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-                  <p className="text-sm text-muted">No OpenRouter models synced yet.</p>
-                  <button
-                    type="button"
-                    onClick={handleResync}
-                    disabled={syncing}
-                    className="text-sm text-selected-foreground hover:text-selected-border transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    {syncing ? 'Syncing…' : 'Sync models now'}
-                  </button>
-                </div>
-              ) : filtered.length === 0 && filterMode === 'enabled' ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-sm text-muted">No enabled models yet — toggle some on.</p>
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-sm text-muted">No models match your search.</p>
-                </div>
+              {filtered.length === 0 ? (
+                <MarketplaceEmptyState
+                  currentProvider={currentProvider}
+                  search={search}
+                  filterMode={filterMode}
+                  syncing={syncing}
+                  onResync={handleResync}
+                />
               ) : (
                 <div className="flex flex-col gap-4">
                   {visibleEnabled.length > 0 && (

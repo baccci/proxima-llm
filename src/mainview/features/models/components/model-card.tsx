@@ -84,11 +84,9 @@ export function ModelCard({ model }: Props) {
         <span
           className={cn(
             'text-2xs font-medium px-1.5 py-0.5 rounded-md',
-            free
-              ? 'bg-success/10 text-success'
-              : pricing === '—'
-                ? 'bg-surface-hover text-subtle'
-                : 'bg-surface-hover text-muted',
+            free && 'bg-success/10 text-success',
+            !free && pricing === '—' && 'bg-surface-hover text-subtle',
+            !free && pricing !== '—' && 'bg-surface-hover text-muted',
           )}
         >
           {pricing}

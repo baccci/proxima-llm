@@ -35,6 +35,7 @@
         "noDangerouslySetInnerHtml": "off"
       },
       "style": {
+        "noNestedTernary": "error",
         "noNonNullAssertion": "off",
         "useFilenamingConvention": {
           "level": "error",
@@ -51,15 +52,7 @@
   "overrides": [
     {
       "includes": ["src/bun/**"],
-      "javascript": { "formatter": { "semicolons": "always" } },
-      "linter": {
-        "rules": {
-          // Machine-enforced half of R37 (no nested ternaries). Scoped to bun for
-          // now; the renderer has 6 pre-existing violations to clean in the Phase 2
-          // sweep, then this can move up to the base rules.
-          "style": { "noNestedTernary": "error", "noNonNullAssertion": "off" }
-        }
-      }
+      "javascript": { "formatter": { "semicolons": "always" } }
     },
     {
       // The RPC schema uses `response: void` for fire-and-forget calls so the bun

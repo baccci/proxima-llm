@@ -8,6 +8,28 @@ interface Props {
   projectId: string
 }
 
+type MemoriesPreviewProps = {
+  hasMemories: boolean
+  summary: string | null
+  sliceCount: number
+}
+
+function MemoriesPreview({ hasMemories, summary, sliceCount }: MemoriesPreviewProps) {
+  if (!hasMemories) {
+    return <p className="text-xs text-subtle italic">No memories yet. Click to add.</p>
+  }
+
+  if (summary) {
+    return <p className="text-xs text-muted line-clamp-3 leading-relaxed">{summary}</p>
+  }
+
+  return (
+    <p className="text-xs text-subtle italic">
+      {sliceCount} {sliceCount === 1 ? 'memory' : 'memories'} saved. Open to view.
+    </p>
+  )
+}
+
 export function MemoriesCard({ projectId }: Props) {
   const { data: slices = [] } = useMemorySlices('project', projectId)
   const { data } = useMemorySummary(projectId)
@@ -25,15 +47,7 @@ export function MemoriesCard({ projectId }: Props) {
           <IconBrain width={16} className="text-subtle" />
           <span className="text-sm font-medium text-foreground">Memories</span>
         </div>
-        {!hasMemories ? (
-          <p className="text-xs text-subtle italic">No memories yet. Click to add.</p>
-        ) : summary ? (
-          <p className="text-xs text-muted line-clamp-3 leading-relaxed">{summary}</p>
-        ) : (
-          <p className="text-xs text-subtle italic">
-            {slices.length} {slices.length === 1 ? 'memory' : 'memories'} saved. Open to view.
-          </p>
-        )}
+        <MemoriesPreview hasMemories={hasMemories} summary={summary} sliceCount={slices.length} />
       </DialogTrigger>
       <DialogContent title="Memories" wide>
         <div className="max-h-[60vh] overflow-y-auto">
