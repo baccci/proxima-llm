@@ -1,10 +1,7 @@
 import type { MessageDTO } from '@shared/schemas/message.schema'
+import { MessagePartRenderer } from '@/features/chat/components/message-part-renderer'
 import { ThinkingBlock } from '@/features/chat/components/thinking-block'
-import {
-  extractReasoningPart,
-  extractTextParts,
-  MessagePartRenderer,
-} from '@/features/chat/entities/parts'
+import { extractReasoningPart, extractTextParts } from '@/features/chat/helpers/message-parts'
 import type { StreamingMessage } from '@/features/chat/store/chat.store'
 import type { Exchange } from '../entities/group-into-exchanges'
 

@@ -5,11 +5,11 @@ import {
   extractReasoningPart,
   extractSourceParts,
   extractTextParts,
-  MessagePartRenderer,
-} from '@/features/chat/entities/parts'
+} from '@/features/chat/helpers/message-parts'
 import { useMessageActions } from '@/features/chat/hooks/use-message-actions'
 import { messageToText } from '@/features/chat/lib/copy-message'
 import { MessageActions } from './message-actions'
+import { MessagePartRenderer } from './message-part-renderer'
 import { SourcesBlock } from './sources-block'
 import { ThinkingBlock } from './thinking-block'
 
