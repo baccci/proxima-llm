@@ -3,6 +3,7 @@ import { Button } from '@/components/button'
 import { IconFileText } from '@/components/icons/icon-file-text'
 import { IconPlus } from '@/components/icons/icon-plus'
 import { IconTrash } from '@/components/icons/icon-trash'
+import { errorMessage } from '@/utils/error-message'
 import {
   useAddProjectFile,
   useDeleteProjectFile,
@@ -47,7 +48,7 @@ export function FilesCard({ projectId }: Props) {
       const data = toBase64(new Uint8Array(buffer))
       await addFile.mutateAsync({ projectId, name: file.name, data, mediaType: file.type })
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed')
+      setUploadError(errorMessage(err, 'Upload failed'))
     }
   }
 

@@ -5,6 +5,7 @@ import { useChats } from '@/features/chat/hooks/use-chats'
 import { useMessages } from '@/features/chat/hooks/use-messages'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useModels } from '@/features/models/hooks/use-models'
+import { errorMessage } from '@/utils/error-message'
 import { useForceCompact, useSetCompactionRatio, useSetForcedTokens } from '../../devtools.api'
 import { useDevtoolsStore } from '../../store/devtools.store'
 import { DevSection } from '../dev-section'
@@ -89,7 +90,7 @@ export function CompactionSection() {
         )}
         {forceCompact.isError && (
           <p className="text-[10px] text-red-400 text-center">
-            {forceCompact.error instanceof Error ? forceCompact.error.message : 'Compaction failed'}
+            {errorMessage(forceCompact.error, 'Compaction failed')}
           </p>
         )}
       </div>

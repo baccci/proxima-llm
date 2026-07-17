@@ -16,6 +16,7 @@ import { useStreamingMessage } from '@/features/chat/hooks/use-streaming-message
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useModels } from '@/features/models/hooks/use-models'
 import { useApiKeyStatuses, useSettings } from '@/features/settings/hooks/use-settings'
+import { errorMessage } from '@/utils/error-message'
 import { ModelSwitcher } from './model-switcher'
 
 interface ComposerBodyProps {
@@ -128,7 +129,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
       chat.invalidateMessages(created.id)
       await send(streamId, assistantMessageId)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong'
+      const message = errorMessage(err, 'Something went wrong')
       if (createdId) {
         failStreaming(message)
       } else {
