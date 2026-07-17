@@ -1,5 +1,6 @@
 import type { AppRPC, StreamChunk } from '@shared/rpc/app-rpc.types'
 import { STREAM_CHUNK_KIND } from '@shared/rpc/stream-chunk'
+import { MemoryScope } from '@shared/schemas/memory-slice.schema'
 import Electrobun, { Electroview } from 'electrobun/view'
 import { onControlNavigate } from '@/features/chat/lib/on-control-navigate'
 import { queryClient } from './query-client'
@@ -28,7 +29,7 @@ export const rpc = Electroview.defineRPC<AppRPC>({
       },
       memoryChanged: ({ scope, projectId }) => {
         queryClient.invalidateQueries({ queryKey: queryKeys.memorySlices(scope, projectId) })
-        if (scope === 'project' && projectId) {
+        if (scope === MemoryScope.enum.project && projectId) {
           queryClient.invalidateQueries({ queryKey: queryKeys.memorySummary(projectId) })
         }
       },

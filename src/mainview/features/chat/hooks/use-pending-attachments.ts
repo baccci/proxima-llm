@@ -1,3 +1,4 @@
+import { AttachmentKind } from '@shared/schemas/attachment.schema'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import React from 'react'
 import { supportsAttachment } from '@/entities/model/capabilities'
@@ -11,7 +12,7 @@ export type PendingAttachment = {
   name: string
   mediaType: string
   byteSize: number
-  kind: 'image' | 'file'
+  kind: AttachmentKind
   serverId?: string
 }
 
@@ -37,7 +38,7 @@ export function usePendingAttachments() {
         name: file.name,
         mediaType: file.type,
         byteSize: file.size,
-        kind: file.type.startsWith('image/') ? 'image' : 'file',
+        kind: file.type.startsWith('image/') ? AttachmentKind.enum.image : AttachmentKind.enum.file,
       })
     }
     if (toAdd.length > 0) {

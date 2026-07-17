@@ -1,4 +1,4 @@
-import type { MessagePart } from '@shared/schemas/message.schema'
+import { type MessagePart, PartKind } from '@shared/schemas/message.schema'
 import { create } from 'zustand'
 
 export interface StreamingToolCall {
@@ -224,7 +224,7 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
 export function streamingToParts(msg: StreamingMessage): MessagePart[] {
   const parts: MessagePart[] = []
-  if (msg.reasoningParts) parts.push({ type: 'reasoning', text: msg.reasoningParts })
-  if (msg.textParts) parts.push({ type: 'text', text: msg.textParts })
+  if (msg.reasoningParts) parts.push({ type: PartKind.enum.reasoning, text: msg.reasoningParts })
+  if (msg.textParts) parts.push({ type: PartKind.enum.text, text: msg.textParts })
   return parts
 }

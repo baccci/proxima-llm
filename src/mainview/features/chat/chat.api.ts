@@ -1,15 +1,18 @@
+import { AttachmentKind } from '@shared/schemas/attachment.schema'
 import type { ChatComposerState, ChatDTO, CreateChatInput } from '@shared/schemas/chat.schema'
-import type {
-  MessageDTO,
-  MessagePart,
-  RetryMessageInput,
-  SendMessageInput,
+import {
+  type MessageDTO,
+  type MessagePart,
+  MessageRole,
+  PartKind,
+  type RetryMessageInput,
+  type SendMessageInput,
 } from '@shared/schemas/message.schema'
 import { queryClient } from '@/lib/query-client'
 import { queryKeys } from '@/lib/query-keys'
 import { rpcRequest as req } from '@/lib/rpc.client'
 
-type OptimisticAttachment = { id: string; kind: 'image' | 'file'; mediaType: string }
+type OptimisticAttachment = { id: string; kind: AttachmentKind; mediaType: string }
 
 type UpdateChatInput = {
   id: string
@@ -99,18 +102,18 @@ export const chat = {
     attachments: OptimisticAttachment[] = [],
   ) => {
     const parts: MessagePart[] = []
-    if (content) parts.push({ type: 'text', text: content })
+    if (content) parts.push({ type: PartKind.enum.text, text: content })
     for (const att of attachments) {
-      if (att.kind === 'image') {
-        parts.push({ type: 'image', attachmentId: att.id })
+      if (att.kind === AttachmentKind.enum.image) {
+        parts.push({ type: PartKind.enum.image, attachmentId: att.id })
       } else {
-        parts.push({ type: 'file', attachmentId: att.id, mediaType: att.mediaType })
+        parts.push({ type: PartKind.enum.file, attachmentId: att.id, mediaType: att.mediaType })
       }
     }
     const optimistic: MessageDTO = {
       id: `optimistic-${Date.now()}`,
       chatId,
-      role: 'user',
+      role: MessageRole.enum.user,
       parts,
       modelId: null,
       usage: null,

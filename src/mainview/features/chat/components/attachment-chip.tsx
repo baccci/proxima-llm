@@ -1,4 +1,4 @@
-import type { AttachmentDTO } from '@shared/schemas/attachment.schema'
+import { type AttachmentDTO, AttachmentKind } from '@shared/schemas/attachment.schema'
 import { IconFileText } from '@/components/icons/icon-file-text'
 import { IconImage } from '@/components/icons/icon-image'
 import { IconX } from '@/components/icons/icon-x'
@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function AttachmentChip({ attachment, onRemove }: Props) {
-  const isImage = attachment.kind === 'image'
+  const isImage = attachment.kind === AttachmentKind.enum.image
   const sizeKb = Math.round(attachment.byteSize / 1024)
 
   return (

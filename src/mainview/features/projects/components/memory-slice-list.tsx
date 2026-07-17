@@ -1,3 +1,4 @@
+import { type MemoryScope, MemorySource } from '@shared/schemas/memory-slice.schema'
 import React from 'react'
 import { useForm } from 'react-hook-form'
 import { Badge } from '@/components/badge'
@@ -13,7 +14,7 @@ import {
 } from '../hooks/use-memory-slices'
 
 interface Props {
-  scope: 'global' | 'project'
+  scope: MemoryScope
   projectId: string | null
 }
 
@@ -98,7 +99,7 @@ export function MemorySliceList({ scope, projectId }: Props) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-foreground truncate">{slice.title}</span>
-                {slice.source === 'model' && <Badge variant="brand">AI</Badge>}
+                {slice.source === MemorySource.enum.model && <Badge variant="brand">AI</Badge>}
               </div>
               <p className="text-xs text-muted mt-0.5 line-clamp-2 leading-relaxed">
                 {slice.content}

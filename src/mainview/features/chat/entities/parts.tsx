@@ -1,4 +1,4 @@
-import type { MessagePart } from '@shared/schemas/message.schema'
+import { type MessagePart, PartKind } from '@shared/schemas/message.schema'
 import { isSilentTool } from '@shared/tools/tool-catalog'
 import { IconFileText } from '@/components/icons/icon-file-text'
 import { useAttachment } from '@/features/chat/attachment.api'
@@ -67,36 +67,36 @@ export function MessagePartRenderer({
   textClassName = 'text-base leading-relaxed',
   allParts,
 }: PartProps) {
-  if (part.type === 'text') {
+  if (part.type === PartKind.enum.text) {
     return <Markdown content={part.text} streaming={streaming} className={textClassName} />
   }
 
-  if (part.type === 'reasoning') {
+  if (part.type === PartKind.enum.reasoning) {
     return null // Rendered separately by ThinkingBlock
   }
 
-  if (part.type === 'image') {
+  if (part.type === PartKind.enum.image) {
     return <ImagePartRenderer attachmentId={part.attachmentId} />
   }
 
-  if (part.type === 'file') {
+  if (part.type === PartKind.enum.file) {
     return <FilePartRenderer attachmentId={part.attachmentId} />
   }
 
-  if (part.type === 'tool-call') {
+  if (part.type === PartKind.enum['tool-call']) {
     if (isSilentTool(part.toolName)) return null
     const result = allParts?.find(
       (p): p is Extract<MessagePart, { type: 'tool-result' }> =>
-        p.type === 'tool-result' && p.toolCallId === part.toolCallId,
+        p.type === PartKind.enum['tool-result'] && p.toolCallId === part.toolCallId,
     )
     return <ToolCallBlock toolName={part.toolName} input={part.input} output={result?.output} />
   }
 
-  if (part.type === 'tool-result') {
+  if (part.type === PartKind.enum['tool-result']) {
     return null // Rendered inside the matching tool-call block above
   }
 
-  if (part.type === 'source') {
+  if (part.type === PartKind.enum.source) {
     return null // Rendered separately by SourcesBlock
   }
 
@@ -104,23 +104,25 @@ export function MessagePartRenderer({
 }
 
 export function extractReasoning(parts: MessagePart[]): string | null {
-  const p = parts.find((p) => p.type === 'reasoning')
-  return p?.type === 'reasoning' ? p.text : null
+  const p = parts.find((p) => p.type === PartKind.enum.reasoning)
+  return p?.type === PartKind.enum.reasoning ? p.text : null
 }
 
 export function extractReasoningPart(
   parts: MessagePart[],
 ): Extract<MessagePart, { type: 'reasoning' }> | null {
-  const p = parts.find((p) => p.type === 'reasoning')
-  return p?.type === 'reasoning' ? p : null
+  const p = parts.find((p) => p.type === PartKind.enum.reasoning)
+  return p?.type === PartKind.enum.reasoning ? p : null
 }
 
 export function extractTextParts(parts: MessagePart[]): MessagePart[] {
-  return parts.filter((p) => p.type !== 'reasoning' && p.type !== 'source')
+  return parts.filter((p) => p.type !== PartKind.enum.reasoning && p.type !== PartKind.enum.source)
 }
 
 export function extractSourceParts(
   parts: MessagePart[],
 ): Extract<MessagePart, { type: 'source' }>[] {
-  return parts.filter((p): p is Extract<MessagePart, { type: 'source' }> => p.type === 'source')
+  return parts.filter(
+    (p): p is Extract<MessagePart, { type: 'source' }> => p.type === PartKind.enum.source,
+  )
 }

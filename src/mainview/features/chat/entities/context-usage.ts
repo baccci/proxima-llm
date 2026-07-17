@@ -1,4 +1,4 @@
-import type { MessageDTO } from '@shared/schemas/message.schema'
+import { type MessageDTO, MessageRole } from '@shared/schemas/message.schema'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 
 export type ContextUsage = {
@@ -16,7 +16,9 @@ export function getContextUsage(
   const limit = model?.capabilities.contextWindow
   if (!limit) return null
 
-  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && m.usage)
+  const lastAssistant = [...messages]
+    .reverse()
+    .find((m) => m.role === MessageRole.enum.assistant && m.usage)
   if (!lastAssistant?.usage) return null
 
   const u = lastAssistant.usage

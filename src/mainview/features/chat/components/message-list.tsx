@@ -1,5 +1,5 @@
 import type { ChatDTO } from '@shared/schemas/chat.schema'
-import type { MessageDTO } from '@shared/schemas/message.schema'
+import { type MessageDTO, PartKind } from '@shared/schemas/message.schema'
 import { isSilentTool } from '@shared/tools/tool-catalog'
 import React from 'react'
 import { IconChevronDown } from '@/components/icons/icon-chevron-down'
@@ -148,7 +148,7 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: Props) {
               <div className="text-base text-foreground leading-relaxed">
                 {streaming.textParts ? (
                   <MessagePartRenderer
-                    part={{ type: 'text', text: streaming.textParts }}
+                    part={{ type: PartKind.enum.text, text: streaming.textParts }}
                     streaming
                   />
                 ) : (

@@ -1,5 +1,5 @@
 import type { ChatDTO } from '@shared/schemas/chat.schema'
-import type { MessageDTO } from '@shared/schemas/message.schema'
+import { type MessageDTO, MessageRole, StopReason } from '@shared/schemas/message.schema'
 import React from 'react'
 import {
   extractReasoningPart,
@@ -24,7 +24,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   chatItem,
   streaming,
 }: Props) {
-  const isUser = message.role === 'user'
+  const isUser = message.role === MessageRole.enum.user
   const isOptimistic = message.id.startsWith('optimistic-')
   const reasoningPart = extractReasoningPart(message.parts)
   const textParts = extractTextParts(message.parts)
@@ -168,7 +168,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         )}
         {message.stopReason && (
           <div className="mt-1.5 text-2xs text-subtle/70">
-            {message.stopReason === 'user-cancel' ? 'Interrupted' : 'Timed out'}
+            {message.stopReason === StopReason.enum['user-cancel'] ? 'Interrupted' : 'Timed out'}
           </div>
         )}
       </div>

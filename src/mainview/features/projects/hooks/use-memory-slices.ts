@@ -1,9 +1,9 @@
-import type { UpsertMemorySliceInput } from '@shared/schemas/memory-slice.schema'
+import type { MemoryScope, UpsertMemorySliceInput } from '@shared/schemas/memory-slice.schema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-keys'
 import { electroview, rpcRequest } from '@/lib/rpc.client'
 
-export function useMemorySlices(scope: 'global' | 'project', projectId: string | null) {
+export function useMemorySlices(scope: MemoryScope, projectId: string | null) {
   return useQuery({
     queryKey: queryKeys.memorySlices(scope, projectId),
     queryFn: () => electroview.rpc?.request.listMemorySlices({ scope, projectId }),
@@ -25,7 +25,7 @@ export function useUpsertMemorySlice() {
 export function useDeleteMemorySlice() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id }: { id: string; scope: 'global' | 'project'; projectId: string | null }) =>
+    mutationFn: ({ id }: { id: string; scope: MemoryScope; projectId: string | null }) =>
       rpcRequest().deleteMemorySlice({ id }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({

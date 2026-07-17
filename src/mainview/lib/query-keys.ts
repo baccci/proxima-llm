@@ -1,3 +1,5 @@
+import type { MemoryScope } from '@shared/schemas/memory-slice.schema'
+
 export const queryKeys = {
   models: () => ['models'] as const,
   projects: () => ['projects'] as const,
@@ -9,7 +11,7 @@ export const queryKeys = {
   toolPolicies: () => ['toolPolicies'] as const,
   controlTokens: () => ['controlTokens'] as const,
   modelSyncInfo: () => ['modelSyncInfo'] as const,
-  memorySlices: (scope: string, projectId: string | null) =>
+  memorySlices: (scope: MemoryScope, projectId: string | null) =>
     ['memory-slices', scope, projectId] as const,
   memorySummary: (projectId: string) => ['memory-summary', projectId] as const,
   projectFiles: (projectId: string) => ['project-files', projectId] as const,

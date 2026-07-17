@@ -1,4 +1,4 @@
-import type { MessageDTO } from '@shared/schemas/message.schema'
+import { type MessageDTO, MessageRole } from '@shared/schemas/message.schema'
 import React from 'react'
 import { useMessages } from '@/features/chat/hooks/use-messages'
 import {
@@ -16,7 +16,7 @@ function makeStreamingAssistant(
   return {
     id,
     chatId,
-    role: 'assistant',
+    role: MessageRole.enum.assistant,
     parts,
     modelId: null,
     usage: null,
@@ -62,7 +62,7 @@ function mergeStreaming(
     return updated
   }
 
-  const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === MessageRole.enum.user)
   if (!lastUserMsg) return base
   return [
     ...base,

@@ -1,3 +1,4 @@
+import { MemoryScope } from '@shared/schemas/memory-slice.schema'
 import { DialogContent, DialogRoot, DialogTrigger } from '@/components/dialog'
 import { IconBrain } from '@/components/icons/icon-brain'
 import { useMemorySlices } from '../hooks/use-memory-slices'
@@ -31,7 +32,7 @@ function MemoriesPreview({ hasMemories, summary, sliceCount }: MemoriesPreviewPr
 }
 
 export function MemoriesCard({ projectId }: Props) {
-  const { data: slices = [] } = useMemorySlices('project', projectId)
+  const { data: slices = [] } = useMemorySlices(MemoryScope.enum.project, projectId)
   const { data } = useMemorySummary(projectId)
   const summary = data?.summary ?? null
   const hasMemories = slices.length > 0
@@ -51,7 +52,7 @@ export function MemoriesCard({ projectId }: Props) {
       </DialogTrigger>
       <DialogContent title="Memories" wide>
         <div className="max-h-[60vh] overflow-y-auto">
-          <MemorySliceList scope="project" projectId={projectId} />
+          <MemorySliceList scope={MemoryScope.enum.project} projectId={projectId} />
         </div>
       </DialogContent>
     </DialogRoot>

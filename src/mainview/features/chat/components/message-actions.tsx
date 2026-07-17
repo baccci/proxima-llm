@@ -1,4 +1,4 @@
-import type { MessagePart } from '@shared/schemas/message.schema'
+import { type MessagePart, PartKind } from '@shared/schemas/message.schema'
 import React from 'react'
 import { IconCheck } from '@/components/icons/icon-check'
 import { IconCopy } from '@/components/icons/icon-copy'
@@ -24,7 +24,7 @@ export function MessageActions({ canEdit, parts, disabled, onRetry, onEdit, onCo
   const [copied, setCopied] = React.useState(false)
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const hasText = parts.some((p) => p.type === 'text')
+  const hasText = parts.some((p) => p.type === PartKind.enum.text)
 
   function handleCopy() {
     onCopy().then(() => {

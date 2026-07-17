@@ -1,4 +1,4 @@
-import type { MessageDTO } from '@shared/schemas/message.schema'
+import { type MessageDTO, MessageRole } from '@shared/schemas/message.schema'
 
 export type Exchange = {
   userMessage: MessageDTO
@@ -7,14 +7,14 @@ export type Exchange = {
 
 export function groupIntoExchanges(messages: MessageDTO[]): Exchange[] {
   const exchanges: Exchange[] = []
-  const filtered = messages.filter((m) => m.role !== 'system')
+  const filtered = messages.filter((m) => m.role !== MessageRole.enum.system)
 
   let i = 0
   while (i < filtered.length) {
     const msg = filtered[i]
-    if (msg.role === 'user') {
+    if (msg.role === MessageRole.enum.user) {
       const next = filtered[i + 1]
-      if (next?.role === 'assistant') {
+      if (next?.role === MessageRole.enum.assistant) {
         exchanges.push({ userMessage: msg, assistantMessage: next })
         i += 2
       } else {
