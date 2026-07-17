@@ -6,11 +6,14 @@ import { onControlNavigate } from '@/features/chat/lib/on-control-navigate'
 import { queryClient } from './query-client'
 import { queryKeys } from './query-keys'
 
-// Internal pub/sub for stream chunks: streamId -> Set<callback>
+// Abort an RPC request to the bun process that has not answered within this window.
+const RPC_MAX_REQUEST_MS = 60_000
+
+// Internal pub/sub for stream chunks: each streamId maps to its set of callbacks.
 const streamSubscribers = new Map<string, Set<(chunk: StreamChunk) => void>>()
 
 export const rpc = Electroview.defineRPC<AppRPC>({
-  maxRequestTime: 60_000,
+  maxRequestTime: RPC_MAX_REQUEST_MS,
   handlers: {
     requests: {},
     messages: {
@@ -47,7 +50,9 @@ export const electroview = new Electrobun.Electroview({ rpc })
 // non-nullable request object without sprinkling `?.`/`!` (the latter trips Biome).
 export function rpcRequest() {
   const r = electroview.rpc
-  if (!r) throw new Error('RPC transport not initialised')
+  if (!r) {
+    throw new Error('RPC transport not initialised')
+  }
   return r.request
 }
 
