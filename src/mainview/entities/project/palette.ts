@@ -92,12 +92,21 @@ function isColors(v: unknown): v is PaletteColors {
 }
 
 export function parseCustomPalette(value: string | null | undefined): CustomPalette | null {
-  if (!isCustomPalette(value)) return null
+  if (!isCustomPalette(value)) {
+    return null
+  }
+
   try {
     const parsed = JSON.parse(value) as unknown
-    if (typeof parsed !== 'object' || parsed === null) return null
+    if (typeof parsed !== 'object' || parsed === null) {
+      return null
+    }
+
     const { light, dark } = parsed as { light?: unknown; dark?: unknown }
-    if (!isColors(light) || !isColors(dark)) return null
+    if (!isColors(light) || !isColors(dark)) {
+      return null
+    }
+
     return { light: { bg: light.bg, fr: light.fr }, dark: { bg: dark.bg, fr: dark.fr } }
   } catch {
     return null
@@ -123,13 +132,23 @@ export function resolvePalette(
   value: string | null | undefined,
   isDark: boolean,
 ): PaletteColors | null {
-  if (!value) return null
+  if (!value) {
+    return null
+  }
+
   if (isCustomPalette(value)) {
     const custom = parseCustomPalette(value)
-    if (!custom) return null
+    if (!custom) {
+      return null
+    }
+
     return pickMode(custom, isDark)
   }
+
   const palette = PROJECT_PALETTES.find((p) => p.key === value)
-  if (!palette) return null
+  if (!palette) {
+    return null
+  }
+
   return pickMode(palette, isDark)
 }

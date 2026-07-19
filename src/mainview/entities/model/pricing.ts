@@ -1,8 +1,10 @@
 import { isFreeModel } from '@shared/models/pricing'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 
+const TOKENS_PER_MILLION = 1_000_000
+
 // Renders a per-million price with `fix` decimal places, trimming trailing zeros.
-function formatPrice(price: number, fix: number = 3): string {
+function formatPrice(price: number, fix: number): string {
   const formattedPrice = price.toFixed(fix).replace(/\.?0+$/, '')
   return `$${formattedPrice}/M`
 }
@@ -16,7 +18,7 @@ export function formatPricing(model: ModelDTO): string {
     return 'Free'
   }
 
-  const perMillion = model.pricing.prompt * 1_000_000
+  const perMillion = model.pricing.prompt * TOKENS_PER_MILLION
   if (perMillion < 1) {
     // Under $1 per million tokens, show 3 decimals so small prices stay legible.
     return formatPrice(perMillion, 3)

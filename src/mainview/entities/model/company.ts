@@ -18,6 +18,7 @@ const VENDOR_LABELS: Record<string, string> = {
 }
 
 export function modelCompany(model: ModelDTO): string {
+  // Anthropic model ids are not vendor/model-namespaced, so resolve by provider.
   if (model.provider === ProviderId.enum.anthropic) {
     return 'Anthropic'
   }
