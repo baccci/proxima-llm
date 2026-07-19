@@ -1,12 +1,15 @@
 import { createHighlighter, type Highlighter } from 'shiki'
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
 
+// Shiki color theme shared by the highlighter setup and the code-block renderer.
+export const SHIKI_THEME = 'one-dark-pro'
+
 let promise: Promise<Highlighter> | null = null
 
 export function getHighlighter() {
   if (!promise) {
     promise = createHighlighter({
-      themes: ['one-dark-pro'],
+      themes: [SHIKI_THEME],
       langs: [
         'typescript',
         'tsx',

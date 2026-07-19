@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { getHighlighter } from '@/lib/highlighter'
+import { getHighlighter, SHIKI_THEME } from '@/lib/highlighter'
 
 const LANG_ALIASES: Record<string, string> = {
   ts: 'typescript',
@@ -11,11 +11,14 @@ const LANG_ALIASES: Record<string, string> = {
   zsh: 'bash',
 }
 
+// How long the copy button shows its "Copied!" confirmation before resetting.
+const COPY_FEEDBACK_MS = 1500
+
 // ---------------------------------------------------------------------------
 // Code block — plain monospace during streaming; Shiki-highlighted once done
 // ---------------------------------------------------------------------------
 
-interface CodeBlockProps {
+type CodeBlockProps = {
   lang: string
   filename?: string
   code: string
@@ -52,7 +55,7 @@ const CodeBlock = React.memo(function CodeBlock({
         if (cancelled) return
         const normalized = LANG_ALIASES[lang] ?? lang
         const resolved = hl.getLoadedLanguages().includes(normalized) ? normalized : 'text'
-        return hl.codeToHtml(code, { lang: resolved, theme: 'one-dark-pro' })
+        return hl.codeToHtml(code, { lang: resolved, theme: SHIKI_THEME })
       })
       .then((h) => {
         if (!cancelled && h) setHtml(h)
@@ -68,14 +71,14 @@ const CodeBlock = React.memo(function CodeBlock({
   function handleCopy() {
     navigator.clipboard.writeText(code).then(() => {
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_MS)
     })
   }
 
   return (
     <div className="my-3 rounded-card overflow-hidden border border-code-border bg-code text-sm">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-code-border bg-code-header">
-        {lang && <span className="text-xs text-neutral-400 font-mono">{lang}</span>}
+        {lang.length > 0 && <span className="text-xs text-neutral-400 font-mono">{lang}</span>}
         {filename && <span className="text-xs text-neutral-500 font-mono">{filename}</span>}
         <button
           onClick={handleCopy}
@@ -195,7 +198,7 @@ function makePre(streaming: boolean | undefined): Components['pre'] {
 // Main component
 // ---------------------------------------------------------------------------
 
-interface MarkdownProps {
+type MarkdownProps = {
   content: string
   streaming?: boolean
   className?: string
