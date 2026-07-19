@@ -17,7 +17,7 @@ import {
   serializeCustomPalette,
 } from '@/entities/project/palette'
 import { getProjectIcon } from '@/features/projects/lib/project-icon'
-import { useIsDark } from '@/features/projects/lib/use-is-dark'
+import { useIsDark } from '@/hooks/use-is-dark'
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
 

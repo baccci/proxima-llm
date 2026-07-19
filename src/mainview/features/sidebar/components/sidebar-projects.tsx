@@ -14,9 +14,9 @@ import { useChatStore } from '@/features/chat/store/chat.store'
 import { ProjectAppearancePicker } from '@/features/projects/components/project-appearance-picker'
 import { useProjects } from '@/features/projects/hooks/use-projects'
 import { getProjectIcon } from '@/features/projects/lib/project-icon'
-import { useIsDark } from '@/features/projects/lib/use-is-dark'
 import { projects as projectsApi } from '@/features/projects/projects.api'
 import { useSidebarStore } from '@/features/sidebar/store/sidebar.store'
+import { useIsDark } from '@/hooks/use-is-dark'
 
 interface CreateProjectFields {
   name: string
