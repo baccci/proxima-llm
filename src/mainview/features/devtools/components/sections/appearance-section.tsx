@@ -1,3 +1,4 @@
+import { Theme } from '@shared/schemas/settings.schema'
 import type React from 'react'
 import { IconMonitor } from '@/components/icons/icon-monitor'
 import { IconMoon } from '@/components/icons/icon-moon'
@@ -6,17 +7,15 @@ import { useSettings } from '@/features/settings/hooks/use-settings'
 import { settings } from '@/features/settings/settings.api'
 import { DevSection } from '../dev-section'
 
-type Theme = 'light' | 'dark' | 'system'
-
 const THEMES: { value: Theme; icon: React.ReactNode }[] = [
-  { value: 'light', icon: <IconSun width={13} /> },
-  { value: 'dark', icon: <IconMoon width={13} /> },
-  { value: 'system', icon: <IconMonitor width={13} /> },
+  { value: Theme.enum.light, icon: <IconSun width={13} /> },
+  { value: Theme.enum.dark, icon: <IconMoon width={13} /> },
+  { value: Theme.enum.system, icon: <IconMonitor width={13} /> },
 ]
 
 export function AppearanceSection() {
   const { data: currentSettings } = useSettings()
-  const theme = currentSettings?.theme ?? 'system'
+  const theme = currentSettings?.theme ?? Theme.enum.system
 
   return (
     <DevSection title="Appearance">

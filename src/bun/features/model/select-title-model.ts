@@ -2,7 +2,10 @@ import type { AnthropicFamily } from '../../../shared-contracts/models/families'
 import { isFreeModel } from '../../../shared-contracts/models/pricing';
 import type { ProviderId } from '../../../shared-contracts/providers/registry';
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
-import type { ProviderTitleConfig } from '../../../shared-contracts/schemas/settings.schema';
+import {
+  type ProviderTitleConfig,
+  TitleMode,
+} from '../../../shared-contracts/schemas/settings.schema';
 
 // Cheap fallback family per provider when no pricing data is available to rank by.
 const CHEAP_FAMILY_HINT: Partial<Record<ProviderId, AnthropicFamily>> = {
@@ -46,7 +49,7 @@ export function selectTitleModel(
   cfg: ProviderTitleConfig | undefined,
   provider: ProviderId,
 ): string | null {
-  if (cfg?.mode === 'custom' && cfg.modelId) {
+  if (cfg?.mode === TitleMode.enum.custom && cfg.modelId) {
     const valid = models.some(
       (m) => m.id === cfg.modelId && m.provider === provider && m.isEnabled,
     );

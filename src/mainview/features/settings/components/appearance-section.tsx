@@ -1,4 +1,4 @@
-import type { UpdateSettingsInput } from '@shared/schemas/settings.schema'
+import { Theme, type UpdateSettingsInput } from '@shared/schemas/settings.schema'
 import type React from 'react'
 import { IconMonitor } from '@/components/icons/icon-monitor'
 import { IconMoon } from '@/components/icons/icon-moon'
@@ -8,12 +8,10 @@ import { Switch } from '@/components/switch'
 import { useSettings } from '@/features/settings/hooks/use-settings'
 import { settings } from '@/features/settings/settings.api'
 
-type Theme = 'light' | 'dark' | 'system'
-
 const THEMES: { value: Theme; label: string; icon: React.ReactNode }[] = [
-  { value: 'light', label: '', icon: <IconSun width={14} /> },
-  { value: 'dark', label: '', icon: <IconMoon width={14} /> },
-  { value: 'system', label: '', icon: <IconMonitor width={14} /> },
+  { value: Theme.enum.light, label: '', icon: <IconSun width={14} /> },
+  { value: Theme.enum.dark, label: '', icon: <IconMoon width={14} /> },
+  { value: Theme.enum.system, label: '', icon: <IconMonitor width={14} /> },
 ]
 
 export function AppearanceSection() {
@@ -30,7 +28,7 @@ export function AppearanceSection() {
         <label className="text-sm font-medium text-foreground">Theme</label>
         <SegmentedControl
           options={THEMES}
-          value={currentSettings?.theme ?? 'system'}
+          value={currentSettings?.theme ?? Theme.enum.system}
           onChange={(value) => patch({ theme: value })}
         />
       </div>

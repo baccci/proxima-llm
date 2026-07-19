@@ -1,4 +1,5 @@
 import { isFreeModel } from '@shared/models/pricing'
+import { TitleMode } from '@shared/schemas/settings.schema'
 import { useMutation } from '@tanstack/react-query'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
@@ -44,7 +45,7 @@ export function TitleModelControl({
   }, [allModels, provider])
 
   const cfg = currentSettings?.titleModels?.[provider]
-  const isCustom = cfg?.mode === 'custom'
+  const isCustom = cfg?.mode === TitleMode.enum.custom
   const selectedModelId = cfg?.modelId ?? null
 
   // Auto resolves to the cheapest NON-free model (matches the backend resolver)
@@ -60,7 +61,10 @@ export function TitleModelControl({
     settings.update({
       titleModels: {
         ...(currentSettings?.titleModels ?? {}),
-        [provider]: { mode: isCustom ? 'auto' : 'custom', modelId: selectedModelId },
+        [provider]: {
+          mode: isCustom ? TitleMode.enum.auto : TitleMode.enum.custom,
+          modelId: selectedModelId,
+        },
       },
     })
   }
@@ -69,7 +73,7 @@ export function TitleModelControl({
     settings.update({
       titleModels: {
         ...(currentSettings?.titleModels ?? {}),
-        [provider]: { mode: 'custom', modelId },
+        [provider]: { mode: TitleMode.enum.custom, modelId },
       },
     })
   }
