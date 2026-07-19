@@ -2,7 +2,7 @@ import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 
 type Variant = 'default' | 'ghost' | 'outline' | 'brand' | 'danger'
-type Size = 'sm' | 'md' | 'icon-xs' | 'icon-sm' | 'icon-md'
+type Size = 'sm' | 'md' | 'icon-sm' | 'icon-md'
 
 const variantClasses: Record<Variant, string> = {
   default: 'bg-surface hover:bg-surface-hover text-foreground border border-border',
@@ -15,7 +15,6 @@ const variantClasses: Record<Variant, string> = {
 const sizeClasses: Record<Size, string> = {
   sm: 'h-7 px-2.5 text-xs gap-1.5',
   md: 'h-8 px-3 text-sm gap-2',
-  'icon-xs': 'h-5 w-5',
   'icon-sm': 'h-7 w-7',
   'icon-md': 'h-8 w-8',
 }

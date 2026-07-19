@@ -1,6 +1,5 @@
 import { type MessagePart, PartKind } from '@shared/schemas/message.schema'
 import React from 'react'
-import { Button } from '@/components/button'
 import { IconCheck } from '@/components/icons/icon-check'
 import { IconCopy } from '@/components/icons/icon-copy'
 import { IconPencil } from '@/components/icons/icon-pencil'
@@ -8,6 +7,11 @@ import { IconRotateCcw } from '@/components/icons/icon-rotate-ccw'
 import { TooltipWrapper } from '@/components/tooltip'
 
 const COPIED_RESET_MS = 1500
+
+// Deliberately minimal: a color-only hover, no background or transform, matching
+// the original inline hover-action look.
+const btnClass =
+  'flex items-center justify-center h-5 w-5 rounded-lg text-subtle hover:text-foreground transition cursor-pointer'
 
 interface Props {
   canEdit: boolean
@@ -31,9 +35,9 @@ function MessageActionButton({
 }) {
   return (
     <TooltipWrapper content={tooltip} side="bottom">
-      <Button variant="ghost" size="icon-xs" onClick={onClick} disabled={disabled}>
+      <button onClick={onClick} disabled={disabled} className={btnClass}>
         {icon}
-      </Button>
+      </button>
     </TooltipWrapper>
   )
 }
