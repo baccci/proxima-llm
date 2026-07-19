@@ -16,4 +16,6 @@ export const queryKeys = {
   memorySummary: (projectId: string) => ['memory-summary', projectId] as const,
   projectFiles: (projectId: string) => ['project-files', projectId] as const,
   logInfo: () => ['logInfo'] as const,
+  // Client-side Shiki highlight cache, keyed by content (pure compute, never invalidated).
+  highlight: (lang: string, code: string) => ['highlight', lang, code] as const,
 }

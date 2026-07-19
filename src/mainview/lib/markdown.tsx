@@ -1,15 +1,9 @@
+import { useQuery } from '@tanstack/react-query'
 import React from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { getHighlighter, SHIKI_THEME } from '@/lib/highlighter'
-
-const LANG_ALIASES: Record<string, string> = {
-  ts: 'typescript',
-  js: 'javascript',
-  sh: 'bash',
-  shell: 'bash',
-  zsh: 'bash',
-}
+import { highlightCode } from '@/lib/highlighter'
+import { queryKeys } from '@/lib/query-keys'
 
 // How long the copy button shows its "Copied!" confirmation before resetting.
 const COPY_FEEDBACK_MS = 1500
@@ -31,8 +25,20 @@ const CodeBlock = React.memo(function CodeBlock({
   code,
   streaming,
 }: CodeBlockProps) {
-  const [html, setHtml] = React.useState<string | null>(null)
   const [copied, setCopied] = React.useState(false)
+
+  // Highlighting is a pure async transform of (code, lang), so it lives in the query
+  // cache: run once the block stops streaming, keyed by content, never invalidated. An
+  // unknown language or a highlight failure leaves data undefined, so the plain <pre>
+  // fallback below covers it.
+  const highlight = useQuery({
+    queryKey: queryKeys.highlight(lang, code),
+    queryFn: () => highlightCode(code, lang),
+    enabled: !streaming,
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+  })
+  const html = highlight.data
 
   // WebKit doesn't recompute this scroll container's horizontal scrollbar when the
   // Shiki <pre> is injected via dangerouslySetInnerHTML (the fallback <pre> works
@@ -40,33 +46,14 @@ const CodeBlock = React.memo(function CodeBlock({
   // force one extra render on mount so WebKit repaints the scrollbar.
   const [, forcePaint] = React.useReducer((n: number) => n + 1, 0)
   const forceScrollbarPaint = React.useCallback((el: HTMLDivElement | null) => {
-    if (!el) return
+    if (!el) {
+      return
+    }
     requestAnimationFrame(() => {
       void el.scrollWidth
       forcePaint()
     })
   }, [])
-
-  React.useEffect(() => {
-    if (streaming) return
-    let cancelled = false
-    getHighlighter()
-      .then((hl) => {
-        if (cancelled) return
-        const normalized = LANG_ALIASES[lang] ?? lang
-        const resolved = hl.getLoadedLanguages().includes(normalized) ? normalized : 'text'
-        return hl.codeToHtml(code, { lang: resolved, theme: SHIKI_THEME })
-      })
-      .then((h) => {
-        if (!cancelled && h) setHtml(h)
-      })
-      .catch(() => {
-        /* fall back to plain */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [code, lang, streaming])
 
   function handleCopy() {
     navigator.clipboard.writeText(code).then(() => {
