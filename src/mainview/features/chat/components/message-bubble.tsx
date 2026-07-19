@@ -109,7 +109,10 @@ export const MessageBubble = React.memo(function MessageBubble({
         )}
 
         {!isOptimistic && !editing && (
-          <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity mt-0.5">
+          // Reveal on hover/focus with opacity only, no transition. opacity-0 keeps the
+          // buttons keyboard-tabbable, and animating opacity to 0 leaves a stale WebKit
+          // paint layer (ghost buttons). See local-docs/slices/webkit-quirks.md
+          <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 mt-0.5">
             <MessageActions
               canEdit
               parts={message.parts}
@@ -155,7 +158,8 @@ export const MessageBubble = React.memo(function MessageBubble({
               </>
             )}
             {!isOptimistic && (
-              <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+              // Same opacity-only reveal as the user branch. See webkit-quirks.md
+              <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100">
                 <MessageActions
                   canEdit={false}
                   parts={message.parts}
