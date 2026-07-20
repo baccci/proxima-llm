@@ -2,7 +2,7 @@ import { cn } from '@utils/tailwind-class-merge'
 import type React from 'react'
 import { Separator } from '@/components/separator'
 
-interface ModalNavBodyProps {
+type ModalNavBodyProps = {
   nav: React.ReactNode
   children: React.ReactNode
 }
@@ -20,7 +20,7 @@ export function ModalNavBody({ nav, children }: ModalNavBodyProps) {
   )
 }
 
-interface ModalNavItemProps {
+type ModalNavItemProps = {
   active: boolean
   onClick: () => void
   icon?: React.ReactNode

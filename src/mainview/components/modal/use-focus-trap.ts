@@ -36,7 +36,8 @@ export function useFocusTrap(containerRef: React.RefObject<HTMLElement>, active:
 
       if (!container.contains(currentFocus)) {
         e.preventDefault()
-        e.shiftKey ? last.focus() : first.focus()
+        const target = e.shiftKey ? last : first
+        target.focus()
         return
       }
       if (e.shiftKey && currentFocus === first) {
