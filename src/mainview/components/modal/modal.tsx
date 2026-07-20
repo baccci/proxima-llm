@@ -69,7 +69,49 @@ function ModalShell({
   overlayClassName,
   label,
 }: ShellProps) {
-  const [mounted, setMounted] = React.useState(false)
+  const panelRef = React.useRef<HTMLDivElement>(null)
+
+  // The Provider stays mounted so Modal.Content always sees panelRef. The open
+  // body mounts only while open, so its focus and scroll behavior tie to mount.
+  return createPortal(
+    <ModalContext.Provider value={{ onClose, theme, label, panelRef }}>
+      <AnimatePresence>
+        {isOpen && (
+          <OpenModal
+            onClose={onClose}
+            theme={theme}
+            config={config}
+            overlayClassName={overlayClassName}
+            panelRef={panelRef}
+          >
+            {children}
+          </OpenModal>
+        )}
+      </AnimatePresence>
+    </ModalContext.Provider>,
+    document.body,
+  )
+}
+
+type OpenModalProps = {
+  onClose: () => void
+  theme: ModalTheme
+  config: ModalConfig
+  overlayClassName?: string
+  panelRef: React.RefObject<HTMLDivElement>
+  children: React.ReactNode
+}
+
+// The open modal. Mounted only while open (R20 conditional mounting), so the
+// behavior and focus-trap hooks run as clean mount and unmount effects.
+function OpenModal({
+  onClose,
+  theme,
+  config,
+  overlayClassName,
+  panelRef,
+  children,
+}: OpenModalProps) {
   const overlayRef = React.useRef<HTMLDivElement>(null)
   const isDark = theme === 'dark'
 
@@ -77,47 +119,32 @@ function ModalShell({
   const focusConfig = config.focus ?? {}
   const lockScroll = config.lockScroll ?? true
 
-  const { panelRef } = useModalBehavior({
-    isOpen,
+  useModalBehavior({
+    panelRef,
     onClose,
     closeOnEscape: dismiss.onEscape,
     lockScroll,
     restoreFocus: focusConfig.restore ?? true,
     initialFocus: focusConfig.initial,
   })
-  useFocusTrap(overlayRef, isOpen && (focusConfig.trap ?? true))
+  useFocusTrap(overlayRef, focusConfig.trap ?? true)
 
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return null
-  }
-
-  return createPortal(
-    <ModalContext.Provider value={{ onClose, theme, label, panelRef }}>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            ref={overlayRef}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className={cn(
-              'fixed inset-0 z-modal flex items-center justify-center',
-              isDark ? 'bg-neutral-950/80 backdrop-blur-sm' : 'bg-neutral-50/80 backdrop-blur-sm',
-              overlayClassName,
-            )}
-            onClick={dismiss.onOverlayClick ? onClose : undefined}
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </ModalContext.Provider>,
-    document.body,
+  return (
+    <motion.div
+      ref={overlayRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className={cn(
+        'fixed inset-0 z-modal flex items-center justify-center',
+        isDark ? 'bg-neutral-950/80 backdrop-blur-sm' : 'bg-neutral-50/80 backdrop-blur-sm',
+        overlayClassName,
+      )}
+      onClick={dismiss.onOverlayClick ? onClose : undefined}
+    >
+      {children}
+    </motion.div>
   )
 }
 
