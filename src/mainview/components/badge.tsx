@@ -12,15 +12,14 @@ const variantClasses: Record<Variant, string> = {
   danger: 'bg-danger/10 text-danger border border-danger/20',
 }
 
-interface BadgeProps {
+type BadgeProps = React.ComponentProps<'span'> & {
   variant?: Variant
-  className?: string
-  children: React.ReactNode
 }
 
-export function Badge({ variant = 'default', className = '', children }: BadgeProps) {
+export function Badge({ variant = 'default', className = '', children, ...props }: BadgeProps) {
   return (
     <span
+      {...props}
       className={cn(
         'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs font-medium',
         variantClasses[variant],

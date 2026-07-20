@@ -31,7 +31,7 @@ export function DropdownContent({
   )
 }
 
-interface DropdownItemProps extends React.ComponentPropsWithoutRef<typeof Menu.Item> {
+type DropdownItemProps = React.ComponentPropsWithoutRef<typeof Menu.Item> & {
   icon?: React.ReactNode
   shortcut?: string
   danger?: boolean
@@ -79,8 +79,10 @@ export function DropdownGroup({ label, children }: { label?: string; children: R
   )
 }
 
-interface DropdownSwitchItemProps
-  extends Omit<React.ComponentPropsWithoutRef<typeof Menu.CheckboxItem>, 'onCheckedChange'> {
+type DropdownSwitchItemProps = Omit<
+  React.ComponentPropsWithoutRef<typeof Menu.CheckboxItem>,
+  'onCheckedChange'
+> & {
   checked: boolean
   onCheckedChange?: (checked: boolean) => void
   icon?: React.ReactNode
@@ -137,7 +139,7 @@ export function DropdownSwitchItem({
 export const DropdownSubmenuRoot = Menu.SubmenuRoot
 export const DropdownSubmenuTrigger = Menu.SubmenuTrigger
 
-interface DropdownRadioGroupProps {
+type DropdownRadioGroupProps = {
   value: string | null
   onValueChange: (value: string | null) => void
   children: React.ReactNode
@@ -151,8 +153,10 @@ export function DropdownRadioGroup({ value, onValueChange, children }: DropdownR
   )
 }
 
-interface DropdownRadioItemProps
-  extends Omit<React.ComponentPropsWithoutRef<typeof Menu.RadioItem>, 'value'> {
+type DropdownRadioItemProps = Omit<
+  React.ComponentPropsWithoutRef<typeof Menu.RadioItem>,
+  'value'
+> & {
   value: string | null
   disabled?: boolean
 }

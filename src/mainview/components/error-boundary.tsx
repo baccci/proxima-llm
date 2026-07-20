@@ -1,21 +1,21 @@
 import React from 'react'
 import { rpcRequest } from '@/lib/rpc.client'
 
-interface Props {
+type ErrorBoundaryProps = {
   children: React.ReactNode
 }
 
-interface State {
+type ErrorBoundaryState = {
   hasError: boolean
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false }
   }
 
-  static getDerivedStateFromError(): State {
+  static getDerivedStateFromError(): ErrorBoundaryState {
     return { hasError: true }
   }
 
