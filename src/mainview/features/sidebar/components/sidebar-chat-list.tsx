@@ -4,12 +4,13 @@ import { useChatStore } from '@/features/chat/store/chat.store'
 import { groupChatsByDate } from '@/features/sidebar/entities/helpers'
 import { ChatRow } from './chat-row'
 
-interface Props {
+type SidebarChatListProps = {
   chats: ChatDTO[]
 }
 
-export function SidebarChatList({ chats }: Props) {
-  const { selectedChatId, selectChat } = useChatStore()
+export function SidebarChatList({ chats }: SidebarChatListProps) {
+  const selectedChatId = useChatStore((s) => s.selectedChatId)
+  const selectChat = useChatStore((s) => s.selectChat)
   const groups = groupChatsByDate(chats)
 
   if (groups.length === 0) {

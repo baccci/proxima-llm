@@ -31,7 +31,11 @@ export function startOfDay(date: Date): number {
   return d.getTime()
 }
 
-export type DateGroup = 'today' | 'yesterday' | 'this-week' | 'older'
+// Chat date buckets in display order (newest first). Single source: both the
+// DateGroup type and any code that needs the ordered list derive from here, so a
+// new bucket cannot drift between the type, the labels, and the render order.
+export const DATE_GROUPS = ['today', 'yesterday', 'this-week', 'older'] as const
+export type DateGroup = (typeof DATE_GROUPS)[number]
 
 export function dateGroup(date: Date | string): DateGroup {
   const d = typeof date === 'string' ? new Date(date) : date

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-interface SidebarState {
+type SidebarState = {
   projectsCollapsed: boolean
   pinnedCollapsed: boolean
   toggleProjects: () => void

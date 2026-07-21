@@ -18,7 +18,7 @@ import { projects as projectsApi } from '@/features/projects/projects.api'
 import { useSidebarStore } from '@/features/sidebar/store/sidebar.store'
 import { useIsDark } from '@/hooks/use-is-dark'
 
-interface CreateProjectFields {
+type CreateProjectFields = {
   name: string
   description: string
 }
@@ -37,6 +37,15 @@ function CreateProjectDialog() {
     formState: { isSubmitting },
   } = useForm<CreateProjectFields>({ defaultValues: { name: '', description: '' } })
 
+  // Clear the form and the appearance draft, then close. Shared by submit and cancel.
+  function resetAndClose() {
+    reset()
+    setIcon(null)
+    setPalette(null)
+    setIconColor(null)
+    setOpen(false)
+  }
+
   async function onSubmit(data: CreateProjectFields) {
     const created = await projectsApi.create({
       name: data.name,
@@ -46,11 +55,7 @@ function CreateProjectDialog() {
       iconColor: iconColor ?? undefined,
     })
     selectProject(created.id)
-    reset()
-    setIcon(null)
-    setPalette(null)
-    setIconColor(null)
-    setOpen(false)
+    resetAndClose()
   }
 
   return (
@@ -85,17 +90,7 @@ function CreateProjectDialog() {
               onIconColorChange={setIconColor}
             />
             <div className="flex justify-end gap-2 pt-1">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  reset()
-                  setIcon(null)
-                  setPalette(null)
-                  setIconColor(null)
-                  setOpen(false)
-                }}
-              >
+              <Button type="button" variant="ghost" onClick={resetAndClose}>
                 Cancel
               </Button>
               <Button type="submit" variant="brand" disabled={isSubmitting}>
@@ -123,7 +118,8 @@ function ProjectPill({ project }: { project: ProjectDTO }) {
         style={colors ? { backgroundColor: colors.bg, color: colors.fr } : undefined}
         className={cn(
           'flex items-center gap-2 w-full px-2 h-8 text-sm rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          colors ? 'font-medium' : 'text-muted hover:bg-surface-hover hover:text-foreground',
+          colors && 'font-medium',
+          !colors && 'text-muted hover:bg-surface-hover hover:text-foreground',
         )}
       >
         <Icon
@@ -141,7 +137,8 @@ function ProjectPill({ project }: { project: ProjectDTO }) {
 
 export function SidebarProjects() {
   const { data: projectList = [] } = useProjects()
-  const { projectsCollapsed, toggleProjects } = useSidebarStore()
+  const projectsCollapsed = useSidebarStore((s) => s.projectsCollapsed)
+  const toggleProjects = useSidebarStore((s) => s.toggleProjects)
 
   return (
     <CollapsibleRoot open={!projectsCollapsed} onOpenChange={() => toggleProjects()}>
