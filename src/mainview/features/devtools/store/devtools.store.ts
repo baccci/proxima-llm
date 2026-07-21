@@ -1,7 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-interface DevtoolsState {
+// Where the panel first appears, and where a double-click on the grip resets it.
+// Shared with dev-panel so the two never drift.
+export const DEFAULT_POSITION = { x: 16, y: 80 }
+
+type DevtoolsState = {
   isOpen: boolean
   position: { x: number; y: number }
   compactionRatio: number
@@ -16,7 +20,7 @@ export const useDevtoolsStore = create<DevtoolsState>()(
   persist(
     (set) => ({
       isOpen: false,
-      position: { x: 16, y: 80 },
+      position: DEFAULT_POSITION,
       compactionRatio: 0.8,
       forcedTokens: null,
       toggle: () => set((s) => ({ isOpen: !s.isOpen })),

@@ -1,5 +1,4 @@
-import type React from 'react'
-import { useState } from 'react'
+import React from 'react'
 import { getContextUsage } from '@/features/chat/entities/context-usage'
 import { useChats } from '@/features/chat/hooks/use-chats'
 import { useMessages } from '@/features/chat/hooks/use-messages'
@@ -44,7 +43,9 @@ export function CompactionSection() {
   }
 
   const handleForceCompact = () => {
-    if (selectedChatId) forceCompact.mutate(selectedChatId)
+    if (selectedChatId) {
+      forceCompact.mutate(selectedChatId)
+    }
   }
 
   return (
@@ -98,7 +99,7 @@ export function CompactionSection() {
   )
 }
 
-interface TokenFakerProps {
+type TokenFakerProps = {
   seed: number | null
   realUsed: number | null
   overridden: boolean
@@ -107,7 +108,7 @@ interface TokenFakerProps {
 }
 
 function TokenFaker({ seed, realUsed, overridden, onApply, onClear }: TokenFakerProps) {
-  const [draft, setDraft] = useState(seed == null ? '' : String(seed))
+  const [draft, setDraft] = React.useState(seed == null ? '' : String(seed))
   const parsed = draft.trim() === '' ? Number.NaN : Number.parseInt(draft, 10)
   const valid = Number.isFinite(parsed) && parsed >= 0
   const dirty = String(seed ?? '') !== draft.trim()
@@ -130,7 +131,11 @@ function TokenFaker({ seed, realUsed, overridden, onApply, onClear }: TokenFaker
         />
         <button
           type="button"
-          onClick={() => valid && onApply(parsed)}
+          onClick={() => {
+            if (valid) {
+              onApply(parsed)
+            }
+          }}
           disabled={!valid || (overridden && !dirty)}
           className="text-[11px] px-2 py-1 rounded bg-accent-500/90 text-black font-medium hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
         >

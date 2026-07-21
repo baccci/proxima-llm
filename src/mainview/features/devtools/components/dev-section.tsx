@@ -2,7 +2,7 @@ import { cn } from '@utils/tailwind-class-merge'
 import type React from 'react'
 import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from '@/components/collapsible'
 
-interface DevSectionProps {
+type DevSectionProps = {
   title: string
   children: React.ReactNode
   className?: string
