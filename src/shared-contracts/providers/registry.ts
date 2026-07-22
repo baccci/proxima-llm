@@ -50,6 +50,12 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
   },
 }
 
+// True when the id is one of the providers the app ships with. Narrows the id so
+// callers can index PROVIDER_META / call getProvider without an unchecked cast.
+export function isKnownProvider(id: string): id is ProviderId {
+  return (PROVIDER_IDS as readonly string[]).includes(id)
+}
+
 export function getProvider(id: string): ProviderMeta {
   const meta = PROVIDER_META[id as ProviderId]
   if (!meta) throw new Error(`Unknown provider: ${id}`)

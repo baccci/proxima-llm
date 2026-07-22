@@ -10,15 +10,25 @@ import { IconWrench } from '@/components/icons/icon-wrench'
 import { Switch } from '@/components/switch'
 import { TooltipWrapper } from '@/components/tooltip'
 import { modelCompany } from '@/entities/model/company'
-import { formatPricing } from '@/entities/model/pricing'
+import { formatPricing, NO_PRICE } from '@/entities/model/pricing'
 import { shortModelName } from '@/entities/model/short-name'
 import { models } from '@/features/models/models.api'
 
-interface Props {
+type ModelCardProps = {
   model: ModelDTO
 }
 
-export function ModelCard({ model }: Props) {
+// Capability icons shown on each card, in display order. Each key indexes a boolean
+// on model.capabilities, so a badge only renders when the model supports it.
+const CAPABILITY_BADGES = [
+  { key: 'thinking', label: 'Thinking', Icon: IconBrain },
+  { key: 'vision', label: 'Vision', Icon: IconEye },
+  { key: 'pdf', label: 'PDF', Icon: IconFileText },
+  { key: 'tools', label: 'Tools', Icon: IconWrench },
+  { key: 'webSearch', label: 'Web search', Icon: IconGlobe },
+] as const
+
+export function ModelCard({ model }: ModelCardProps) {
   const free = isFreeModel(model)
   const pricing = formatPricing(model)
   const company = modelCompany(model)
@@ -54,30 +64,13 @@ export function ModelCard({ model }: Props) {
 
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-subtle">
-          {model.capabilities.thinking && (
-            <TooltipWrapper content="Thinking" side="top">
-              <IconBrain width={13} />
-            </TooltipWrapper>
-          )}
-          {model.capabilities.vision && (
-            <TooltipWrapper content="Vision" side="top">
-              <IconEye width={13} />
-            </TooltipWrapper>
-          )}
-          {model.capabilities.pdf && (
-            <TooltipWrapper content="PDF" side="top">
-              <IconFileText width={13} />
-            </TooltipWrapper>
-          )}
-          {model.capabilities.tools && (
-            <TooltipWrapper content="Tools" side="top">
-              <IconWrench width={13} />
-            </TooltipWrapper>
-          )}
-          {model.capabilities.webSearch && (
-            <TooltipWrapper content="Web search" side="top">
-              <IconGlobe width={13} />
-            </TooltipWrapper>
+          {CAPABILITY_BADGES.map(
+            ({ key, label, Icon }) =>
+              model.capabilities[key] && (
+                <TooltipWrapper key={key} content={label} side="top">
+                  <Icon width={13} />
+                </TooltipWrapper>
+              ),
           )}
           {context != null && <span className="text-2xs ml-1">{formatTokens(context)} ctx</span>}
         </div>
@@ -86,8 +79,8 @@ export function ModelCard({ model }: Props) {
           className={cn(
             'text-2xs font-medium px-1.5 py-0.5 rounded-md',
             free && 'bg-success/10 text-success',
-            !free && pricing === '—' && 'bg-surface-hover text-subtle',
-            !free && pricing !== '—' && 'bg-surface-hover text-muted',
+            !free && pricing === NO_PRICE && 'bg-surface-hover text-subtle',
+            !free && pricing !== NO_PRICE && 'bg-surface-hover text-muted',
           )}
         >
           {pricing}

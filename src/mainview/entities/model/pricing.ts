@@ -3,6 +3,10 @@ import type { ModelDTO } from '@shared/schemas/model.schema'
 
 const TOKENS_PER_MILLION = 1_000_000
 
+// Shown when a model carries no pricing data. Callers compare against this to style
+// the "unknown price" case, so it lives here next to the code that produces it.
+export const NO_PRICE = '—'
+
 // Renders a per-million price with `fix` decimal places, trimming trailing zeros.
 function formatPrice(price: number, fix: number): string {
   const formattedPrice = price.toFixed(fix).replace(/\.?0+$/, '')
@@ -11,7 +15,7 @@ function formatPrice(price: number, fix: number): string {
 
 export function formatPricing(model: ModelDTO): string {
   if (model.pricing === null) {
-    return '—'
+    return NO_PRICE
   }
 
   if (isFreeModel(model)) {

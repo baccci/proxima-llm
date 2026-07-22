@@ -1,4 +1,5 @@
-import { getProvider, PROVIDER_IDS, ProviderId } from '@shared/providers/registry'
+import { getProvider, isKnownProvider, PROVIDER_IDS, ProviderId } from '@shared/providers/registry'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { IconSearch } from '@/components/icons/icon-search'
@@ -16,19 +17,31 @@ import { ModelCard } from './model-card'
 
 const PAGE_SIZE = 24
 
+const FILTER_MODES = ['all', 'enabled'] as const
+type FilterMode = (typeof FILTER_MODES)[number]
+
 function prettifyProvider(provider: string): string {
-  try {
+  if (isKnownProvider(provider)) {
     return getProvider(provider).label
-  } catch {
-    return provider.charAt(0).toUpperCase() + provider.slice(1)
   }
+  return provider.charAt(0).toUpperCase() + provider.slice(1)
 }
 
 // Brand meta + logo for a known provider; null for custom/unknown providers so
 // the tab falls back to neutral styling instead of throwing.
 function providerBrand(provider: string) {
-  if (!(PROVIDER_IDS as readonly string[]).includes(provider)) return null
-  return { meta: getProvider(provider), Logo: PROVIDER_LOGOS[provider as ProviderId] }
+  if (!isKnownProvider(provider)) {
+    return null
+  }
+  return { meta: getProvider(provider), Logo: PROVIDER_LOGOS[provider] }
+}
+
+// The provider tabs to show: shipped providers that have at least one model, then
+// any custom providers seen in the data, de-duplicated in first-seen order.
+function providerTabs(allModels: ModelDTO[]): string[] {
+  const shipped = PROVIDER_IDS.filter((p) => allModels.some((m) => m.provider === p))
+  const custom = allModels.map((m) => m.provider).filter((p) => !isKnownProvider(p))
+  return [...shipped, ...new Set(custom)]
 }
 
 function syncedAgo(ts: number | null | undefined): string {
@@ -43,7 +56,7 @@ function syncedAgo(ts: number | null | undefined): string {
 type MarketplaceEmptyStateProps = {
   currentProvider: string
   search: string
-  filterMode: 'all' | 'enabled'
+  filterMode: FilterMode
   syncing: boolean
   onResync: () => void
 }
@@ -97,15 +110,9 @@ export function ModelsMarketplace() {
   const [activeProvider, setActiveProvider] = React.useState<string | null>(null)
   const [syncing, setSyncing] = React.useState(false)
   const [page, setPage] = React.useState(1)
-  const [filterMode, setFilterMode] = React.useState<'all' | 'enabled'>('all')
+  const [filterMode, setFilterMode] = React.useState<FilterMode>('all')
 
-  const providers = [
-    ...PROVIDER_IDS.filter((p) => allModels.some((m) => m.provider === p)),
-    ...allModels
-      .map((m) => m.provider)
-      .filter((p) => !(PROVIDER_IDS as readonly string[]).includes(p))
-      .filter((p, i, arr) => arr.indexOf(p) === i),
-  ]
+  const providers = providerTabs(allModels)
 
   const currentProvider = activeProvider ?? providers[0] ?? PROVIDER_IDS[0]
 
@@ -252,7 +259,7 @@ export function ModelsMarketplace() {
                 )}
               </div>
               <div className="flex shrink-0 gap-1">
-                {(['all', 'enabled'] as const).map((mode) => (
+                {FILTER_MODES.map((mode) => (
                   <button
                     key={mode}
                     type="button"
