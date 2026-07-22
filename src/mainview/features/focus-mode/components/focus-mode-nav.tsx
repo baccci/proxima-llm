@@ -1,9 +1,36 @@
 import { cn } from '@utils/tailwind-class-merge'
+import type React from 'react'
 import { IconChevronLeft } from '@/components/icons/icon-chevron-left'
 import { IconChevronRight } from '@/components/icons/icon-chevron-right'
 import { IconMaximize } from '@/components/icons/icon-maximize'
 import { IconMinimize } from '@/components/icons/icon-minimize'
 import { IconX } from '@/components/icons/icon-x'
+
+const BTN_BASE =
+  'flex items-center justify-center rounded-lg transition-colors text-subtle hover:text-foreground hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
+type NavIconButtonProps = {
+  onClick: () => void
+  title: string
+  disabled?: boolean
+  className?: string
+  children: React.ReactNode
+}
+
+// Square icon button shared by the nav's prev/next/fullscreen/close controls.
+function NavIconButton({ onClick, title, disabled, className, children }: NavIconButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={cn(BTN_BASE, 'h-8 w-8', className)}
+    >
+      {children}
+    </button>
+  )
+}
 
 type FocusModeNavProps = {
   currentIndex: number
@@ -28,39 +55,31 @@ export function FocusModeNav({
   onToggleFullscreen,
   onClose,
 }: FocusModeNavProps) {
-  const btnBase =
-    'flex items-center justify-center rounded-lg transition-colors text-subtle hover:text-foreground hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-
   return (
     <div className="flex items-center gap-2 px-8 py-4 shrink-0">
-      <button
-        onClick={onPrev}
-        disabled={currentIndex === 0}
-        className={cn(btnBase, 'h-8 w-8')}
-        title="Previous exchange (←)"
-      >
+      <NavIconButton onClick={onPrev} disabled={currentIndex === 0} title="Previous exchange (←)">
         <IconChevronLeft width={16} />
-      </button>
+      </NavIconButton>
 
       <span className="text-sm text-subtle tabular-nums select-none w-16 text-center">
         {total === 0 ? '—' : `${currentIndex + 1} / ${total}`}
       </span>
 
-      <button
+      <NavIconButton
         onClick={onNext}
         disabled={currentIndex >= total - 1}
-        className={cn(btnBase, 'h-8 w-8')}
         title="Next exchange (→)"
       >
         <IconChevronRight width={16} />
-      </button>
+      </NavIconButton>
 
       <div className="flex-1" />
 
       <button
+        type="button"
         onClick={onTogglePrompt}
         className={cn(
-          btnBase,
+          BTN_BASE,
           'px-3 h-8 text-xs font-medium gap-1.5',
           showPrompt && 'text-foreground bg-surface',
         )}
@@ -70,21 +89,16 @@ export function FocusModeNav({
         <kbd className="text-2xs opacity-50">P</kbd>
       </button>
 
-      <button
+      <NavIconButton
         onClick={onToggleFullscreen}
-        className={cn(btnBase, 'h-8 w-8')}
         title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
       >
         {isFullscreen ? <IconMinimize width={15} /> : <IconMaximize width={15} />}
-      </button>
+      </NavIconButton>
 
-      <button
-        onClick={onClose}
-        className={cn(btnBase, 'h-8 w-8 ml-1')}
-        title="Exit focus mode (Esc)"
-      >
+      <NavIconButton onClick={onClose} title="Exit focus mode (Esc)" className="ml-1">
         <IconX width={15} />
-      </button>
+      </NavIconButton>
     </div>
   )
 }
