@@ -1,6 +1,8 @@
 import { getProvider, isKnownProvider, PROVIDER_IDS, ProviderId } from '@shared/providers/registry'
 import type { ModelDTO } from '@shared/schemas/model.schema'
+import { useMutation } from '@tanstack/react-query'
 import { cn } from '@utils/tailwind-class-merge'
+import { relativeTime } from '@utils/time'
 import React from 'react'
 import { IconSearch } from '@/components/icons/icon-search'
 import { IconX } from '@/components/icons/icon-x'
@@ -44,13 +46,11 @@ function providerTabs(allModels: ModelDTO[]): string[] {
   return [...shipped, ...new Set(custom)]
 }
 
-function syncedAgo(ts: number | null | undefined): string {
-  if (ts == null) return 'Never synced'
-  const diff = Date.now() - ts
-  if (diff < 60_000) return 'Just now'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
-  return `${Math.floor(diff / 86_400_000)}d ago`
+function lastSyncedLabel(ts: number | null | undefined): string {
+  if (ts == null) {
+    return 'Never synced'
+  }
+  return relativeTime(new Date(ts))
 }
 
 type MarketplaceEmptyStateProps = {
@@ -102,13 +102,57 @@ function MarketplaceEmptyState({
   )
 }
 
+type ProviderTabProps = {
+  provider: string
+  selected: boolean
+  isDark: boolean
+  onSelect: () => void
+}
+
+function ProviderTab({ provider, selected, isDark, onSelect }: ProviderTabProps) {
+  const brand = providerBrand(provider)
+  const colors = brand && (isDark ? brand.meta.colors.dark : brand.meta.colors.light)
+  const Logo = brand?.Logo
+
+  // A selected branded tab paints the whole button in the brand accent; an
+  // unselected branded tab tints only its logo. Unknown providers stay neutral.
+  const buttonStyle =
+    selected && colors
+      ? { backgroundColor: colors.accent, color: colors.foreground, borderColor: colors.accent }
+      : undefined
+  const logoStyle = !selected && colors ? { color: colors.accent } : undefined
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      style={buttonStyle}
+      className={cn(
+        'flex items-center gap-2.5 w-full px-3 py-2 rounded-lg border border-transparent text-sm transition-colors cursor-pointer text-left',
+        selected && !brand && 'bg-surface-hover text-foreground font-medium',
+        selected && brand && 'font-medium',
+        !selected && 'text-muted hover:bg-surface-hover hover:text-foreground',
+      )}
+    >
+      {Logo && (
+        // Wrapper span sets `color` so the currentColor-filled logo picks up the
+        // brand accent even though the icon doesn't forward style.
+        <span className="shrink-0" style={logoStyle}>
+          <Logo width={16} />
+        </span>
+      )}
+      {prettifyProvider(provider)}
+    </button>
+  )
+}
+
 export function ModelsMarketplace() {
   const { data: allModels = [] } = useModels()
   const { data: syncInfo } = useModelSyncInfo()
+  const resync = useMutation({ mutationFn: () => settings.syncModels() })
   const isDark = useIsDark()
   const [search, setSearch] = React.useState('')
   const [activeProvider, setActiveProvider] = React.useState<string | null>(null)
-  const [syncing, setSyncing] = React.useState(false)
   const [page, setPage] = React.useState(1)
   const [filterMode, setFilterMode] = React.useState<FilterMode>('all')
 
@@ -138,15 +182,6 @@ export function ModelsMarketplace() {
 
   const enabledCount = allModels.filter((m) => m.provider === currentProvider && m.isEnabled).length
 
-  async function handleResync() {
-    setSyncing(true)
-    try {
-      await settings.syncModels()
-    } finally {
-      setSyncing(false)
-    }
-  }
-
   return (
     <Modal id={MARKETPLACE_MODAL_ID} label="Models" overlayClassName="bg-black/50">
       <Modal.Content className="w-[900px] max-w-[95vw] rounded-xl border border-border bg-panel shadow-modal">
@@ -159,14 +194,14 @@ export function ModelsMarketplace() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-2xs text-subtle">{syncedAgo(syncInfo?.lastSyncAt)}</span>
+              <span className="text-2xs text-subtle">{lastSyncedLabel(syncInfo?.lastSyncAt)}</span>
               <button
                 type="button"
-                onClick={handleResync}
-                disabled={syncing}
+                onClick={() => resync.mutate()}
+                disabled={resync.isPending}
                 className="text-2xs text-selected-foreground hover:text-selected-border transition-colors disabled:opacity-50 cursor-pointer"
               >
-                {syncing ? 'Syncing…' : 'Resync'}
+                {resync.isPending ? 'Syncing…' : 'Resync'}
               </button>
             </div>
             <button
@@ -181,52 +216,19 @@ export function ModelsMarketplace() {
         </div>
 
         <ModalNavBody
-          nav={providers.map((p) => {
-            const selected = currentProvider === p
-            const brand = providerBrand(p)
-            const Logo = brand?.Logo
-            return (
-              <button
-                key={p}
-                type="button"
-                onClick={() => {
-                  setActiveProvider(p)
-                  setSearch('')
-                  setPage(1)
-                }}
-                style={(() => {
-                  if (!selected || !brand) return undefined
-                  const c = isDark ? brand.meta.colors.dark : brand.meta.colors.light
-                  return { backgroundColor: c.accent, color: c.foreground, borderColor: c.accent }
-                })()}
-                className={cn(
-                  'flex items-center gap-2.5 w-full px-3 py-2 rounded-lg border border-transparent text-sm transition-colors cursor-pointer text-left',
-                  selected && !brand && 'bg-surface-hover text-foreground font-medium',
-                  selected && brand && 'font-medium',
-                  !selected && 'text-muted hover:bg-surface-hover hover:text-foreground',
-                )}
-              >
-                {Logo && (
-                  // Wrapper span sets `color` so the currentColor-filled logo picks
-                  // up the brand accent even though the icon doesn't forward style.
-                  <span
-                    className="shrink-0"
-                    style={
-                      selected || !brand
-                        ? undefined
-                        : {
-                            color: (isDark ? brand.meta.colors.dark : brand.meta.colors.light)
-                              .accent,
-                          }
-                    }
-                  >
-                    <Logo width={16} />
-                  </span>
-                )}
-                {prettifyProvider(p)}
-              </button>
-            )
-          })}
+          nav={providers.map((p) => (
+            <ProviderTab
+              key={p}
+              provider={p}
+              selected={currentProvider === p}
+              isDark={isDark}
+              onSelect={() => {
+                setActiveProvider(p)
+                setSearch('')
+                setPage(1)
+              }}
+            />
+          ))}
         >
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
@@ -286,8 +288,8 @@ export function ModelsMarketplace() {
                   currentProvider={currentProvider}
                   search={search}
                   filterMode={filterMode}
-                  syncing={syncing}
-                  onResync={handleResync}
+                  syncing={resync.isPending}
+                  onResync={() => resync.mutate()}
                 />
               ) : (
                 <div className="flex flex-col gap-4">
