@@ -4,8 +4,8 @@ import { clamp } from '@utils/clamp'
 // determined by useFitTypography (viewport-fit); line-height and weight derive
 // from the resolved size.
 
-const FONT_SIZE_MAX = 90
-const FONT_SIZE_MIN = 16
+export const FONT_SIZE_MAX = 90
+export const FONT_SIZE_MIN = 16
 
 const LINE_HEIGHT_MIN = 1.2
 const LINE_HEIGHT_MAX = 1.65

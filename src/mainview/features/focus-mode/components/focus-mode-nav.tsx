@@ -5,7 +5,7 @@ import { IconMaximize } from '@/components/icons/icon-maximize'
 import { IconMinimize } from '@/components/icons/icon-minimize'
 import { IconX } from '@/components/icons/icon-x'
 
-interface Props {
+type FocusModeNavProps = {
   currentIndex: number
   total: number
   showPrompt: boolean
@@ -27,7 +27,7 @@ export function FocusModeNav({
   onTogglePrompt,
   onToggleFullscreen,
   onClose,
-}: Props) {
+}: FocusModeNavProps) {
   const btnBase =
     'flex items-center justify-center rounded-lg transition-colors text-subtle hover:text-foreground hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 

@@ -11,7 +11,7 @@ const NAV_KEYS: Record<'prev' | 'next' | 'togglePrompt' | 'jumpIncoming', readon
   jumpIncoming: ['f'],
 }
 
-interface FocusModeKeyHandlers {
+type FocusModeKeyHandlers = {
   onPrev: () => void
   onNext: () => void
   onTogglePrompt: () => void
@@ -30,10 +30,14 @@ export function useFocusModeKeyboard(handlers: FocusModeKeyHandlers) {
   useMountEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const { onPrev, onNext, onTogglePrompt, onJumpIncoming } = handlersRef.current
-      if (NAV_KEYS.prev.includes(e.key)) onPrev()
-      else if (NAV_KEYS.next.includes(e.key)) onNext()
-      else if (NAV_KEYS.togglePrompt.includes(e.key)) onTogglePrompt()
-      else if (NAV_KEYS.jumpIncoming.includes(e.key)) onJumpIncoming?.()
+      // Dispatch by first key-group that matches, so there is no if/else ladder.
+      const action = [
+        { keys: NAV_KEYS.prev, run: onPrev },
+        { keys: NAV_KEYS.next, run: onNext },
+        { keys: NAV_KEYS.togglePrompt, run: onTogglePrompt },
+        { keys: NAV_KEYS.jumpIncoming, run: onJumpIncoming },
+      ].find((entry) => entry.keys.includes(e.key))
+      action?.run?.()
     }
     document.addEventListener(KEYDOWN_EVENT, handleKeyDown)
     return () => document.removeEventListener(KEYDOWN_EVENT, handleKeyDown)

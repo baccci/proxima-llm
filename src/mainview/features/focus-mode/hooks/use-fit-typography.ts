@@ -1,13 +1,15 @@
 import React from 'react'
-import { computeFontWeight, computeLineHeight } from '../helpers/typography'
-
-const FONT_SIZE_MAX = 90
-const FONT_SIZE_MIN = 16
+import {
+  computeFontWeight,
+  computeLineHeight,
+  FONT_SIZE_MAX,
+  FONT_SIZE_MIN,
+} from '../helpers/typography'
 
 /**
  * Fits text to the available viewport height by binary-searching the largest
  * font size at which the single-column content block fits. Two-column layout is
- * only activated when even the minimum font (16px) overflows one column — so
+ * only activated when even the minimum font (16px) overflows one column, so
  * columns are reserved for genuinely long responses at the font floor.
  *
  * Returns a ref to attach to the inner content block, the resolved fontSize,
@@ -29,7 +31,9 @@ export function useFitTypography(resetKey: unknown) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: resetKey is the intended re-measure trigger
   React.useLayoutEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el) {
+      return
+    }
 
     // Reset to single-column before measuring. The DOM may still have columns-2
     // from the previous resetKey. setTwoColumn(false) triggers a synchronous
@@ -40,14 +44,20 @@ export function useFitTypography(resetKey: unknown) {
     lockedRef.current = false
 
     const check = () => {
-      if (lockedRef.current) return
+      if (lockedRef.current) {
+        return
+      }
       const inner = ref.current
-      if (!inner) return
-      const H = inner.parentElement?.clientHeight ?? inner.clientHeight
-      if (H === 0) return
+      if (!inner) {
+        return
+      }
+      const availableHeight = inner.parentElement?.clientHeight ?? inner.clientHeight
+      if (availableHeight === 0) {
+        return
+      }
 
       // Imperatively apply a candidate size and read scrollHeight to force a
-      // synchronous reflow — the only way to measure candidate sizes without a
+      // synchronous reflow, the only way to measure candidate sizes without a
       // React render per step. The imperative style is replaced by the committed
       // React state (via the inline style prop on this element) after setState
       // resolves. line-height AND weight must be set too, not just fontSize:
@@ -63,7 +73,7 @@ export function useFitTypography(resetKey: unknown) {
       }
       const fits = (px: number) => {
         apply(px)
-        return inner.scrollHeight <= H
+        return inner.scrollHeight <= availableHeight
       }
 
       if (fits(FONT_SIZE_MAX)) {
@@ -84,8 +94,11 @@ export function useFitTypography(resetKey: unknown) {
       let hi = FONT_SIZE_MAX - 1
       while (lo < hi) {
         const mid = Math.ceil((lo + hi) / 2)
-        if (fits(mid)) lo = mid
-        else hi = mid - 1
+        if (fits(mid)) {
+          lo = mid
+          continue
+        }
+        hi = mid - 1
       }
       // Apply the resolved size imperatively so there is no flash between now and
       // the React commit that applies it via the inline style prop.
@@ -97,7 +110,9 @@ export function useFitTypography(resetKey: unknown) {
     const observer = new ResizeObserver(check)
     observer.observe(el)
     // Also observe the scroll-container parent so window resizes re-trigger a fit.
-    if (el.parentElement) observer.observe(el.parentElement)
+    if (el.parentElement) {
+      observer.observe(el.parentElement)
+    }
     return () => observer.disconnect()
   }, [resetKey])
 

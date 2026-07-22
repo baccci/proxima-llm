@@ -9,11 +9,11 @@ const FULLSCREEN_CHANGE_EVENT = 'fullscreenchange'
  * means (the user pressing Esc), so the caller can close focus mode in sync.
  *
  * Returns `isFullscreen` (live) and `toggleFullscreen` so the nav can expose a
- * manual fullscreen button — important because the auto-request on mount is
+ * manual fullscreen button. This matters because the auto-request on mount is
  * rejected without a user gesture (external control prompts have no gesture).
  *
- * Pairs with conditional mounting — mount the overlay only while focus mode is
- * open and this hook keeps fullscreen and that lifetime aligned.
+ * Pairs with conditional mounting. The overlay mounts only while focus mode is
+ * open, and this hook keeps fullscreen aligned with that lifetime.
  */
 export function useFocusModeFullscreen(
   elementRef: React.RefObject<HTMLElement | null>,
@@ -30,13 +30,17 @@ export function useFocusModeFullscreen(
     const handleChange = () => {
       const full = document.fullscreenElement != null
       setIsFullscreen(full)
-      if (!full) onExitRef.current()
+      if (!full) {
+        onExitRef.current()
+      }
     }
     document.addEventListener(FULLSCREEN_CHANGE_EVENT, handleChange)
 
     return () => {
       document.removeEventListener(FULLSCREEN_CHANGE_EVENT, handleChange)
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {})
+      }
     }
   })
 
