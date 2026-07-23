@@ -21,7 +21,7 @@ import { shortModelName } from '@/entities/model/short-name'
 import { MARKETPLACE_MODAL_ID } from '@/features/models/components/marketplace.constants'
 import { useModels } from '@/features/models/hooks/use-models'
 
-interface Props {
+type ModelSwitcherProps = {
   modelId: string | null
   onChange: (modelId: string) => void
   disabled?: boolean
@@ -37,7 +37,7 @@ export function ModelSwitcher({
   usedTokens,
   cachedFraction,
   effort,
-}: Props) {
+}: ModelSwitcherProps) {
   const { data: allModels = [] } = useModels()
   const enabled = allModels.filter((m) => m.isEnabled)
   const groups = groupByFamily(enabled)

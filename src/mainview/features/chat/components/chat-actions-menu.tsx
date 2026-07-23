@@ -20,7 +20,7 @@ import { chat } from '@/features/chat/chat.api'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { chatTitle } from '@/features/sidebar/entities/helpers'
 
-interface Props {
+type ChatActionsMenuProps = {
   chatItem: ChatDTO
   /** When provided, the Rename item calls this instead of opening a dialog (sidebar inline-edit). */
   onRenameClick?: () => void
@@ -36,7 +36,7 @@ export function ChatActionsMenu({
   onOpenChange,
   triggerClassName,
   triggerSize = 14,
-}: Props) {
+}: ChatActionsMenuProps) {
   const selectChat = useChatStore((s) => s.selectChat)
   const selectedChatId = useChatStore((s) => s.selectedChatId)
   const [confirmDelete, setConfirmDelete] = React.useState(false)
@@ -75,7 +75,12 @@ export function ChatActionsMenu({
     if (e.key === 'Enter') {
       e.preventDefault()
       commitRenameDialog()
-    } else if (e.key === 'Escape') setRenamingDialog(false)
+      return
+    }
+
+    if (e.key === 'Escape') {
+      setRenamingDialog(false)
+    }
   }
 
   async function executeDelete() {

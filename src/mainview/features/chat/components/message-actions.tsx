@@ -13,7 +13,7 @@ const COPIED_RESET_MS = 1500
 const btnClass =
   'flex items-center justify-center h-5 w-5 rounded-lg text-subtle hover:text-foreground transition cursor-pointer'
 
-interface Props {
+type MessageActionsProps = {
   canEdit: boolean
   parts: MessagePart[]
   disabled?: boolean
@@ -22,17 +22,14 @@ interface Props {
   onCopy: () => Promise<void>
 }
 
-function MessageActionButton({
-  tooltip,
-  icon,
-  onClick,
-  disabled,
-}: {
+type MessageActionButtonProps = {
   tooltip: string
   icon: React.ReactNode
   onClick: () => void
   disabled?: boolean
-}) {
+}
+
+function MessageActionButton({ tooltip, icon, onClick, disabled }: MessageActionButtonProps) {
   return (
     <TooltipWrapper content={tooltip} side="bottom">
       <button onClick={onClick} disabled={disabled} className={btnClass}>
@@ -42,7 +39,14 @@ function MessageActionButton({
   )
 }
 
-export function MessageActions({ canEdit, parts, disabled, onRetry, onEdit, onCopy }: Props) {
+export function MessageActions({
+  canEdit,
+  parts,
+  disabled,
+  onRetry,
+  onEdit,
+  onCopy,
+}: MessageActionsProps) {
   const [copied, setCopied] = React.useState(false)
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 

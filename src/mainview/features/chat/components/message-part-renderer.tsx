@@ -5,7 +5,7 @@ import { useAttachment } from '@/features/chat/attachment.api'
 import { ToolCallBlock } from '@/features/chat/components/tool-call-block'
 import { Markdown } from '@/lib/markdown'
 
-interface PartProps {
+type PartProps = {
   part: MessagePart
   streaming?: boolean
   textClassName?: string

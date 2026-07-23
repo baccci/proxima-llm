@@ -1,9 +1,9 @@
-interface Source {
+type Source = {
   url: string
   title?: string
 }
 
-interface Props {
+type SourcesBlockProps = {
   sources: Source[]
 }
 
@@ -15,7 +15,7 @@ function hostLabel(url: string): string {
   }
 }
 
-export function SourcesBlock({ sources }: Props) {
+export function SourcesBlock({ sources }: SourcesBlockProps) {
   if (sources.length === 0) return null
 
   return (

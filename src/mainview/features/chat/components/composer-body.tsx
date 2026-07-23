@@ -19,7 +19,7 @@ import { useApiKeyStatuses, useSettings } from '@/features/settings/hooks/use-se
 import { errorMessage } from '@/utils/error-message'
 import { ModelSwitcher } from './model-switcher'
 
-interface ComposerBodyProps {
+type ComposerBodyProps = {
   projectId: string | null
   className?: string
 }
@@ -44,12 +44,11 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   const isStreaming = !!streaming && !streaming.done
 
   const configuredProviders = new Set<string>(PROVIDER_IDS.filter((id) => keyStatuses[id]))
-  const settingsDefault =
+  const defaultModelId =
     settings?.defaultModelId ??
     allModels.find((m) => m.isEnabled && configuredProviders.has(m.provider))?.id ??
     allModels.find((m) => m.isEnabled)?.id ??
     null
-  const defaultModelId = settingsDefault
   const [currentModelId, setCurrentModelId] = React.useState<string | null>(null)
   const modelId = currentModelId ?? defaultModelId
   const selectedModel = allModels.find((m) => m.id === modelId)

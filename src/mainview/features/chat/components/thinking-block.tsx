@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { IconChevronRight } from '@/components/icons/icon-chevron-right'
 import { useChatStore } from '@/features/chat/store/chat.store'
 
-interface Props {
+type ThinkingBlockProps = {
   messageId: string
   reasoning: string
   active?: boolean
@@ -23,7 +23,7 @@ export function ThinkingBlock({
   active,
   durationLabel,
   tokenEstimate,
-}: Props) {
+}: ThinkingBlockProps) {
   const { thinkingExpanded, setThinkingExpanded } = useChatStore()
   const expanded = thinkingExpanded[messageId] ?? false
 

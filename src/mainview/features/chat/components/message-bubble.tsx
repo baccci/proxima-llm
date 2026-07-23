@@ -13,7 +13,7 @@ import { MessagePartRenderer } from './message-part-renderer'
 import { SourcesBlock } from './sources-block'
 import { ThinkingBlock } from './thinking-block'
 
-interface Props {
+type MessageBubbleProps = {
   message: MessageDTO
   chatItem: ChatDTO
   streaming?: boolean
@@ -23,7 +23,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   message,
   chatItem,
   streaming,
-}: Props) {
+}: MessageBubbleProps) {
   const isUser = message.role === MessageRole.enum.user
   const isOptimistic = message.id.startsWith('optimistic-')
   const reasoningPart = extractReasoningPart(message.parts)

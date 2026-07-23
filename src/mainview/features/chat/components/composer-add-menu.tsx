@@ -25,7 +25,7 @@ import {
   supportsWebSearch,
 } from '@/entities/model/capabilities'
 
-interface Props {
+type ComposerAddMenuProps = {
   model: ModelDTO | undefined
   thinking: boolean
   webSearch: boolean
@@ -51,7 +51,7 @@ export function ComposerAddMenu({
   onWebSearchChange,
   onEffortChange,
   onAttachClick,
-}: Props) {
+}: ComposerAddMenuProps) {
   const canThink = model ? supportsThinking(model) : false
   const canVision = model ? supportsVision(model) : false
   const canPdf = model ? supportsPdf(model) : false

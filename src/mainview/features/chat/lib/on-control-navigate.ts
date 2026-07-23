@@ -41,7 +41,8 @@ export function onControlNavigate(payload: Payload): void {
 
   if (sameChat || follows) {
     jumpInto(payload)
-  } else {
-    s.setPendingIncoming(payload)
+    return
   }
+
+  s.setPendingIncoming(payload)
 }

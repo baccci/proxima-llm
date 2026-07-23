@@ -3,12 +3,12 @@ import { IconFileText } from '@/components/icons/icon-file-text'
 import { IconImage } from '@/components/icons/icon-image'
 import { IconX } from '@/components/icons/icon-x'
 
-interface Props {
+type AttachmentChipProps = {
   attachment: AttachmentDTO
   onRemove?: () => void
 }
 
-export function AttachmentChip({ attachment, onRemove }: Props) {
+export function AttachmentChip({ attachment, onRemove }: AttachmentChipProps) {
   const isImage = attachment.kind === AttachmentKind.enum.image
   const sizeKb = Math.round(attachment.byteSize / 1024)
 

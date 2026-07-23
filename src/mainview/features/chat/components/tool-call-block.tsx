@@ -5,7 +5,7 @@ import { IconChevronRight } from '@/components/icons/icon-chevron-right'
 import { IconTerminal } from '@/components/icons/icon-terminal'
 import { getToolSummary } from '../lib/tool-summary'
 
-interface Props {
+type ToolCallBlockProps = {
   toolName: string
   input: unknown
   output?: unknown
@@ -31,7 +31,7 @@ export function ToolCallBlock({
   awaitingApproval,
   onApprove,
   onDeny,
-}: Props) {
+}: ToolCallBlockProps) {
   const [expanded, setExpanded] = React.useState(false)
   const [remember, setRemember] = React.useState(false)
 

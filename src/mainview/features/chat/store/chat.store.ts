@@ -1,7 +1,7 @@
 import { type MessagePart, PartKind } from '@shared/schemas/message.schema'
 import { create } from 'zustand'
 
-export interface StreamingToolCall {
+export type StreamingToolCall = {
   toolCallId: string
   toolName: string
   input: unknown
@@ -9,12 +9,12 @@ export interface StreamingToolCall {
   awaitingApproval: boolean
 }
 
-export interface StreamingSource {
+export type StreamingSource = {
   url: string
   title?: string
 }
 
-export interface StreamingMessage {
+export type StreamingMessage = {
   id: string
   streamId: string
   textParts: string
@@ -28,13 +28,56 @@ export interface StreamingMessage {
   error: string | null
 }
 
-interface PendingIncoming {
+type PendingIncoming = {
   chatId: string
   streamId: string
   assistantMessageId: string
 }
 
-interface ChatUIState {
+// An empty streaming message. startStreaming seeds a live one; failStreaming
+// seeds a done-with-error one on top of the same scaffold.
+function blankStreaming(id: string, streamId: string): StreamingMessage {
+  return {
+    id,
+    streamId,
+    textParts: '',
+    reasoningParts: '',
+    reasoningStartedAt: null,
+    reasoningEndedAt: null,
+    toolCalls: [],
+    sources: [],
+    compacting: false,
+    done: false,
+    error: null,
+  }
+}
+
+// Stamp the moment reasoning stops, the first time text or a done signal arrives
+// after reasoning began. Once stamped it never moves.
+function closeReasoningClock(streaming: StreamingMessage): number | null {
+  const started = streaming.reasoningStartedAt !== null
+  const stillOpen = streaming.reasoningEndedAt === null
+  if (started && stillOpen) {
+    return Date.now()
+  }
+  return streaming.reasoningEndedAt
+}
+
+// Add a tool call, or patch it in place if we already have one with this id.
+function upsertToolCall(
+  toolCalls: StreamingToolCall[],
+  toolCallId: string,
+  patch: Partial<StreamingToolCall>,
+  create: StreamingToolCall,
+): StreamingToolCall[] {
+  const exists = toolCalls.some((tc) => tc.toolCallId === toolCallId)
+  if (!exists) {
+    return [...toolCalls, create]
+  }
+  return toolCalls.map((tc) => (tc.toolCallId === toolCallId ? { ...tc, ...patch } : tc))
+}
+
+type ChatUIState = {
   selectedChatId: string | null
   selectedProjectId: string | null
   thinkingExpanded: Record<string, boolean>
@@ -93,126 +136,103 @@ export const useChatStore = create<ChatUIState>((set) => ({
     set((s) => ({ thinkingExpanded: { ...s.thinkingExpanded, [messageId]: expanded } })),
 
   startStreaming: (streamId, assistantMessageId) =>
-    set({
-      streaming: {
-        id: assistantMessageId,
-        streamId,
-        textParts: '',
-        reasoningParts: '',
-        reasoningStartedAt: null,
-        reasoningEndedAt: null,
-        toolCalls: [],
-        sources: [],
-        compacting: false,
-        done: false,
-        error: null,
-      },
-    }),
+    set({ streaming: blankStreaming(assistantMessageId, streamId) }),
 
   appendTextDelta: (delta) =>
     set((s) => {
       if (!s.streaming) return {}
-      const reasoningEndedAt =
-        s.streaming.reasoningStartedAt !== null && s.streaming.reasoningEndedAt === null
-          ? Date.now()
-          : s.streaming.reasoningEndedAt
       return {
-        streaming: { ...s.streaming, textParts: s.streaming.textParts + delta, reasoningEndedAt },
+        streaming: {
+          ...s.streaming,
+          textParts: s.streaming.textParts + delta,
+          reasoningEndedAt: closeReasoningClock(s.streaming),
+        },
       }
     }),
 
   appendReasoningDelta: (delta) =>
-    set((s) =>
-      s.streaming
-        ? {
-            streaming: {
-              ...s.streaming,
-              reasoningParts: s.streaming.reasoningParts + delta,
-              reasoningStartedAt: s.streaming.reasoningStartedAt ?? Date.now(),
-            },
-          }
-        : {},
-    ),
+    set((s) => {
+      if (!s.streaming) return {}
+      return {
+        streaming: {
+          ...s.streaming,
+          reasoningParts: s.streaming.reasoningParts + delta,
+          reasoningStartedAt: s.streaming.reasoningStartedAt ?? Date.now(),
+        },
+      }
+    }),
 
   addToolCall: (toolCallId, toolName, input) =>
     set((s) => {
       if (!s.streaming) return {}
-      const exists = s.streaming.toolCalls.some((tc) => tc.toolCallId === toolCallId)
-      const toolCalls = exists
-        ? s.streaming.toolCalls.map((tc) =>
-            tc.toolCallId === toolCallId ? { ...tc, toolName, input } : tc,
-          )
-        : [...s.streaming.toolCalls, { toolCallId, toolName, input, awaitingApproval: false }]
+      const toolCalls = upsertToolCall(
+        s.streaming.toolCalls,
+        toolCallId,
+        { toolName, input },
+        { toolCallId, toolName, input, awaitingApproval: false },
+      )
       return { streaming: { ...s.streaming, toolCalls } }
     }),
 
   resolveToolCall: (toolCallId, output) =>
-    set((s) =>
-      s.streaming
-        ? {
-            streaming: {
-              ...s.streaming,
-              toolCalls: s.streaming.toolCalls.map((tc) =>
-                tc.toolCallId === toolCallId ? { ...tc, output, awaitingApproval: false } : tc,
-              ),
-            },
-          }
-        : {},
-    ),
+    set((s) => {
+      if (!s.streaming) return {}
+      return {
+        streaming: {
+          ...s.streaming,
+          toolCalls: s.streaming.toolCalls.map((tc) =>
+            tc.toolCallId === toolCallId ? { ...tc, output, awaitingApproval: false } : tc,
+          ),
+        },
+      }
+    }),
 
   setToolCallAwaitingApproval: (toolCallId, toolName, input) =>
     set((s) => {
       if (!s.streaming) return {}
-      const exists = s.streaming.toolCalls.some((tc) => tc.toolCallId === toolCallId)
-      const toolCalls = exists
-        ? s.streaming.toolCalls.map((tc) =>
-            tc.toolCallId === toolCallId ? { ...tc, awaitingApproval: true } : tc,
-          )
-        : [...s.streaming.toolCalls, { toolCallId, toolName, input, awaitingApproval: true }]
+      const toolCalls = upsertToolCall(
+        s.streaming.toolCalls,
+        toolCallId,
+        { awaitingApproval: true },
+        { toolCallId, toolName, input, awaitingApproval: true },
+      )
       return { streaming: { ...s.streaming, toolCalls } }
     }),
 
   finishStreaming: () =>
     set((s) => {
       if (!s.streaming) return {}
-      const reasoningEndedAt =
-        s.streaming.reasoningStartedAt !== null && s.streaming.reasoningEndedAt === null
-          ? Date.now()
-          : s.streaming.reasoningEndedAt
-      return { streaming: { ...s.streaming, done: true, reasoningEndedAt } }
+      return {
+        streaming: {
+          ...s.streaming,
+          done: true,
+          reasoningEndedAt: closeReasoningClock(s.streaming),
+        },
+      }
     }),
 
   addSource: (url, title) =>
-    set((s) =>
-      s.streaming
-        ? { streaming: { ...s.streaming, sources: [...s.streaming.sources, { url, title }] } }
-        : {},
-    ),
+    set((s) => {
+      if (!s.streaming) return {}
+      return { streaming: { ...s.streaming, sources: [...s.streaming.sources, { url, title }] } }
+    }),
 
   setCompacting: (active) =>
-    set((s) => (s.streaming ? { streaming: { ...s.streaming, compacting: active } } : {})),
+    set((s) => {
+      if (!s.streaming) return {}
+      return { streaming: { ...s.streaming, compacting: active } }
+    }),
 
   setCompactingChatId: (chatId) => set({ compactingChatId: chatId }),
 
   setStreamingError: (error) =>
-    set((s) => (s.streaming ? { streaming: { ...s.streaming, done: true, error } } : {})),
+    set((s) => {
+      if (!s.streaming) return {}
+      return { streaming: { ...s.streaming, done: true, error } }
+    }),
 
   failStreaming: (error) =>
-    set({
-      streaming: {
-        id: crypto.randomUUID(),
-        streamId: '',
-        textParts: '',
-        reasoningParts: '',
-        reasoningStartedAt: null,
-        reasoningEndedAt: null,
-        toolCalls: [],
-        sources: [],
-        compacting: false,
-        done: true,
-        error,
-      },
-    }),
+    set({ streaming: { ...blankStreaming(crypto.randomUUID(), ''), done: true, error } }),
 
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),

@@ -1,6 +1,7 @@
 import type { ChatDTO } from '@shared/schemas/chat.schema'
 import { type MessageDTO, PartKind } from '@shared/schemas/message.schema'
 import { isSilentTool } from '@shared/tools/tool-catalog'
+import { ToolDecision } from '@shared/tools/tool-policy'
 import React from 'react'
 import { IconChevronDown } from '@/components/icons/icon-chevron-down'
 import { useChatStore } from '@/features/chat/store/chat.store'
@@ -11,13 +12,13 @@ import { SourcesBlock } from './sources-block'
 import { ThinkingBlock } from './thinking-block'
 import { ToolCallBlock } from './tool-call-block'
 
-interface Props {
+type MessageListProps = {
   messages: MessageDTO[]
   chatItem: ChatDTO
   compactedThroughAt?: string | null
 }
 
-export function MessageList({ messages, chatItem, compactedThroughAt }: Props) {
+export function MessageList({ messages, chatItem, compactedThroughAt }: MessageListProps) {
   const streaming = useChatStore((s) => s.streaming)
   const compactingChatId = useChatStore((s) => s.compactingChatId)
   // Label shows for both auto-compaction (stream chunk) and a manual ring click
@@ -130,7 +131,7 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: Props) {
                       rpcRequest().resolveToolApproval({
                         streamId: streaming.streamId,
                         toolCallId: tc.toolCallId,
-                        decision: 'allow',
+                        decision: ToolDecision.enum.allow,
                         remember,
                       })
                     }
@@ -138,7 +139,7 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: Props) {
                       rpcRequest().resolveToolApproval({
                         streamId: streaming.streamId,
                         toolCallId: tc.toolCallId,
-                        decision: 'deny',
+                        decision: ToolDecision.enum.deny,
                         remember,
                       })
                     }
