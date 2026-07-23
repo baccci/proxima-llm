@@ -26,6 +26,11 @@ export const ProviderTitleConfig = z.object({
 
 export type ProviderTitleConfig = z.infer<typeof ProviderTitleConfig>
 
+// Valid TCP port range for the local control server. Named so the schema and the settings
+// UI's client-side validation stay in lockstep.
+export const CONTROL_SERVER_PORT_MIN = 1024
+export const CONTROL_SERVER_PORT_MAX = 65535
+
 export const SettingsDTO = z.object({
   defaultModelId: z.string().nullable(),
   theme: Theme,
@@ -34,7 +39,7 @@ export const SettingsDTO = z.object({
   maxRetries: z.number().int().min(0).max(5),
   requestTimeoutMs: z.number().int().min(1000),
   controlServerEnabled: z.boolean(),
-  controlServerPort: z.number().int().min(1024).max(65535),
+  controlServerPort: z.number().int().min(CONTROL_SERVER_PORT_MIN).max(CONTROL_SERVER_PORT_MAX),
   focusFollowsIncoming: z.boolean(),
   titleModels: z.record(z.string(), ProviderTitleConfig).default({}),
 })

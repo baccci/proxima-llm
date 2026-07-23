@@ -1,65 +1,47 @@
-import { useQuery } from '@tanstack/react-query'
+import {
+  CONTROL_SERVER_PORT_MAX,
+  CONTROL_SERVER_PORT_MIN,
+  DEFAULT_SETTINGS,
+} from '@shared/schemas/settings.schema'
+import { useMutation } from '@tanstack/react-query'
+import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { Switch } from '@/components/switch'
-import { queryKeys } from '@/lib/query-keys'
-import { electroview } from '@/lib/rpc.client'
+import { useMountEffect } from '@/hooks/use-mount-effect'
+import { useControlTokens } from '../hooks/use-control-tokens'
 import { useSettings } from '../hooks/use-settings'
 import { settings } from '../settings.api'
+
+const MS_PER_SECOND = 1000
+
+type PairingCode = { code: string; expiresAt: string }
+
+function remainingSeconds(expiresAt: string): number {
+  return Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / MS_PER_SECOND))
+}
 
 export function ControlServerSection() {
   const { data: currentSettings } = useSettings()
   const enabled = currentSettings?.controlServerEnabled ?? false
-  const port = currentSettings?.controlServerPort ?? 7865
+  const port = currentSettings?.controlServerPort ?? DEFAULT_SETTINGS.controlServerPort
   const focusFollowsIncoming = currentSettings?.focusFollowsIncoming ?? true
 
-  const { data: tokens = [], refetch: refetchTokens } = useQuery({
-    queryKey: queryKeys.controlTokens(),
-    queryFn: () => electroview.rpc?.request.listControlTokens({}),
-    enabled,
+  const { data: tokens = [] } = useControlTokens(enabled)
+
+  const [pairingCode, setPairingCode] = React.useState<PairingCode | null>(null)
+
+  const generateMutation = useMutation({
+    mutationFn: () => settings.generatePairingCode(),
+    onSuccess: (result) => {
+      if (result) {
+        setPairingCode(result)
+      }
+    },
   })
 
-  const [pairingCode, setPairingCode] = React.useState<{ code: string; expiresAt: string } | null>(
-    null,
-  )
-  const [countdown, setCountdown] = React.useState(0)
-  const [portInput, setPortInput] = React.useState(String(port))
-
-  // Tick down remaining seconds for the pairing code
-  React.useEffect(() => {
-    if (!pairingCode) return
-    const tick = () => {
-      const remaining = Math.max(
-        0,
-        Math.floor((new Date(pairingCode.expiresAt).getTime() - Date.now()) / 1000),
-      )
-      setCountdown(remaining)
-      if (remaining === 0) setPairingCode(null)
-    }
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [pairingCode])
-
-  async function handleToggle() {
-    await settings.update({ controlServerEnabled: !enabled })
-    if (!enabled) refetchTokens()
-  }
-
-  async function handlePortChange() {
-    const n = Number.parseInt(portInput, 10)
-    if (Number.isNaN(n) || n < 1024 || n > 65535) return
-    await settings.update({ controlServerPort: n })
-  }
-
-  async function handleGenerateCode() {
-    const result = await settings.generatePairingCode()
-    if (result) setPairingCode(result)
-  }
-
-  async function handleRevoke(token: string) {
-    await settings.revokeControlToken(token)
-    refetchTokens()
-  }
+  const revokeMutation = useMutation({
+    mutationFn: (token: string) => settings.revokeControlToken(token),
+  })
 
   return (
     <div className="space-y-6">
@@ -72,10 +54,14 @@ export function ControlServerSection() {
               Lets local scripts inject prompts that run inside the app.
             </p>
           </div>
-          <Switch checked={enabled} onChange={handleToggle} aria-label="Local control server" />
+          <Switch
+            checked={enabled}
+            onChange={() => settings.update({ controlServerEnabled: !enabled })}
+            aria-label="Local control server"
+          />
         </div>
 
-        <p className={`mt-2 text-xs font-mono ${enabled ? 'text-foreground' : 'text-subtle'}`}>
+        <p className={cn('mt-2 text-xs font-mono', enabled ? 'text-foreground' : 'text-subtle')}>
           {enabled ? `Listening on 127.0.0.1:${port}` : 'Off'}
         </p>
       </div>
@@ -102,16 +88,11 @@ export function ControlServerSection() {
           Port
         </label>
         <div className="flex gap-2">
-          <input
-            id="cs-port"
-            type="number"
-            min={1024}
-            max={65535}
-            value={portInput}
-            onChange={(e) => setPortInput(e.target.value)}
-            onBlur={handlePortChange}
+          <PortField
+            key={port}
+            port={port}
             disabled={enabled}
-            className="w-28 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-border-strong disabled:opacity-50"
+            onCommit={(controlServerPort) => settings.update({ controlServerPort })}
           />
           {enabled && (
             <p className="self-center text-xs text-subtle">
@@ -127,18 +108,14 @@ export function ControlServerSection() {
         <p className="text-xs text-subtle mb-3">
           Share this one-time code with an external script. It expires in 5 minutes.
         </p>
-        {pairingCode ? (
-          <div className="rounded-lg border border-border bg-surface px-4 py-3 space-y-1">
-            <p className="font-mono text-lg tracking-widest text-foreground select-all">
-              {pairingCode.code}
-            </p>
-            <p className="text-xs text-subtle">Expires in {countdown}s · single use</p>
-          </div>
-        ) : (
+        {pairingCode && (
+          <PairingCodeCard pairingCode={pairingCode} onExpire={() => setPairingCode(null)} />
+        )}
+        {!pairingCode && (
           <button
             type="button"
-            onClick={handleGenerateCode}
-            disabled={!enabled}
+            onClick={() => generateMutation.mutate()}
+            disabled={!enabled || generateMutation.isPending}
             className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
           >
             Generate pairing code
@@ -149,7 +126,7 @@ export function ControlServerSection() {
       {/* Active tokens */}
       <div>
         <p className="text-sm font-medium text-foreground mb-3">Connected clients</p>
-        {tokens && tokens.length > 0 ? (
+        {tokens.length > 0 && (
           <div className="space-y-2">
             {tokens.map((t) => (
               <div
@@ -167,7 +144,7 @@ export function ControlServerSection() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleRevoke(t.token)}
+                  onClick={() => revokeMutation.mutate(t.token)}
                   className="text-xs text-danger hover:text-danger/80 transition-colors cursor-pointer"
                 >
                   Revoke
@@ -175,10 +152,77 @@ export function ControlServerSection() {
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-xs text-subtle">No connected clients.</p>
         )}
+        {tokens.length === 0 && <p className="text-xs text-subtle">No connected clients.</p>}
       </div>
     </div>
+  )
+}
+
+type PairingCodeCardProps = {
+  pairingCode: PairingCode
+  onExpire: () => void
+}
+
+// Mounted only while a code exists, so the once-a-second ticker is a plain mount effect. When
+// the code runs out, onExpire clears it, which unmounts this card and clears the interval.
+function PairingCodeCard({ pairingCode, onExpire }: PairingCodeCardProps) {
+  const [countdown, setCountdown] = React.useState(() => remainingSeconds(pairingCode.expiresAt))
+
+  useMountEffect(() => {
+    const tick = () => {
+      const remaining = remainingSeconds(pairingCode.expiresAt)
+      setCountdown(remaining)
+      if (remaining === 0) {
+        onExpire()
+      }
+    }
+
+    tick()
+    const id = setInterval(tick, MS_PER_SECOND)
+    return () => clearInterval(id)
+  })
+
+  return (
+    <div className="rounded-lg border border-border bg-surface px-4 py-3 space-y-1">
+      <p className="font-mono text-lg tracking-widest text-foreground select-all">
+        {pairingCode.code}
+      </p>
+      <p className="text-xs text-subtle">Expires in {countdown}s · single use</p>
+    </div>
+  )
+}
+
+type PortFieldProps = {
+  port: number
+  disabled: boolean
+  onCommit: (port: number) => void
+}
+
+// Seeds its draft from the loaded port. The parent keys it on that port, so the draft
+// re-seeds once real settings arrive instead of sticking on the pre-load default.
+function PortField({ port, disabled, onCommit }: PortFieldProps) {
+  const [value, setValue] = React.useState(String(port))
+
+  function commit() {
+    const n = Number.parseInt(value, 10)
+    if (Number.isNaN(n) || n < CONTROL_SERVER_PORT_MIN || n > CONTROL_SERVER_PORT_MAX) {
+      return
+    }
+    onCommit(n)
+  }
+
+  return (
+    <input
+      id="cs-port"
+      type="number"
+      min={CONTROL_SERVER_PORT_MIN}
+      max={CONTROL_SERVER_PORT_MAX}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      disabled={disabled}
+      className="w-28 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-border-strong disabled:opacity-50"
+    />
   )
 }
