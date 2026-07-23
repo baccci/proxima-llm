@@ -8,11 +8,6 @@ import { TooltipWrapper } from '@/components/tooltip'
 
 const COPIED_RESET_MS = 1500
 
-// Deliberately minimal: a color-only hover, no background or transform, matching
-// the original inline hover-action look.
-const btnClass =
-  'flex items-center justify-center h-5 w-5 rounded-lg text-subtle hover:text-foreground transition cursor-pointer'
-
 type MessageActionsProps = {
   canEdit: boolean
   parts: MessagePart[]
@@ -30,9 +25,14 @@ type MessageActionButtonProps = {
 }
 
 function MessageActionButton({ tooltip, icon, onClick, disabled }: MessageActionButtonProps) {
+  // Deliberately minimal: color-only hover, no background or transform.
   return (
     <TooltipWrapper content={tooltip} side="bottom">
-      <button onClick={onClick} disabled={disabled} className={btnClass}>
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className="flex items-center justify-center h-5 w-5 rounded-lg text-subtle hover:text-foreground transition cursor-pointer"
+      >
         {icon}
       </button>
     </TooltipWrapper>

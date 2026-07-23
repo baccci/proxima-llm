@@ -101,15 +101,17 @@ export function ChatActionsMenu({
   function handleRenameClick() {
     if (onRenameClick) {
       onRenameClick()
-    } else {
-      setRenamingDialog(true)
+      return
     }
+    setRenamingDialog(true)
   }
 
   async function executeDelete() {
     setConfirmDelete(false)
     await chat.remove(chatItem.id)
-    if (selectedChatId === chatItem.id) selectChat(null)
+    if (selectedChatId === chatItem.id) {
+      selectChat(null)
+    }
   }
 
   return (
@@ -148,7 +150,7 @@ export function ChatActionsMenu({
         </DropdownPortal>
       </DropdownRoot>
 
-      {/* Rename dialog — used when no inline-rename callback is provided (e.g. chat header) */}
+      {/* Rename dialog, used when no inline-rename callback is provided (e.g. chat header) */}
       {!onRenameClick && (
         <DialogRoot open={renamingDialog} onOpenChange={setRenamingDialog}>
           <DialogContent title="Rename chat">

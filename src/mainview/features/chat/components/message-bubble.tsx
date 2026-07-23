@@ -1,5 +1,6 @@
 import type { ChatDTO } from '@shared/schemas/chat.schema'
 import { type MessageDTO, MessageRole, StopReason } from '@shared/schemas/message.schema'
+import { formatSeconds } from '@utils/format-duration'
 import React from 'react'
 import {
   extractReasoningPart,
@@ -48,7 +49,9 @@ export const MessageBubble = React.memo(function MessageBubble({
 
   function handleSaveEdit() {
     const trimmed = editText.trim()
-    if (!trimmed) return
+    if (!trimmed) {
+      return
+    }
     setEditing(false)
     saveEdit(message.id, trimmed)
   }
@@ -129,9 +132,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           reasoning={reasoningPart.text}
           active={false}
           durationLabel={
-            reasoningPart.durationMs != null
-              ? `${Math.round(reasoningPart.durationMs / 1000)}s`
-              : undefined
+            reasoningPart.durationMs != null ? formatSeconds(reasoningPart.durationMs) : undefined
           }
         />
       )}
@@ -140,7 +141,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           <MessagePartRenderer key={i} part={part} streaming={streaming} allParts={message.parts} />
         ))}
         <SourcesBlock sources={sourceParts} />
-        {(message.usage || !isOptimistic) && (
+        {(message.usage != null || !isOptimistic) && (
           <div className="mt-2 flex items-center gap-3 text-2xs text-subtle">
             {message.usage && (
               <>

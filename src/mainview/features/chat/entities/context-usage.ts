@@ -14,12 +14,16 @@ export function getContextUsage(
   model: ModelDTO | undefined,
 ): ContextUsage | null {
   const limit = model?.capabilities.contextWindow
-  if (!limit) return null
+  if (!limit) {
+    return null
+  }
 
   const lastAssistant = [...messages]
     .reverse()
     .find((m) => m.role === MessageRole.enum.assistant && m.usage)
-  if (!lastAssistant?.usage) return null
+  if (!lastAssistant?.usage) {
+    return null
+  }
 
   const u = lastAssistant.usage
   // input + cache tokens = everything that was sent in the prompt this turn (system + full history).

@@ -16,7 +16,9 @@ function hostLabel(url: string): string {
 }
 
 export function SourcesBlock({ sources }: SourcesBlockProps) {
-  if (sources.length === 0) return null
+  if (sources.length === 0) {
+    return null
+  }
 
   return (
     <div className="mt-3 flex flex-wrap gap-1.5">

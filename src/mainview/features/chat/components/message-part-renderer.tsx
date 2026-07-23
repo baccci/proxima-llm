@@ -1,5 +1,6 @@
 import { type MessagePart, PartKind } from '@shared/schemas/message.schema'
 import { isSilentTool } from '@shared/tools/tool-catalog'
+import { formatBytes } from '@utils/format-bytes'
 import { IconFileText } from '@/components/icons/icon-file-text'
 import { useAttachment } from '@/features/chat/attachment.api'
 import { ToolCallBlock } from '@/features/chat/components/tool-call-block'
@@ -50,13 +51,13 @@ function FilePartRenderer({ attachmentId }: { attachmentId: string }) {
   }
 
   const name = data?.name ?? `${attachmentId.slice(0, 8)}…`
-  const sizeKb = data ? Math.round(data.byteSize / 1024) : null
+  const size = data ? formatBytes(data.byteSize) : null
 
   return (
     <div className="my-2 inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted">
       <IconFileText width={13} className="text-selected-foreground shrink-0" />
       <span className="truncate max-w-[160px]">{name}</span>
-      {sizeKb !== null && <span className="text-subtle shrink-0 text-xs">{sizeKb}KB</span>}
+      {size !== null && <span className="text-subtle shrink-0 text-xs">{size}</span>}
     </div>
   )
 }
@@ -84,7 +85,9 @@ export function MessagePartRenderer({
   }
 
   if (part.type === PartKind.enum['tool-call']) {
-    if (isSilentTool(part.toolName)) return null
+    if (isSilentTool(part.toolName)) {
+      return null
+    }
     const result = allParts?.find(
       (p): p is Extract<MessagePart, { type: 'tool-result' }> =>
         p.type === PartKind.enum['tool-result'] && p.toolCallId === part.toolCallId,

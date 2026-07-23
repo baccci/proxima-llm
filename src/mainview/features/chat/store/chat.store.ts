@@ -140,7 +140,9 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   appendTextDelta: (delta) =>
     set((s) => {
-      if (!s.streaming) return {}
+      if (!s.streaming) {
+        return {}
+      }
       return {
         streaming: {
           ...s.streaming,
@@ -152,7 +154,9 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   appendReasoningDelta: (delta) =>
     set((s) => {
-      if (!s.streaming) return {}
+      if (!s.streaming) {
+        return {}
+      }
       return {
         streaming: {
           ...s.streaming,
@@ -164,7 +168,9 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   addToolCall: (toolCallId, toolName, input) =>
     set((s) => {
-      if (!s.streaming) return {}
+      if (!s.streaming) {
+        return {}
+      }
       const toolCalls = upsertToolCall(
         s.streaming.toolCalls,
         toolCallId,
@@ -176,7 +182,9 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   resolveToolCall: (toolCallId, output) =>
     set((s) => {
-      if (!s.streaming) return {}
+      if (!s.streaming) {
+        return {}
+      }
       return {
         streaming: {
           ...s.streaming,
@@ -189,7 +197,9 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   setToolCallAwaitingApproval: (toolCallId, toolName, input) =>
     set((s) => {
-      if (!s.streaming) return {}
+      if (!s.streaming) {
+        return {}
+      }
       const toolCalls = upsertToolCall(
         s.streaming.toolCalls,
         toolCallId,
@@ -201,7 +211,9 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   finishStreaming: () =>
     set((s) => {
-      if (!s.streaming) return {}
+      if (!s.streaming) {
+        return {}
+      }
       return {
         streaming: {
           ...s.streaming,
@@ -213,13 +225,17 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   addSource: (url, title) =>
     set((s) => {
-      if (!s.streaming) return {}
+      if (!s.streaming) {
+        return {}
+      }
       return { streaming: { ...s.streaming, sources: [...s.streaming.sources, { url, title }] } }
     }),
 
   setCompacting: (active) =>
     set((s) => {
-      if (!s.streaming) return {}
+      if (!s.streaming) {
+        return {}
+      }
       return { streaming: { ...s.streaming, compacting: active } }
     }),
 
@@ -227,7 +243,9 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   setStreamingError: (error) =>
     set((s) => {
-      if (!s.streaming) return {}
+      if (!s.streaming) {
+        return {}
+      }
       return { streaming: { ...s.streaming, done: true, error } }
     }),
 
@@ -244,7 +262,11 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
 export function streamingToParts(msg: StreamingMessage): MessagePart[] {
   const parts: MessagePart[] = []
-  if (msg.reasoningParts) parts.push({ type: PartKind.enum.reasoning, text: msg.reasoningParts })
-  if (msg.textParts) parts.push({ type: PartKind.enum.text, text: msg.textParts })
+  if (msg.reasoningParts) {
+    parts.push({ type: PartKind.enum.reasoning, text: msg.reasoningParts })
+  }
+  if (msg.textParts) {
+    parts.push({ type: PartKind.enum.text, text: msg.textParts })
+  }
   return parts
 }

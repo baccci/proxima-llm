@@ -2,6 +2,7 @@ import type { ChatDTO } from '@shared/schemas/chat.schema'
 import { type MessageDTO, PartKind } from '@shared/schemas/message.schema'
 import { isSilentTool } from '@shared/tools/tool-catalog'
 import { ToolDecision } from '@shared/tools/tool-policy'
+import { formatSeconds } from '@utils/format-duration'
 import React from 'react'
 import { IconChevronDown } from '@/components/icons/icon-chevron-down'
 import { useAutoScroll } from '@/features/chat/hooks/use-auto-scroll'
@@ -39,7 +40,7 @@ function StreamingMessageView({ streaming }: StreamingMessageViewProps) {
           tokenEstimate={Math.ceil(streaming.reasoningParts.length / CHARS_PER_TOKEN)}
           durationLabel={
             streaming.reasoningStartedAt && streaming.reasoningEndedAt
-              ? `${Math.round((streaming.reasoningEndedAt - streaming.reasoningStartedAt) / 1000)}s`
+              ? formatSeconds(streaming.reasoningEndedAt - streaming.reasoningStartedAt)
               : undefined
           }
         />
@@ -102,15 +103,19 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: MessageL
   })
 
   // The id of the last message covered by the rolling summary. Everything up to
-  // and including it is sent to the model as a compact summary, not in full — we
-  // render a divider after it so the boundary is visible. The DB still keeps
-  // every message, so the full history stays readable above the line.
+  // and including it is sent to the model as a compact summary, not in full, so we
+  // render a divider after it to mark the boundary. The DB still keeps every
+  // message, so the full history stays readable above the line.
   const compactedThroughId = React.useMemo(() => {
-    if (!compactedThroughAt) return null
+    if (!compactedThroughAt) {
+      return null
+    }
     let id: string | null = null
     for (const m of messages) {
-      if (m.createdAt <= compactedThroughAt) id = m.id
-      else break
+      if (m.createdAt > compactedThroughAt) {
+        break
+      }
+      id = m.id
     }
     return id
   }, [messages, compactedThroughAt])
@@ -138,7 +143,7 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: MessageL
             </React.Fragment>
           ))}
 
-          {/* Compaction label — auto (during a stream) or manual (ring click). */}
+          {/* Compaction label, auto (during a stream) or manual (ring click). */}
           {showCompacting && (
             <div className="mb-6 flex items-center gap-2 text-sm text-subtle">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-subtle animate-pulse" />

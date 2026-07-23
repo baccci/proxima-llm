@@ -33,15 +33,19 @@ export function ChatView() {
   const model = allModels.find((m) => m.id === chat?.modelId)
 
   const exchanges = React.useMemo(() => groupIntoExchanges(messages), [messages])
-  // Dev-tools token faker — null in prod (the panel that sets it never mounts).
+  // Dev-tools token faker, null in prod (the panel that sets it never mounts).
   const forcedTokens = useDevtoolsStore((s) => s.forcedTokens)
   const ctxUsage = React.useMemo(() => {
     const base = getContextUsage(messages, model)
-    if (forcedTokens == null) return base
+    if (forcedTokens == null) {
+      return base
+    }
     // Synthesize usage when there's no real turn yet, so the faker drives the
     // ring/counter even on a chat with no assistant reply.
     const limit = model?.capabilities.contextWindow
-    if (!limit) return base
+    if (!limit) {
+      return base
+    }
     return {
       used: forcedTokens,
       limit,
@@ -89,7 +93,7 @@ export function ChatView() {
 
   return (
     <main className="relative isolate flex flex-col flex-1 min-w-0 h-full overflow-hidden">
-      {/* Header — absolute overlay so messages scroll under it and fade out.
+      {/* Header, an absolute overlay so messages scroll under it and fade out.
           pointer-events-none lets clicks pass through the transparent lower
           edge to the messages beneath; the interactive clusters re-enable them.
           Dragging is handled by the full-width fixed handle in app.tsx. */}
@@ -110,7 +114,7 @@ export function ChatView() {
         </div>
         <div className="flex-1" />
         {/* relative z-sticky raises this above the full-width fixed drag overlay in app.tsx (h-14),
-            which otherwise intercepts the click — same pattern as the sidebar-toggle button. */}
+            which otherwise intercepts the click, same pattern as the sidebar-toggle button. */}
         <div className="relative z-10 pointer-events-auto electrobun-webkit-app-region-no-drag flex items-center gap-1">
           <button
             onClick={handleEnterFocusMode}

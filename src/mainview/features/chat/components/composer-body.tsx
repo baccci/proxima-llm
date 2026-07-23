@@ -119,9 +119,9 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
       const message = errorMessage(err, 'Something went wrong')
       if (createdId) {
         failStreaming(message)
-      } else {
-        setText(content)
+        return
       }
+      setText(content)
     }
   }
 

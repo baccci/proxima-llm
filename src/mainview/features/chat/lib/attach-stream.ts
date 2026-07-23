@@ -29,28 +29,38 @@ export function attachToStream(
   startStreaming(streamId, assistantMessageId)
 
   return subscribeToStream(streamId, (chunk) => {
-    if (chunk.kind === STREAM_CHUNK_KIND.textDelta) {
-      appendTextDelta(chunk.delta)
-    } else if (chunk.kind === STREAM_CHUNK_KIND.reasoningDelta) {
-      appendReasoningDelta(chunk.delta)
-    } else if (chunk.kind === STREAM_CHUNK_KIND.source) {
-      addSource(chunk.url, chunk.title)
-    } else if (chunk.kind === STREAM_CHUNK_KIND.toolCall) {
-      addToolCall(chunk.toolCallId, chunk.toolName, chunk.input)
-    } else if (chunk.kind === STREAM_CHUNK_KIND.toolResult) {
-      resolveToolCall(chunk.toolCallId, chunk.output)
-    } else if (chunk.kind === STREAM_CHUNK_KIND.toolApprovalRequest) {
-      setToolCallAwaitingApproval(chunk.toolCallId, chunk.toolName, chunk.input)
-    } else if (chunk.kind === STREAM_CHUNK_KIND.compacting) {
-      setCompacting(chunk.active)
-    } else if (chunk.kind === STREAM_CHUNK_KIND.done) {
-      finishStreaming()
-      chat.invalidateMessages(chunk.message?.chatId ?? chatId)
-      chat.invalidateCompaction(chunk.message?.chatId ?? chatId)
-      chat.invalidateList()
-    } else if (chunk.kind === STREAM_CHUNK_KIND.error) {
-      setStreamingError(chunk.error)
-      chat.invalidateMessages(chatId)
+    switch (chunk.kind) {
+      case STREAM_CHUNK_KIND.textDelta:
+        appendTextDelta(chunk.delta)
+        break
+      case STREAM_CHUNK_KIND.reasoningDelta:
+        appendReasoningDelta(chunk.delta)
+        break
+      case STREAM_CHUNK_KIND.source:
+        addSource(chunk.url, chunk.title)
+        break
+      case STREAM_CHUNK_KIND.toolCall:
+        addToolCall(chunk.toolCallId, chunk.toolName, chunk.input)
+        break
+      case STREAM_CHUNK_KIND.toolResult:
+        resolveToolCall(chunk.toolCallId, chunk.output)
+        break
+      case STREAM_CHUNK_KIND.toolApprovalRequest:
+        setToolCallAwaitingApproval(chunk.toolCallId, chunk.toolName, chunk.input)
+        break
+      case STREAM_CHUNK_KIND.compacting:
+        setCompacting(chunk.active)
+        break
+      case STREAM_CHUNK_KIND.done:
+        finishStreaming()
+        chat.invalidateMessages(chunk.message?.chatId ?? chatId)
+        chat.invalidateCompaction(chunk.message?.chatId ?? chatId)
+        chat.invalidateList()
+        break
+      case STREAM_CHUNK_KIND.error:
+        setStreamingError(chunk.error)
+        chat.invalidateMessages(chatId)
+        break
     }
   })
 }

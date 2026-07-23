@@ -37,11 +37,13 @@ export const chat = {
   },
 
   update: async (input: UpdateChatInput) => {
-    // Optimistic update — merge patch into every cached chat list immediately
+    // Optimistically merge the patch into every cached chat list.
     const snapshots = queryClient.getQueriesData<ChatDTO[]>({ queryKey: queryKeys.chatsAll() })
     queryClient.setQueriesData<ChatDTO[]>({ queryKey: queryKeys.chatsAll() }, (old) =>
       old?.map((c) => {
-        if (c.id !== input.id) return c
+        if (c.id !== input.id) {
+          return c
+        }
         return {
           ...c,
           ...(input.modelId !== undefined ? { modelId: input.modelId } : {}),
@@ -102,13 +104,15 @@ export const chat = {
     attachments: OptimisticAttachment[] = [],
   ) => {
     const parts: MessagePart[] = []
-    if (content) parts.push({ type: PartKind.enum.text, text: content })
+    if (content) {
+      parts.push({ type: PartKind.enum.text, text: content })
+    }
     for (const att of attachments) {
       if (att.kind === AttachmentKind.enum.image) {
         parts.push({ type: PartKind.enum.image, attachmentId: att.id })
-      } else {
-        parts.push({ type: PartKind.enum.file, attachmentId: att.id, mediaType: att.mediaType })
+        continue
       }
+      parts.push({ type: PartKind.enum.file, attachmentId: att.id, mediaType: att.mediaType })
     }
     const optimistic: MessageDTO = {
       id: `optimistic-${Date.now()}`,

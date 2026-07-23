@@ -12,8 +12,12 @@ type ThinkingBlockProps = {
 }
 
 function thinkingLabel(active: boolean | undefined, durationLabel: string | undefined) {
-  if (active) return 'Thinking…'
-  if (durationLabel) return `Thought for ${durationLabel}`
+  if (active) {
+    return 'Thinking…'
+  }
+  if (durationLabel) {
+    return `Thought for ${durationLabel}`
+  }
   return 'Thought'
 }
 
@@ -24,8 +28,8 @@ export function ThinkingBlock({
   durationLabel,
   tokenEstimate,
 }: ThinkingBlockProps) {
-  const { thinkingExpanded, setThinkingExpanded } = useChatStore()
-  const expanded = thinkingExpanded[messageId] ?? false
+  const expanded = useChatStore((s) => s.thinkingExpanded[messageId] ?? false)
+  const setThinkingExpanded = useChatStore((s) => s.setThinkingExpanded)
 
   const label = thinkingLabel(active, durationLabel)
 
