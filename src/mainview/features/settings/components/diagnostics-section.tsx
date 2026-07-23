@@ -1,5 +1,6 @@
+import { useMutation } from '@tanstack/react-query'
 import { cn } from '@utils/tailwind-class-merge'
-import React from 'react'
+import type React from 'react'
 import { useLogInfo } from '@/features/settings/hooks/use-log-info'
 import { logs } from '@/features/settings/settings.api'
 
@@ -9,26 +10,16 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const btnClass = cn(
-  'flex-1 py-2 rounded-lg border text-sm transition-colors cursor-pointer',
-  'border-border text-muted hover:bg-surface-hover hover:text-foreground',
-)
-
 export function DiagnosticsSection() {
   const { data: logInfo } = useLogInfo()
-  const [clearing, setClearing] = React.useState(false)
+  const clearMutation = useMutation({ mutationFn: () => logs.clear() })
 
   const sizeLabel =
     logInfo != null ? `Logs using ${formatBytes(logInfo.sizeBytes)}` : 'Calculating…'
 
-  async function handleClear() {
+  function handleClear() {
     if (!window.confirm('Delete all log files? This cannot be undone.')) return
-    setClearing(true)
-    try {
-      await logs.clear()
-    } finally {
-      setClearing(false)
-    }
+    clearMutation.mutate()
   }
 
   return (
@@ -36,16 +27,27 @@ export function DiagnosticsSection() {
       <label className="block text-sm font-medium text-foreground mb-1">Diagnostics</label>
       <p className="text-xs text-subtle mb-3">{sizeLabel}</p>
       <div className="flex gap-2">
-        <button className={btnClass} onClick={() => logs.openFolder()}>
-          Open logs folder
-        </button>
-        <button className={btnClass} onClick={() => logs.openFile()}>
-          Open today's log
-        </button>
-        <button className={btnClass} onClick={handleClear} disabled={clearing}>
-          {clearing ? 'Clearing…' : 'Clear logs'}
-        </button>
+        <DiagButton onClick={() => logs.openFolder()}>Open logs folder</DiagButton>
+        <DiagButton onClick={() => logs.openFile()}>Open today's log</DiagButton>
+        <DiagButton onClick={handleClear} disabled={clearMutation.isPending}>
+          {clearMutation.isPending ? 'Clearing…' : 'Clear logs'}
+        </DiagButton>
       </div>
     </div>
+  )
+}
+
+type DiagButtonProps = React.ComponentProps<'button'>
+
+function DiagButton({ className, ...props }: DiagButtonProps) {
+  return (
+    <button
+      className={cn(
+        'flex-1 py-2 rounded-lg border text-sm transition-colors cursor-pointer',
+        'border-border text-muted hover:bg-surface-hover hover:text-foreground',
+        className,
+      )}
+      {...props}
+    />
   )
 }

@@ -1,4 +1,4 @@
-import { PROVIDER_IDS, type ProviderId } from '@shared/providers/registry'
+import { ProviderId } from '@shared/providers/registry'
 import { useQuery } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-keys'
 import { electroview } from '@/lib/rpc.client'
@@ -10,18 +10,21 @@ export function useSettings() {
   })
 }
 
-export function useApiKeyStatus(provider: string) {
+export function useApiKeyStatus(provider: ProviderId) {
   return useQuery({
     queryKey: queryKeys.apiKey(provider),
     queryFn: () => electroview.rpc?.request.hasApiKey({ provider }),
   })
 }
 
+// One fixed useApiKeyStatus call per provider (rules of hooks forbid a loop). Keys and
+// arguments come from ProviderId.enum, so a reorder can't mismatch them and adding a
+// provider becomes a compile error on the Record below.
 export function useApiKeyStatuses(): Record<ProviderId, boolean> {
-  const { data: anthropic } = useApiKeyStatus(PROVIDER_IDS[0])
-  const { data: openrouter } = useApiKeyStatus(PROVIDER_IDS[1])
+  const { data: anthropic } = useApiKeyStatus(ProviderId.enum.anthropic)
+  const { data: openrouter } = useApiKeyStatus(ProviderId.enum.openrouter)
   return {
-    anthropic: anthropic?.configured ?? false,
-    openrouter: openrouter?.configured ?? false,
+    [ProviderId.enum.anthropic]: anthropic?.configured ?? false,
+    [ProviderId.enum.openrouter]: openrouter?.configured ?? false,
   }
 }

@@ -9,4 +9,9 @@ export const models = {
     queryClient.invalidateQueries({ queryKey: queryKeys.models() })
     return updated
   },
+
+  // Refresh the model catalog from OpenRouter. The refetch is push-driven: the bun side
+  // emits a post-sync event that invalidates the models + sync-info queries (rpc.client),
+  // so there is no manual invalidate here.
+  syncModels: () => req().syncModels({}),
 }

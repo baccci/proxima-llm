@@ -12,8 +12,8 @@ import { Pagination } from '@/components/pagination'
 import { PROVIDER_LOGOS } from '@/entities/provider'
 import { useModelSyncInfo } from '@/features/models/hooks/use-model-sync-info'
 import { useModels } from '@/features/models/hooks/use-models'
-import { settings } from '@/features/settings/settings.api'
 import { useIsDark } from '@/hooks/use-is-dark'
+import { models } from '../models.api'
 import { MARKETPLACE_MODAL_ID } from './marketplace.constants'
 import { ModelCard } from './model-card'
 
@@ -149,7 +149,7 @@ function ProviderTab({ provider, selected, isDark, onSelect }: ProviderTabProps)
 export function ModelsMarketplace() {
   const { data: allModels = [] } = useModels()
   const { data: syncInfo } = useModelSyncInfo()
-  const resync = useMutation({ mutationFn: () => settings.syncModels() })
+  const resync = useMutation({ mutationFn: () => models.syncModels() })
   const isDark = useIsDark()
   const [search, setSearch] = React.useState('')
   const [activeProvider, setActiveProvider] = React.useState<string | null>(null)

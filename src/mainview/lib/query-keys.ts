@@ -1,3 +1,4 @@
+import type { ProviderId } from '@shared/providers/registry'
 import type { MemoryScope } from '@shared/schemas/memory-slice.schema'
 
 export const queryKeys = {
@@ -7,7 +8,7 @@ export const queryKeys = {
   messages: (chatId: string) => ['messages', chatId] as const,
   compaction: (chatId: string) => ['compaction', chatId] as const,
   settings: () => ['settings'] as const,
-  apiKey: (provider: string) => ['apiKey', provider] as const,
+  apiKey: (provider: ProviderId) => ['apiKey', provider] as const,
   toolPolicies: () => ['toolPolicies'] as const,
   controlTokens: () => ['controlTokens'] as const,
   modelSyncInfo: () => ['modelSyncInfo'] as const,

@@ -16,6 +16,7 @@ const THEMES: { value: Theme; label: string; icon: React.ReactNode }[] = [
 
 export function AppearanceSection() {
   const { data: currentSettings } = useSettings()
+  const sendOnEnter = currentSettings?.sendOnEnter ?? true
 
   function patch(input: UpdateSettingsInput) {
     settings.update(input)
@@ -40,8 +41,8 @@ export function AppearanceSection() {
           <p className="text-xs text-subtle mt-0.5">When off, use ⌘+Enter to send</p>
         </div>
         <Switch
-          checked={currentSettings?.sendOnEnter ?? true}
-          onChange={() => patch({ sendOnEnter: !(currentSettings?.sendOnEnter ?? true) })}
+          checked={sendOnEnter}
+          onChange={() => patch({ sendOnEnter: !sendOnEnter })}
           aria-label="Send on Enter"
         />
       </div>

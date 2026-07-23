@@ -4,16 +4,17 @@ import {
   TOOL_GROUPS,
   type ToolGroup,
 } from '@shared/tools/tool-catalog'
+import { ToolPolicy } from '@shared/tools/tool-policy'
 import { SegmentedControl } from '@/components/segmented-control'
 import { useSetToolPolicy, useToolPolicies } from '@/features/settings/hooks/use-tool-policies'
 import { SectionLabel } from './section-label'
 
-type Policy = 'allow' | 'ask' | 'deny'
-
-const POLICY_OPTIONS: { value: Policy; label: string }[] = [
-  { value: 'allow', label: 'Allow' },
-  { value: 'ask', label: 'Ask' },
-  { value: 'deny', label: 'Deny' },
+// Display order for the segmented control. Values come from the ToolPolicy schema; the schema's
+// own order differs, so the tokens are named individually to keep this layout stable.
+const POLICY_OPTIONS: { value: ToolPolicy; label: string }[] = [
+  { value: ToolPolicy.enum.allow, label: 'Allow' },
+  { value: ToolPolicy.enum.ask, label: 'Ask' },
+  { value: ToolPolicy.enum.deny, label: 'Deny' },
 ]
 
 const GROUP_ORDER = Object.keys(TOOL_GROUPS) as ToolGroup[]
@@ -39,7 +40,8 @@ export function ToolsSection() {
         <div key={group} className="space-y-3">
           <SectionLabel>{label}</SectionLabel>
           {tools.map((tool) => {
-            const current = policies.find((p) => p.name === tool.name)?.policy ?? 'ask'
+            const current =
+              policies.find((p) => p.name === tool.name)?.policy ?? ToolPolicy.enum.ask
 
             return (
               <div key={tool.name} className="flex items-center justify-between gap-4">
