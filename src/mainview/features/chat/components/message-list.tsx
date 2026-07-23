@@ -4,6 +4,7 @@ import { isSilentTool } from '@shared/tools/tool-catalog'
 import { ToolDecision } from '@shared/tools/tool-policy'
 import React from 'react'
 import { IconChevronDown } from '@/components/icons/icon-chevron-down'
+import { useAutoScroll } from '@/features/chat/hooks/use-auto-scroll'
 import { type StreamingMessage, useChatStore } from '@/features/chat/store/chat.store'
 import { rpcRequest } from '@/lib/rpc.client'
 import { MessageBubble } from './message-bubble'
@@ -95,29 +96,10 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: MessageL
   // Label shows for both auto-compaction (stream chunk) and a manual ring click
   // (store flag, no stream).
   const showCompacting = streaming?.compacting || compactingChatId === chatItem.id
-  const bottomRef = React.useRef<HTMLDivElement>(null)
-  const scrollRef = React.useRef<HTMLDivElement>(null)
-  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false)
-
-  function getDistanceFromBottom() {
-    const el = scrollRef.current
-    if (!el) return 0
-    return el.scrollHeight - el.scrollTop - el.clientHeight
-  }
-
-  const didInitRef = React.useRef(false)
-  React.useEffect(() => {
-    if (didInitRef.current || messages.length === 0) return
-    didInitRef.current = true
-    bottomRef.current?.scrollIntoView({ behavior: 'auto' })
-  }, [messages.length])
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: streaming?.textParts + messages.length are the triggers; getDistanceFromBottom reads stable refs
-  React.useEffect(() => {
-    if (getDistanceFromBottom() < 120) {
-      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
-    }
-  }, [streaming?.textParts, messages.length])
+  const { scrollRef, bottomRef, showScrollToBottom, handleScroll, scrollToBottom } = useAutoScroll({
+    messageCount: messages.length,
+    streamingText: streaming?.textParts,
+  })
 
   // The id of the last message covered by the rolling summary. Everything up to
   // and including it is sent to the model as a compact summary, not in full — we
@@ -132,14 +114,6 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: MessageL
     }
     return id
   }, [messages, compactedThroughAt])
-
-  function handleScroll() {
-    setShowScrollToBottom(getDistanceFromBottom() > 120)
-  }
-
-  function scrollToBottom() {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
 
   return (
     <div className="relative flex-1 min-h-0">

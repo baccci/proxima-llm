@@ -13,6 +13,7 @@ import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
 import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-textarea'
 import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachments'
 import { useStreamingMessage } from '@/features/chat/hooks/use-streaming-message'
+import { sendTurn } from '@/features/chat/lib/send-turn'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useModels } from '@/features/models/hooks/use-models'
 import { useApiKeyStatuses, useSettings } from '@/features/settings/hooks/use-settings'
@@ -102,31 +103,18 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
       createdId = created.id
       selectChat(created.id)
 
-      const attachmentIds = await flush(created.id)
-      clear()
-
-      chat.addOptimisticUserMessage(
-        created.id,
-        content,
-        pending.map((att, i) => ({
-          id: attachmentIds[i],
-          kind: att.kind,
-          mediaType: att.mediaType,
-        })),
-      )
-
-      const { streamId, assistantMessageId } = await chat.sendMessage({
+      await sendTurn({
         chatId: created.id,
-        modelId,
         content,
+        modelId,
         thinking: thinkingEnabled && canThink,
         webSearch: browserEnabled && canBrowse,
         effort: effortValue,
-        attachmentIds,
+        pending,
+        flush,
+        clear,
+        send,
       })
-
-      chat.invalidateMessages(created.id)
-      await send(streamId, assistantMessageId)
     } catch (err) {
       const message = errorMessage(err, 'Something went wrong')
       if (createdId) {

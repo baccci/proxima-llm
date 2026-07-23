@@ -16,6 +16,7 @@ import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-tex
 import { useCompactNow } from '@/features/chat/hooks/use-compact-now'
 import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachments'
 import { useStreamingMessage } from '@/features/chat/hooks/use-streaming-message'
+import { sendTurn } from '@/features/chat/lib/send-turn'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useModels } from '@/features/models/hooks/use-models'
 import { useSettings } from '@/features/settings/hooks/use-settings'
@@ -84,32 +85,18 @@ export function MessageInput({
     resetTextarea()
 
     try {
-      const attachmentIds = await flush(chatId)
-      clear()
-
-      chat.addOptimisticUserMessage(
+      await sendTurn({
         chatId,
         content,
-        pending.map((att, i) => ({
-          id: attachmentIds[i],
-          kind: att.kind,
-          mediaType: att.mediaType,
-        })),
-      )
-
-      const { streamId, assistantMessageId } = await chat.sendMessage({
-        chatId,
         modelId: currentModelId,
-        content,
         thinking: thinkingEnabled && canThink,
         webSearch: browserEnabled && canBrowse,
         effort: effortValue,
-        attachmentIds,
+        pending,
+        flush,
+        clear,
+        send,
       })
-
-      chat.invalidateMessages(chatId)
-      chat.invalidateList()
-      await send(streamId, assistantMessageId)
     } catch (err) {
       failStreaming(errorMessage(err, 'Something went wrong'))
     }
