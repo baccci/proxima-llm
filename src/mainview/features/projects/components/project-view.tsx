@@ -14,7 +14,7 @@ import { FilesCard } from './files-card'
 import { MemoriesCard } from './memories-card'
 import { ProjectAppearancePicker } from './project-appearance-picker'
 
-interface Props {
+type ProjectViewProps = {
   projectId: string
 }
 
@@ -100,7 +100,7 @@ function EditAppearanceButton({ project }: { project: ProjectDTO }) {
   )
 }
 
-export function ProjectView({ projectId }: Props) {
+export function ProjectView({ projectId }: ProjectViewProps) {
   const { data: projects = [] } = useProjects()
   const { data: chats = [] } = useChats(projectId)
   const sidebarOpen = useChatStore((s) => s.sidebarOpen)

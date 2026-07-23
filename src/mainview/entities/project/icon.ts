@@ -16,6 +16,11 @@ export const PROJECT_ICON_KEYS = [
   'bot',
 ] as const
 
+export type ProjectIconKey = (typeof PROJECT_ICON_KEYS)[number]
+
+// The default icon key: the first entry, shown when a project has no icon set.
+export const DEFAULT_ICON_KEY: ProjectIconKey = PROJECT_ICON_KEYS[0]
+
 // Icon color override is stored as an 8-digit hex (#RRGGBBAA) so a single column
 // carries both hue and opacity. null means "inherit the palette's fr".
 

@@ -1,4 +1,8 @@
-import { type MemoryScope, MemorySource } from '@shared/schemas/memory-slice.schema'
+import {
+  type MemoryScope,
+  type MemorySliceDTO,
+  MemorySource,
+} from '@shared/schemas/memory-slice.schema'
 import React from 'react'
 import { useForm } from 'react-hook-form'
 import { Badge } from '@/components/badge'
@@ -13,21 +17,53 @@ import {
   useUpsertMemorySlice,
 } from '../hooks/use-memory-slices'
 
-interface Props {
+// The editing target when the "add memory" form is open for a brand-new slice
+// that has no id yet. Distinguishes "creating" from editing an existing slice's id.
+const DRAFT_ID = 'new' as const
+
+type MemorySliceListProps = {
   scope: MemoryScope
   projectId: string | null
 }
 
-interface SliceFormFields {
+type SliceFormFields = {
   title: string
   content: string
 }
 
-export function MemorySliceList({ scope, projectId }: Props) {
+type SliceRowProps = {
+  slice: MemorySliceDTO
+  onEdit: () => void
+  onRemove: () => void
+}
+
+function SliceRow({ slice, onEdit, onRemove }: SliceRowProps) {
+  return (
+    <div className="group flex items-start gap-2 p-3 rounded-lg border border-border bg-surface">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground truncate">{slice.title}</span>
+          {slice.source === MemorySource.enum.model && <Badge variant="brand">AI</Badge>}
+        </div>
+        <p className="text-xs text-muted mt-0.5 line-clamp-2 leading-relaxed">{slice.content}</p>
+      </div>
+      <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onEdit}>
+          <IconPencil width={13} />
+        </Button>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onRemove}>
+          <IconTrash width={13} />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+export function MemorySliceList({ scope, projectId }: MemorySliceListProps) {
   const { data: slices = [] } = useMemorySlices(scope, projectId)
   const upsert = useUpsertMemorySlice()
   const remove = useDeleteMemorySlice()
-  const [editingId, setEditingId] = React.useState<string | 'new' | null>(null)
+  const [editingId, setEditingId] = React.useState<string | typeof DRAFT_ID | null>(null)
 
   const {
     register,
@@ -38,10 +74,10 @@ export function MemorySliceList({ scope, projectId }: Props) {
 
   function openNew() {
     reset({ title: '', content: '' })
-    setEditingId('new')
+    setEditingId(DRAFT_ID)
   }
 
-  function openEdit(slice: { id: string; title: string; content: string }) {
+  function openEdit(slice: MemorySliceDTO) {
     reset({ title: slice.title, content: slice.content })
     setEditingId(slice.id)
   }
@@ -53,7 +89,7 @@ export function MemorySliceList({ scope, projectId }: Props) {
 
   async function onSubmit(data: SliceFormFields) {
     await upsert.mutateAsync({
-      id: editingId !== 'new' ? (editingId ?? undefined) : undefined,
+      id: editingId !== DRAFT_ID ? (editingId ?? undefined) : undefined,
       scope,
       projectId,
       title: data.title,
@@ -92,37 +128,16 @@ export function MemorySliceList({ scope, projectId }: Props) {
         editingId === slice.id ? (
           <div key={slice.id}>{sliceEditor}</div>
         ) : (
-          <div
+          <SliceRow
             key={slice.id}
-            className="group flex items-start gap-2 p-3 rounded-lg border border-border bg-surface"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground truncate">{slice.title}</span>
-                {slice.source === MemorySource.enum.model && <Badge variant="brand">AI</Badge>}
-              </div>
-              <p className="text-xs text-muted mt-0.5 line-clamp-2 leading-relaxed">
-                {slice.content}
-              </p>
-            </div>
-            <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button type="button" variant="ghost" size="icon-sm" onClick={() => openEdit(slice)}>
-                <IconPencil width={13} />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => remove.mutate({ id: slice.id, scope, projectId })}
-              >
-                <IconTrash width={13} />
-              </Button>
-            </div>
-          </div>
+            slice={slice}
+            onEdit={() => openEdit(slice)}
+            onRemove={() => remove.mutate({ id: slice.id, scope, projectId })}
+          />
         ),
       )}
 
-      {editingId === 'new' && sliceEditor}
+      {editingId === DRAFT_ID && sliceEditor}
 
       {editingId === null && (
         <Button type="button" variant="ghost" size="sm" onClick={openNew} className="self-start">

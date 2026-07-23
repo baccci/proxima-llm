@@ -1,11 +1,11 @@
 import { MemoryScope } from '@shared/schemas/memory-slice.schema'
 import { DialogContent, DialogRoot, DialogTrigger } from '@/components/dialog'
 import { IconBrain } from '@/components/icons/icon-brain'
-import { useMemorySlices } from '../hooks/use-memory-slices'
+import { MemorySliceList } from '@/features/memory/components/memory-slice-list'
+import { useMemorySlices } from '@/features/memory/hooks/use-memory-slices'
 import { useMemorySummary } from '../hooks/use-memory-summary'
-import { MemorySliceList } from './memory-slice-list'
 
-interface Props {
+type MemoriesCardProps = {
   projectId: string
 }
 
@@ -31,7 +31,7 @@ function MemoriesPreview({ hasMemories, summary, sliceCount }: MemoriesPreviewPr
   )
 }
 
-export function MemoriesCard({ projectId }: Props) {
+export function MemoriesCard({ projectId }: MemoriesCardProps) {
   const { data: slices = [] } = useMemorySlices(MemoryScope.enum.project, projectId)
   const { data } = useMemorySummary(projectId)
   const summary = data?.summary ?? null

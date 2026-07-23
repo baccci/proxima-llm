@@ -14,8 +14,12 @@ const ACCEPT =
   '.md,.txt,.json,.csv,.ts,.tsx,.js,.jsx,.py,.rb,.go,.rs,.java,.kt,.swift,.c,.cpp,.h,.cs,.php,.sh,.yaml,.yml,.toml,.sql'
 
 function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024)} KB`
+  }
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
@@ -27,11 +31,11 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
-interface Props {
+type FilesCardProps = {
   projectId: string
 }
 
-export function FilesCard({ projectId }: Props) {
+export function FilesCard({ projectId }: FilesCardProps) {
   const { data: files = [] } = useProjectFiles(projectId)
   const addFile = useAddProjectFile()
   const deleteFile = useDeleteProjectFile()

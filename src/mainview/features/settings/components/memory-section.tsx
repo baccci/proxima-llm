@@ -1,5 +1,5 @@
 import { MemoryScope } from '@shared/schemas/memory-slice.schema'
-import { MemorySliceList } from '@/features/projects/components/memory-slice-list'
+import { MemorySliceList } from '@/features/memory/components/memory-slice-list'
 
 export function MemorySection() {
   return (
