@@ -1,6 +1,7 @@
 import type { ProjectDTO } from '@shared/schemas/project.schema'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
+import { useForm } from 'react-hook-form'
 import { Button } from '@/components/button'
 import { DialogContent, DialogRoot } from '@/components/dialog'
 import { IconPencil } from '@/components/icons/icon-pencil'
@@ -18,43 +19,20 @@ type ProjectViewProps = {
   projectId: string
 }
 
+type EditProjectFields = {
+  name: string
+  description: string
+}
+
 function EditAppearanceButton({ project }: { project: ProjectDTO }) {
   const [open, setOpen] = React.useState(false)
-  const [name, setName] = React.useState(project.name)
-  const [description, setDescription] = React.useState(project.description ?? '')
-  const [icon, setIcon] = React.useState<string | null>(project.icon)
-  const [palette, setPalette] = React.useState<string | null>(project.palette)
-  const [iconColor, setIconColor] = React.useState<string | null>(project.iconColor)
-
-  function openDialog() {
-    setName(project.name)
-    setDescription(project.description ?? '')
-    setIcon(project.icon)
-    setPalette(project.palette)
-    setIconColor(project.iconColor)
-    setOpen(true)
-  }
-
-  async function save() {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    await projectsApi.update({
-      id: project.id,
-      name: trimmed,
-      description: description.trim() || undefined,
-      icon,
-      palette,
-      iconColor,
-    })
-    setOpen(false)
-  }
 
   return (
     <>
       <Button
         variant="ghost"
         size="icon-sm"
-        onClick={openDialog}
+        onClick={() => setOpen(true)}
         className="shrink-0 electrobun-webkit-app-region-no-drag"
       >
         <IconPencil width={14} />
@@ -64,39 +42,80 @@ function EditAppearanceButton({ project }: { project: ProjectDTO }) {
           title="Edit project"
           description="Update this project's details and appearance."
         >
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted">Name</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted">Purpose</label>
-              <Input
-                placeholder="What will you use this project for? (optional)"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-            <ProjectAppearancePicker
-              icon={icon}
-              palette={palette}
-              iconColor={iconColor}
-              onIconChange={setIcon}
-              onPaletteChange={setPalette}
-              onIconColorChange={setIconColor}
-            />
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="button" variant="brand" onClick={save}>
-                Save
-              </Button>
-            </div>
-          </div>
+          <EditProjectForm project={project} onClose={() => setOpen(false)} />
         </DialogContent>
       </DialogRoot>
     </>
+  )
+}
+
+type EditProjectFormProps = {
+  project: ProjectDTO
+  onClose: () => void
+}
+
+// Mounted only while the dialog is open (base-ui unmounts the popup on close), so
+// every open seeds fresh from the project via the initial state, and cancel just
+// closes: the form and its appearance draft reset by unmounting, no manual re-seed.
+function EditProjectForm({ project, onClose }: EditProjectFormProps) {
+  const [icon, setIcon] = React.useState<string | null>(project.icon)
+  const [palette, setPalette] = React.useState<string | null>(project.palette)
+  const [iconColor, setIconColor] = React.useState<string | null>(project.iconColor)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm<EditProjectFields>({
+    defaultValues: { name: project.name, description: project.description ?? '' },
+  })
+
+  async function onSubmit(data: EditProjectFields) {
+    const name = data.name.trim()
+    if (!name) {
+      return
+    }
+    await projectsApi.update({
+      id: project.id,
+      name,
+      description: data.description.trim() || undefined,
+      icon,
+      palette,
+      iconColor,
+    })
+    onClose()
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-muted">Name</label>
+        <Input {...register('name', { required: true })} />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-muted">Purpose</label>
+        <Input
+          placeholder="What will you use this project for? (optional)"
+          {...register('description')}
+        />
+      </div>
+      <ProjectAppearancePicker
+        icon={icon}
+        palette={palette}
+        iconColor={iconColor}
+        onIconChange={setIcon}
+        onPaletteChange={setPalette}
+        onIconColorChange={setIconColor}
+      />
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="brand" disabled={isSubmitting}>
+          Save
+        </Button>
+      </div>
+    </form>
   )
 }
 
