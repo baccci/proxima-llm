@@ -29,7 +29,3 @@ export function groupChatsByDate(chats: ChatDTO[]): ChatGroup[] {
     chats: groups.get(k)!,
   }))
 }
-
-export function chatTitle(chat: ChatDTO): string {
-  return chat.title || 'Untitled chat'
-}

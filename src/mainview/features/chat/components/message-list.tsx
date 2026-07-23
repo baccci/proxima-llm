@@ -4,7 +4,7 @@ import { isSilentTool } from '@shared/tools/tool-catalog'
 import { ToolDecision } from '@shared/tools/tool-policy'
 import React from 'react'
 import { IconChevronDown } from '@/components/icons/icon-chevron-down'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { type StreamingMessage, useChatStore } from '@/features/chat/store/chat.store'
 import { rpcRequest } from '@/lib/rpc.client'
 import { MessageBubble } from './message-bubble'
 import { MessagePartRenderer } from './message-part-renderer'
@@ -16,6 +16,77 @@ type MessageListProps = {
   messages: MessageDTO[]
   chatItem: ChatDTO
   compactedThroughAt?: string | null
+}
+
+// Rough token estimate for the live reasoning counter: about 4 characters per token.
+const CHARS_PER_TOKEN = 4
+
+type StreamingMessageViewProps = {
+  streaming: StreamingMessage
+}
+
+// The in-progress assistant turn: live reasoning, tool calls (awaiting approval or
+// resolved), the streaming text or a blinking cursor before the first token, and sources.
+function StreamingMessageView({ streaming }: StreamingMessageViewProps) {
+  return (
+    <div className="mb-6">
+      {streaming.reasoningParts && (
+        <ThinkingBlock
+          messageId={streaming.id}
+          reasoning={streaming.reasoningParts}
+          active={!!streaming.reasoningStartedAt && !streaming.reasoningEndedAt}
+          tokenEstimate={Math.ceil(streaming.reasoningParts.length / CHARS_PER_TOKEN)}
+          durationLabel={
+            streaming.reasoningStartedAt && streaming.reasoningEndedAt
+              ? `${Math.round((streaming.reasoningEndedAt - streaming.reasoningStartedAt) / 1000)}s`
+              : undefined
+          }
+        />
+      )}
+
+      {streaming.toolCalls
+        .filter((tc) => !isSilentTool(tc.toolName))
+        .map((tc) => (
+          <ToolCallBlock
+            key={tc.toolCallId}
+            toolName={tc.toolName}
+            input={tc.input}
+            output={tc.output}
+            awaitingApproval={tc.awaitingApproval}
+            onApprove={(remember) =>
+              rpcRequest().resolveToolApproval({
+                streamId: streaming.streamId,
+                toolCallId: tc.toolCallId,
+                decision: ToolDecision.enum.allow,
+                remember,
+              })
+            }
+            onDeny={(remember) =>
+              rpcRequest().resolveToolApproval({
+                streamId: streaming.streamId,
+                toolCallId: tc.toolCallId,
+                decision: ToolDecision.enum.deny,
+                remember,
+              })
+            }
+          />
+        ))}
+
+      <div className="text-base text-foreground leading-relaxed">
+        {streaming.textParts ? (
+          <MessagePartRenderer
+            part={{ type: PartKind.enum.text, text: streaming.textParts }}
+            streaming
+          />
+        ) : (
+          streaming.toolCalls.length === 0 && (
+            <span className="inline-block w-2 h-4 bg-brand rounded-sm animate-pulse" />
+          )
+        )}
+      </div>
+      <SourcesBlock sources={streaming.sources} />
+    </div>
+  )
 }
 
 export function MessageList({ messages, chatItem, compactedThroughAt }: MessageListProps) {
@@ -102,65 +173,7 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: MessageL
           )}
 
           {/* Streaming assistant message */}
-          {streaming && !streaming.done && (
-            <div className="mb-6">
-              {streaming.reasoningParts && (
-                <ThinkingBlock
-                  messageId={streaming.id}
-                  reasoning={streaming.reasoningParts}
-                  active={!!streaming.reasoningStartedAt && !streaming.reasoningEndedAt}
-                  tokenEstimate={Math.ceil(streaming.reasoningParts.length / 4)}
-                  durationLabel={
-                    streaming.reasoningStartedAt && streaming.reasoningEndedAt
-                      ? `${Math.round((streaming.reasoningEndedAt - streaming.reasoningStartedAt) / 1000)}s`
-                      : undefined
-                  }
-                />
-              )}
-
-              {streaming.toolCalls
-                .filter((tc) => !isSilentTool(tc.toolName))
-                .map((tc) => (
-                  <ToolCallBlock
-                    key={tc.toolCallId}
-                    toolName={tc.toolName}
-                    input={tc.input}
-                    output={tc.output}
-                    awaitingApproval={tc.awaitingApproval}
-                    onApprove={(remember) =>
-                      rpcRequest().resolveToolApproval({
-                        streamId: streaming.streamId,
-                        toolCallId: tc.toolCallId,
-                        decision: ToolDecision.enum.allow,
-                        remember,
-                      })
-                    }
-                    onDeny={(remember) =>
-                      rpcRequest().resolveToolApproval({
-                        streamId: streaming.streamId,
-                        toolCallId: tc.toolCallId,
-                        decision: ToolDecision.enum.deny,
-                        remember,
-                      })
-                    }
-                  />
-                ))}
-
-              <div className="text-base text-foreground leading-relaxed">
-                {streaming.textParts ? (
-                  <MessagePartRenderer
-                    part={{ type: PartKind.enum.text, text: streaming.textParts }}
-                    streaming
-                  />
-                ) : (
-                  streaming.toolCalls.length === 0 && (
-                    <span className="inline-block w-2 h-4 bg-brand rounded-sm animate-pulse" />
-                  )
-                )}
-              </div>
-              <SourcesBlock sources={streaming.sources} />
-            </div>
-          )}
+          {streaming && !streaming.done && <StreamingMessageView streaming={streaming} />}
 
           {/* Streaming error */}
           {streaming?.error && (

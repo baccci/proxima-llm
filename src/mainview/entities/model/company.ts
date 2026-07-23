@@ -1,5 +1,6 @@
 import { ProviderId } from '@shared/providers/registry'
 import type { ModelDTO } from '@shared/schemas/model.schema'
+import { capitalize } from '@utils/capitalize'
 
 const VENDOR_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
@@ -24,5 +25,5 @@ export function modelCompany(model: ModelDTO): string {
   }
 
   const vendor = model.id.split('/')[0] ?? model.provider
-  return VENDOR_LABELS[vendor] ?? vendor.charAt(0).toUpperCase() + vendor.slice(1)
+  return VENDOR_LABELS[vendor] ?? capitalize(vendor)
 }

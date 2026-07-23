@@ -1,6 +1,7 @@
 import { getProvider, isKnownProvider, PROVIDER_IDS, ProviderId } from '@shared/providers/registry'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import { useMutation } from '@tanstack/react-query'
+import { capitalize } from '@utils/capitalize'
 import { cn } from '@utils/tailwind-class-merge'
 import { relativeTime } from '@utils/time'
 import React from 'react'
@@ -26,7 +27,7 @@ function prettifyProvider(provider: string): string {
   if (isKnownProvider(provider)) {
     return getProvider(provider).label
   }
-  return provider.charAt(0).toUpperCase() + provider.slice(1)
+  return capitalize(provider)
 }
 
 // Brand meta + logo for a known provider; null for custom/unknown providers so

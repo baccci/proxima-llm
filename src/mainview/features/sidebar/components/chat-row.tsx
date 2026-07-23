@@ -4,7 +4,7 @@ import React from 'react'
 import { IconPin } from '@/components/icons/icon-pin'
 import { chat } from '@/features/chat/chat.api'
 import { ChatActionsMenu } from '@/features/chat/components/chat-actions-menu'
-import { chatTitle } from '@/features/sidebar/entities/helpers'
+import { chatTitle } from '@/features/chat/entities/chat-title'
 import { useMountEffect } from '@/hooks/use-mount-effect'
 
 type ChatRowProps = {

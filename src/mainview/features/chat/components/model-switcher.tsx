@@ -1,3 +1,4 @@
+import { capitalize } from '@utils/capitalize'
 import { formatTokens } from '@utils/format-tokens'
 import React from 'react'
 import {
@@ -44,7 +45,7 @@ export function ModelSwitcher({
 
   const selected = allModels.find((m) => m.id === modelId)
   const baseName = selected ? shortModelName(selected.displayName) : 'Select model'
-  const effortLabel = effort ? effort.charAt(0).toUpperCase() + effort.slice(1) : null
+  const effortLabel = effort ? capitalize(effort) : null
   const limit = selected?.capabilities.contextWindow ?? null
   const used = usedTokens ?? 0
 
@@ -82,7 +83,7 @@ export function ModelSwitcher({
           {Array.from(groups.entries()).map(([family, models], i) => (
             <React.Fragment key={family}>
               {i > 0 && <DropdownSeparator />}
-              <DropdownGroup label={family.charAt(0).toUpperCase() + family.slice(1)}>
+              <DropdownGroup label={capitalize(family)}>
                 {models.map((m) => (
                   <DropdownItem key={m.id} onClick={() => onChange(m.id)}>
                     <div className="flex items-center gap-1.5 min-w-0 w-full overflow-hidden">

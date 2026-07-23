@@ -2,6 +2,7 @@ import { formatTokens } from '@utils/format-tokens'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { IconMaximize } from '@/components/icons/icon-maximize'
+import { chatTitle } from '@/features/chat/entities/chat-title'
 import { getContextUsage } from '@/features/chat/entities/context-usage'
 import { useChats } from '@/features/chat/hooks/use-chats'
 import { useCompaction } from '@/features/chat/hooks/use-compaction'
@@ -105,9 +106,7 @@ export function ChatView() {
               <span className="text-subtle text-sm">/</span>
             </>
           )}
-          <span className="text-sm font-semibold text-foreground truncate">
-            {chat.title || 'Untitled chat'}
-          </span>
+          <span className="text-sm font-semibold text-foreground truncate">{chatTitle(chat)}</span>
         </div>
         <div className="flex-1" />
         {/* relative z-sticky raises this above the full-width fixed drag overlay in app.tsx (h-14),

@@ -5,6 +5,8 @@ export const queryKeys = {
   models: () => ['models'] as const,
   projects: () => ['projects'] as const,
   chats: (projectId: string | null) => ['chats', projectId] as const,
+  // Prefix key matching every chat list regardless of project, for broad invalidation.
+  chatsAll: () => ['chats'] as const,
   messages: (chatId: string) => ['messages', chatId] as const,
   compaction: (chatId: string) => ['compaction', chatId] as const,
   settings: () => ['settings'] as const,

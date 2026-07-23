@@ -6,6 +6,7 @@ import {
   extractSourceParts,
   extractTextParts,
 } from '@/features/chat/helpers/message-parts'
+import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-textarea'
 import { useMessageActions } from '@/features/chat/hooks/use-message-actions'
 import { messageToText } from '@/features/chat/lib/copy-message'
 import { MessageActions } from './message-actions'
@@ -34,9 +35,7 @@ export const MessageBubble = React.memo(function MessageBubble({
 
   const [editing, setEditing] = React.useState(false)
   const [editText, setEditText] = React.useState('')
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
-
-  const EDIT_MAX_H = 272
+  const { ref: textareaRef, autoResize } = useAutoResizeTextarea()
 
   function startEdit() {
     setEditText(messageToText(message.parts))
@@ -64,11 +63,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     }
   }
 
-  function autoResize(el: HTMLTextAreaElement) {
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, EDIT_MAX_H)}px`
-  }
-
   if (isUser) {
     return (
       <div className="group flex flex-col items-end mb-4">
@@ -79,7 +73,7 @@ export const MessageBubble = React.memo(function MessageBubble({
               value={editText}
               onChange={(e) => {
                 setEditText(e.target.value)
-                autoResize(e.target)
+                autoResize()
               }}
               onKeyDown={handleEditKeyDown}
               rows={3}

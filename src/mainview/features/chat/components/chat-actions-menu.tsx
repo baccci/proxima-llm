@@ -17,8 +17,8 @@ import { IconPin } from '@/components/icons/icon-pin'
 import { IconPinOff } from '@/components/icons/icon-pin-off'
 import { IconTrash } from '@/components/icons/icon-trash'
 import { chat } from '@/features/chat/chat.api'
+import { chatTitle } from '@/features/chat/entities/chat-title'
 import { useChatStore } from '@/features/chat/store/chat.store'
-import { chatTitle } from '@/features/sidebar/entities/helpers'
 
 type ChatActionsMenuProps = {
   chatItem: ChatDTO

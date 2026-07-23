@@ -38,8 +38,8 @@ export const chat = {
 
   update: async (input: UpdateChatInput) => {
     // Optimistic update — merge patch into every cached chat list immediately
-    const snapshots = queryClient.getQueriesData<ChatDTO[]>({ queryKey: ['chats'] })
-    queryClient.setQueriesData<ChatDTO[]>({ queryKey: ['chats'] }, (old) =>
+    const snapshots = queryClient.getQueriesData<ChatDTO[]>({ queryKey: queryKeys.chatsAll() })
+    queryClient.setQueriesData<ChatDTO[]>({ queryKey: queryKeys.chatsAll() }, (old) =>
       old?.map((c) => {
         if (c.id !== input.id) return c
         return {
@@ -55,7 +55,7 @@ export const chat = {
     )
     try {
       const updated = await req().updateChat(input)
-      queryClient.invalidateQueries({ queryKey: ['chats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.chatsAll() })
       return updated
     } catch (err) {
       // Rollback to pre-mutation snapshots
@@ -68,7 +68,7 @@ export const chat = {
 
   remove: async (id: string) => {
     await req().deleteChat({ id })
-    queryClient.invalidateQueries({ queryKey: ['chats'] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.chatsAll() })
   },
 
   sendMessage: (input: SendMessageInput) => req().sendMessage(input),
@@ -125,5 +125,5 @@ export const chat = {
     ])
   },
 
-  invalidateList: () => queryClient.invalidateQueries({ queryKey: ['chats'] }),
+  invalidateList: () => queryClient.invalidateQueries({ queryKey: queryKeys.chatsAll() }),
 }
