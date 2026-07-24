@@ -6,14 +6,22 @@ import { useAttachment } from '@/features/chat/attachment.api'
 import { ToolCallBlock } from '@/features/chat/components/tool-call-block'
 import { Markdown } from '@/lib/markdown'
 
-type PartProps = {
+type MessagePartRendererProps = {
   part: MessagePart
   streaming?: boolean
   textClassName?: string
   allParts?: MessagePart[]
 }
 
-function ImagePartRenderer({ attachmentId }: { attachmentId: string }) {
+type ImagePartRendererProps = {
+  attachmentId: string
+}
+
+type FilePartRendererProps = {
+  attachmentId: string
+}
+
+function ImagePartRenderer({ attachmentId }: ImagePartRendererProps) {
   const { data, isLoading } = useAttachment(attachmentId)
 
   if (isLoading) {
@@ -39,7 +47,7 @@ function ImagePartRenderer({ attachmentId }: { attachmentId: string }) {
   )
 }
 
-function FilePartRenderer({ attachmentId }: { attachmentId: string }) {
+function FilePartRenderer({ attachmentId }: FilePartRendererProps) {
   const { data, isLoading } = useAttachment(attachmentId)
 
   if (isLoading) {
@@ -67,7 +75,7 @@ export function MessagePartRenderer({
   streaming,
   textClassName = 'text-base leading-relaxed',
   allParts,
-}: PartProps) {
+}: MessagePartRendererProps) {
   if (part.type === PartKind.enum.text) {
     return <Markdown content={part.text} streaming={streaming} className={textClassName} />
   }

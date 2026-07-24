@@ -97,7 +97,7 @@ export function ComposerAddMenu({
                 <span className="flex h-4 w-4 shrink-0" />
                 <span className="flex-1">
                   Effort
-                  {effort ? <span className="ml-1 text-subtle">· {capitalize(effort)}</span> : null}
+                  {effort && <span className="ml-1 text-subtle">· {capitalize(effort)}</span>}
                 </span>
                 <IconChevronRight width={12} className="text-subtle" />
               </DropdownSubmenuTrigger>

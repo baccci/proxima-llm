@@ -68,11 +68,11 @@ function upsertToolCall(
   toolCalls: StreamingToolCall[],
   toolCallId: string,
   patch: Partial<StreamingToolCall>,
-  create: StreamingToolCall,
+  newCall: StreamingToolCall,
 ): StreamingToolCall[] {
   const exists = toolCalls.some((tc) => tc.toolCallId === toolCallId)
   if (!exists) {
-    return [...toolCalls, create]
+    return [...toolCalls, newCall]
   }
   return toolCalls.map((tc) => (tc.toolCallId === toolCallId ? { ...tc, ...patch } : tc))
 }

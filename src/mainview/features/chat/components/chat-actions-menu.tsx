@@ -31,9 +31,14 @@ type ChatActionsMenuProps = {
   triggerSize?: number
 }
 
+type RenameDialogFormProps = {
+  chatItem: ChatDTO
+  onClose: () => void
+}
+
 // The rename form, mounted only while the dialog is open (base-ui unmounts the
 // popup on close), so it seeds fresh from the chat each time and selects on mount.
-function RenameDialogForm({ chatItem, onClose }: { chatItem: ChatDTO; onClose: () => void }) {
+function RenameDialogForm({ chatItem, onClose }: RenameDialogFormProps) {
   const [text, setText] = React.useState(() => chatTitle(chatItem))
   const inputRef = React.useRef<HTMLInputElement>(null)
 

@@ -2,7 +2,6 @@ import type { ChatDTO } from '@shared/schemas/chat.schema'
 import { type MessageDTO, PartKind } from '@shared/schemas/message.schema'
 import { isSilentTool } from '@shared/tools/tool-catalog'
 import { ToolDecision } from '@shared/tools/tool-policy'
-import { formatSeconds } from '@utils/format-duration'
 import React from 'react'
 import { IconChevronDown } from '@/components/icons/icon-chevron-down'
 import { useAutoScroll } from '@/features/chat/hooks/use-auto-scroll'
@@ -38,9 +37,9 @@ function StreamingMessageView({ streaming }: StreamingMessageViewProps) {
           reasoning={streaming.reasoningParts}
           active={!!streaming.reasoningStartedAt && !streaming.reasoningEndedAt}
           tokenEstimate={Math.ceil(streaming.reasoningParts.length / CHARS_PER_TOKEN)}
-          durationLabel={
+          durationMs={
             streaming.reasoningStartedAt && streaming.reasoningEndedAt
-              ? formatSeconds(streaming.reasoningEndedAt - streaming.reasoningStartedAt)
+              ? streaming.reasoningEndedAt - streaming.reasoningStartedAt
               : undefined
           }
         />

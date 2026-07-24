@@ -13,11 +13,6 @@ function isStreamingMessage(
   return !!streaming && !streaming.done && message?.id === streaming.id
 }
 
-// Reasoning duration in whole seconds, e.g. "4s", or undefined while unknown.
-function formatDuration(durationMs: number | null | undefined): string | undefined {
-  return durationMs == null ? undefined : `${Math.round(durationMs / 1000)}s`
-}
-
 // The user's prompt, styled as the chat bubble; only shown when toggled on.
 function PromptBlock({ exchange }: { exchange: Exchange | null }) {
   if (!exchange?.userMessage) {
@@ -46,7 +41,7 @@ function ReasoningBlock({ message, active }: { message: MessageDTO | null; activ
         messageId={message.id}
         reasoning={reasoning.text}
         active={active}
-        durationLabel={formatDuration(reasoning.durationMs)}
+        durationMs={reasoning.durationMs}
       />
     </div>
   )

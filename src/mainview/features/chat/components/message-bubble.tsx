@@ -1,6 +1,5 @@
 import type { ChatDTO } from '@shared/schemas/chat.schema'
 import { type MessageDTO, MessageRole, StopReason } from '@shared/schemas/message.schema'
-import { formatSeconds } from '@utils/format-duration'
 import React from 'react'
 import {
   extractReasoningPart,
@@ -21,108 +20,151 @@ type MessageBubbleProps = {
   streaming?: boolean
 }
 
+type UserMessageProps = {
+  message: MessageDTO
+  chatItem: ChatDTO
+}
+
+type UserMessageEditorProps = {
+  message: MessageDTO
+  onSave: (text: string) => void
+  onCancel: () => void
+}
+
+type AssistantMessageProps = {
+  message: MessageDTO
+  chatItem: ChatDTO
+  streaming?: boolean
+}
+
 export const MessageBubble = React.memo(function MessageBubble({
   message,
   chatItem,
   streaming,
 }: MessageBubbleProps) {
-  const isUser = message.role === MessageRole.enum.user
-  const isOptimistic = message.id.startsWith('optimistic-')
-  const reasoningPart = extractReasoningPart(message.parts)
-  const textParts = extractTextParts(message.parts)
-  const sourceParts = extractSourceParts(message.parts)
+  if (message.role === MessageRole.enum.user) {
+    return <UserMessage message={message} chatItem={chatItem} />
+  }
 
-  const { retry, saveEdit, copy, isStreamingActive } = useMessageActions(chatItem)
+  return <AssistantMessage message={message} chatItem={chatItem} streaming={streaming} />
+})
 
-  const [editing, setEditing] = React.useState(false)
-  const [editText, setEditText] = React.useState('')
+// The edit textarea plus save/cancel, seeded from the message's current text.
+// Mounted only while editing, so it re-seeds each time editing opens.
+function UserMessageEditor({ message, onSave, onCancel }: UserMessageEditorProps) {
+  const [editText, setEditText] = React.useState(() => messageToText(message.parts))
   const { ref: textareaRef, autoResize } = useAutoResizeTextarea()
 
-  function startEdit() {
-    setEditText(messageToText(message.parts))
-    setEditing(true)
-  }
-
-  function cancelEdit() {
-    setEditing(false)
-  }
-
-  function handleSaveEdit() {
+  function handleSave() {
     const trimmed = editText.trim()
     if (!trimmed) {
       return
     }
-    setEditing(false)
-    saveEdit(message.id, trimmed)
+    onSave(trimmed)
   }
 
-  function handleEditKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
-      handleSaveEdit()
+      handleSave()
     }
+
     if (e.key === 'Escape') {
-      cancelEdit()
+      onCancel()
     }
   }
 
-  if (isUser) {
+  return (
+    <div className="max-w-[70%] w-full flex flex-col gap-2">
+      <textarea
+        ref={textareaRef}
+        value={editText}
+        onChange={(e) => {
+          setEditText(e.target.value)
+          autoResize()
+        }}
+        onKeyDown={handleKeyDown}
+        rows={3}
+        className="w-full resize-none overflow-y-auto rounded-bubble bg-user-bubble text-user-bubble-foreground px-4 py-3 text-base outline-none"
+      />
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-3 py-1.5 text-sm rounded-lg text-subtle hover:text-foreground hover:bg-surface-hover transition"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          className="px-3 py-1.5 text-sm rounded-lg bg-brand text-brand-foreground hover:bg-brand-hover transition"
+        >
+          Save & send
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// The user's turn: the right-aligned bubble with hover actions, or the inline
+// editor while editing.
+function UserMessage({ message, chatItem }: UserMessageProps) {
+  const { retry, saveEdit, copy, isStreamingActive } = useMessageActions(chatItem)
+  const [editing, setEditing] = React.useState(false)
+
+  const isOptimistic = message.id.startsWith('optimistic-')
+  const textParts = extractTextParts(message.parts)
+
+  if (editing) {
     return (
       <div className="group flex flex-col items-end mb-4">
-        {editing ? (
-          <div className="max-w-[70%] w-full flex flex-col gap-2">
-            <textarea
-              ref={textareaRef}
-              value={editText}
-              onChange={(e) => {
-                setEditText(e.target.value)
-                autoResize()
-              }}
-              onKeyDown={handleEditKeyDown}
-              rows={3}
-              className="w-full resize-none overflow-y-auto rounded-bubble bg-user-bubble text-user-bubble-foreground px-4 py-3 text-base outline-none"
-            />
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={cancelEdit}
-                className="px-3 py-1.5 text-sm rounded-lg text-subtle hover:text-foreground hover:bg-surface-hover transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                className="px-3 py-1.5 text-sm rounded-lg bg-brand text-brand-foreground hover:bg-brand-hover transition"
-              >
-                Save & send
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="max-w-[70%] rounded-bubble bg-user-bubble text-user-bubble-foreground px-4 py-3 text-base">
-            {textParts.map((part, i) => (
-              <MessagePartRenderer key={i} part={part} />
-            ))}
-          </div>
-        )}
-
-        {!isOptimistic && !editing && (
-          // Reveal on hover/focus with opacity only, no transition. opacity-0 keeps the
-          // buttons keyboard-tabbable, and animating opacity to 0 leaves a stale WebKit
-          // paint layer (ghost buttons). See local-docs/slices/webkit-quirks.md
-          <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 mt-0.5">
-            <MessageActions
-              canEdit
-              parts={message.parts}
-              disabled={isStreamingActive}
-              onRetry={() => retry(message.id)}
-              onEdit={startEdit}
-              onCopy={() => copy(message.parts)}
-            />
-          </div>
-        )}
+        <UserMessageEditor
+          message={message}
+          onSave={(text) => {
+            setEditing(false)
+            saveEdit(message.id, text)
+          }}
+          onCancel={() => setEditing(false)}
+        />
       </div>
     )
   }
+
+  return (
+    <div className="group flex flex-col items-end mb-4">
+      <div className="max-w-[70%] rounded-bubble bg-user-bubble text-user-bubble-foreground px-4 py-3 text-base">
+        {textParts.map((part, i) => (
+          <MessagePartRenderer key={i} part={part} />
+        ))}
+      </div>
+
+      {!isOptimistic && (
+        // Reveal on hover/focus with opacity only, no transition. opacity-0 keeps the
+        // buttons keyboard-tabbable, and animating opacity to 0 leaves a stale WebKit
+        // paint layer (ghost buttons). See local-docs/slices/webkit-quirks.md
+        <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 mt-0.5">
+          <MessageActions
+            canEdit
+            parts={message.parts}
+            disabled={isStreamingActive}
+            onRetry={() => retry(message.id)}
+            onEdit={() => setEditing(true)}
+            onCopy={() => copy(message.parts)}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// The assistant's turn: reasoning trace, rendered text, sources, token usage,
+// hover actions, and a stop-reason note when the turn ended early.
+function AssistantMessage({ message, chatItem, streaming }: AssistantMessageProps) {
+  const { copy, isStreamingActive } = useMessageActions(chatItem)
+
+  const isOptimistic = message.id.startsWith('optimistic-')
+  const reasoningPart = extractReasoningPart(message.parts)
+  const textParts = extractTextParts(message.parts)
+  const sourceParts = extractSourceParts(message.parts)
 
   return (
     <div className="group mb-6">
@@ -131,9 +173,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           messageId={message.id}
           reasoning={reasoningPart.text}
           active={false}
-          durationLabel={
-            reasoningPart.durationMs != null ? formatSeconds(reasoningPart.durationMs) : undefined
-          }
+          durationMs={reasoningPart.durationMs}
         />
       )}
       <div className="text-base text-foreground leading-relaxed">
@@ -173,4 +213,4 @@ export const MessageBubble = React.memo(function MessageBubble({
       </div>
     </div>
   )
-})
+}

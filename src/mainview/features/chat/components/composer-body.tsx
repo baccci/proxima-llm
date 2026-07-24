@@ -83,7 +83,9 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
 
   async function handleSubmit() {
     const content = text.trim()
-    if ((!content && pending.length === 0) || !modelId || isStreaming) return
+    if (!canSubmit) {
+      return
+    }
 
     setText('')
     resetTextarea()
