@@ -17,28 +17,6 @@ type MessageActionsProps = {
   onCopy: () => Promise<void>
 }
 
-type MessageActionButtonProps = {
-  tooltip: string
-  icon: React.ReactNode
-  onClick: () => void
-  disabled?: boolean
-}
-
-function MessageActionButton({ tooltip, icon, onClick, disabled }: MessageActionButtonProps) {
-  // Deliberately minimal: color-only hover, no background or transform.
-  return (
-    <TooltipWrapper content={tooltip} side="bottom">
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        className="flex items-center justify-center h-5 w-5 rounded-lg text-subtle hover:text-foreground transition cursor-pointer"
-      >
-        {icon}
-      </button>
-    </TooltipWrapper>
-  )
-}
-
 export function MessageActions({
   canEdit,
   parts,
@@ -89,5 +67,27 @@ export function MessageActions({
         />
       )}
     </div>
+  )
+}
+
+type MessageActionButtonProps = {
+  tooltip: string
+  icon: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+}
+
+function MessageActionButton({ tooltip, icon, onClick, disabled }: MessageActionButtonProps) {
+  // Deliberately minimal: color-only hover, no background or transform.
+  return (
+    <TooltipWrapper content={tooltip} side="bottom">
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className="flex items-center justify-center h-5 w-5 rounded-lg text-subtle hover:text-foreground transition cursor-pointer"
+      >
+        {icon}
+      </button>
+    </TooltipWrapper>
   )
 }

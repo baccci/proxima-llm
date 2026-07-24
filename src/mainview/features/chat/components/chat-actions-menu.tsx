@@ -31,62 +31,6 @@ type ChatActionsMenuProps = {
   triggerSize?: number
 }
 
-type RenameDialogFormProps = {
-  chatItem: ChatDTO
-  onClose: () => void
-}
-
-// The rename form, mounted only while the dialog is open (base-ui unmounts the
-// popup on close), so it seeds fresh from the chat each time and selects on mount.
-function RenameDialogForm({ chatItem, onClose }: RenameDialogFormProps) {
-  const [text, setText] = React.useState(() => chatTitle(chatItem))
-  const inputRef = React.useRef<HTMLInputElement>(null)
-
-  useMountEffect(() => {
-    requestAnimationFrame(() => inputRef.current?.select())
-  })
-
-  async function commit() {
-    const trimmed = text.trim()
-    if (trimmed && trimmed !== chatTitle(chatItem)) {
-      await chat.update({ id: chatItem.id, title: trimmed })
-    }
-    onClose()
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      commit()
-      return
-    }
-
-    if (e.key === 'Escape') {
-      onClose()
-    }
-  }
-
-  return (
-    <>
-      <input
-        ref={inputRef}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={handleKeyDown}
-        className="w-full px-3 py-2 text-sm rounded-lg bg-surface-hover text-foreground outline-none border border-border focus:border-brand mb-4"
-      />
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button variant="brand" onClick={commit}>
-          Save
-        </Button>
-      </div>
-    </>
-  )
-}
-
 export function ChatActionsMenu({
   chatItem,
   onRenameClick,
@@ -180,6 +124,62 @@ export function ChatActionsMenu({
           </div>
         </DialogContent>
       </DialogRoot>
+    </>
+  )
+}
+
+type RenameDialogFormProps = {
+  chatItem: ChatDTO
+  onClose: () => void
+}
+
+// The rename form, mounted only while the dialog is open (base-ui unmounts the
+// popup on close), so it seeds fresh from the chat each time and selects on mount.
+function RenameDialogForm({ chatItem, onClose }: RenameDialogFormProps) {
+  const [text, setText] = React.useState(() => chatTitle(chatItem))
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  useMountEffect(() => {
+    requestAnimationFrame(() => inputRef.current?.select())
+  })
+
+  async function commit() {
+    const trimmed = text.trim()
+    if (trimmed && trimmed !== chatTitle(chatItem)) {
+      await chat.update({ id: chatItem.id, title: trimmed })
+    }
+    onClose()
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commit()
+      return
+    }
+
+    if (e.key === 'Escape') {
+      onClose()
+    }
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={handleKeyDown}
+        className="w-full px-3 py-2 text-sm rounded-lg bg-surface-hover text-foreground outline-none border border-border focus:border-brand mb-4"
+      />
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="brand" onClick={commit}>
+          Save
+        </Button>
+      </div>
     </>
   )
 }
