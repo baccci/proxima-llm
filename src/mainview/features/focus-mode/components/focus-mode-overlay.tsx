@@ -126,10 +126,12 @@ export function FocusModeOverlay() {
   })
 
   return (
-    // Fullscreen layer; the [&_pre]/[&_code] rules keep code blocks readable and unsplit.
+    // Fullscreen layer. The [&_pre] rules keep code blocks at a readable fixed size and
+    // unsplit across columns. Inline code is intentionally not pinned here, so its own
+    // text-[0.85em] rides the fluid prose fontSize instead of being clamped to a fixed size.
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 bg-background flex flex-col [&_pre]:text-sm [&_code]:text-sm [&_pre]:break-inside-avoid"
+      className="fixed inset-0 z-50 bg-background flex flex-col [&_pre]:text-sm [&_pre]:break-inside-avoid"
     >
       {pendingIncoming && <IncomingBanner onDismiss={() => setPendingIncoming(null)} />}
 
