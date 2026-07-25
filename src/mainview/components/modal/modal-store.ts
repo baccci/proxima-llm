@@ -29,7 +29,10 @@ export const modal = {
     emit()
   },
   toggle(id: string): void {
-    openIds.has(id) ? openIds.delete(id) : openIds.add(id)
+    if (!openIds.delete(id)) {
+      openIds.add(id)
+    }
+
     emit()
   },
   closeAll(): void {

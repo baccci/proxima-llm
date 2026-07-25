@@ -1,73 +1,52 @@
 import type { ChatDTO } from '@shared/schemas/chat.schema'
-import type { MessageDTO } from '@shared/schemas/message.schema'
+import { type MessageDTO, PartKind } from '@shared/schemas/message.schema'
 import { isSilentTool } from '@shared/tools/tool-catalog'
+import { ToolDecision } from '@shared/tools/tool-policy'
 import React from 'react'
 import { IconChevronDown } from '@/components/icons/icon-chevron-down'
-import { MessagePartRenderer } from '@/features/chat/entities/parts'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { useAutoScroll } from '@/features/chat/hooks/use-auto-scroll'
+import { type StreamingMessage, useChatStore } from '@/features/chat/store/chat.store'
 import { rpcRequest } from '@/lib/rpc.client'
 import { MessageBubble } from './message-bubble'
+import { MessagePartRenderer } from './message-part-renderer'
 import { SourcesBlock } from './sources-block'
 import { ThinkingBlock } from './thinking-block'
 import { ToolCallBlock } from './tool-call-block'
 
-interface Props {
+type MessageListProps = {
   messages: MessageDTO[]
   chatItem: ChatDTO
   compactedThroughAt?: string | null
 }
 
-export function MessageList({ messages, chatItem, compactedThroughAt }: Props) {
+export function MessageList({ messages, chatItem, compactedThroughAt }: MessageListProps) {
   const streaming = useChatStore((s) => s.streaming)
   const compactingChatId = useChatStore((s) => s.compactingChatId)
   // Label shows for both auto-compaction (stream chunk) and a manual ring click
   // (store flag, no stream).
   const showCompacting = streaming?.compacting || compactingChatId === chatItem.id
-  const bottomRef = React.useRef<HTMLDivElement>(null)
-  const scrollRef = React.useRef<HTMLDivElement>(null)
-  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false)
-
-  function getDistanceFromBottom() {
-    const el = scrollRef.current
-    if (!el) return 0
-    return el.scrollHeight - el.scrollTop - el.clientHeight
-  }
-
-  const didInitRef = React.useRef(false)
-  React.useEffect(() => {
-    if (didInitRef.current || messages.length === 0) return
-    didInitRef.current = true
-    bottomRef.current?.scrollIntoView({ behavior: 'auto' })
-  }, [messages.length])
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: streaming?.textParts + messages.length are the triggers; getDistanceFromBottom reads stable refs
-  React.useEffect(() => {
-    if (getDistanceFromBottom() < 120) {
-      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
-    }
-  }, [streaming?.textParts, messages.length])
+  const { scrollRef, bottomRef, showScrollToBottom, handleScroll, scrollToBottom } = useAutoScroll({
+    messageCount: messages.length,
+    streamingText: streaming?.textParts,
+  })
 
   // The id of the last message covered by the rolling summary. Everything up to
-  // and including it is sent to the model as a compact summary, not in full — we
-  // render a divider after it so the boundary is visible. The DB still keeps
-  // every message, so the full history stays readable above the line.
+  // and including it is sent to the model as a compact summary, not in full, so we
+  // render a divider after it to mark the boundary. The DB still keeps every
+  // message, so the full history stays readable above the line.
   const compactedThroughId = React.useMemo(() => {
-    if (!compactedThroughAt) return null
+    if (!compactedThroughAt) {
+      return null
+    }
     let id: string | null = null
     for (const m of messages) {
-      if (m.createdAt <= compactedThroughAt) id = m.id
-      else break
+      if (m.createdAt > compactedThroughAt) {
+        break
+      }
+      id = m.id
     }
     return id
   }, [messages, compactedThroughAt])
-
-  function handleScroll() {
-    setShowScrollToBottom(getDistanceFromBottom() > 120)
-  }
-
-  function scrollToBottom() {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
 
   return (
     <div className="relative flex-1 min-h-0">
@@ -92,7 +71,7 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: Props) {
             </React.Fragment>
           ))}
 
-          {/* Compaction label — auto (during a stream) or manual (ring click). */}
+          {/* Compaction label, auto (during a stream) or manual (ring click). */}
           {showCompacting && (
             <div className="mb-6 flex items-center gap-2 text-sm text-subtle">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-subtle animate-pulse" />
@@ -101,65 +80,7 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: Props) {
           )}
 
           {/* Streaming assistant message */}
-          {streaming && !streaming.done && (
-            <div className="mb-6">
-              {streaming.reasoningParts && (
-                <ThinkingBlock
-                  messageId={streaming.id}
-                  reasoning={streaming.reasoningParts}
-                  active={!!streaming.reasoningStartedAt && !streaming.reasoningEndedAt}
-                  tokenEstimate={Math.ceil(streaming.reasoningParts.length / 4)}
-                  durationLabel={
-                    streaming.reasoningStartedAt && streaming.reasoningEndedAt
-                      ? `${Math.round((streaming.reasoningEndedAt - streaming.reasoningStartedAt) / 1000)}s`
-                      : undefined
-                  }
-                />
-              )}
-
-              {streaming.toolCalls
-                .filter((tc) => !isSilentTool(tc.toolName))
-                .map((tc) => (
-                  <ToolCallBlock
-                    key={tc.toolCallId}
-                    toolName={tc.toolName}
-                    input={tc.input}
-                    output={tc.output}
-                    awaitingApproval={tc.awaitingApproval}
-                    onApprove={(remember) =>
-                      rpcRequest().resolveToolApproval({
-                        streamId: streaming.streamId,
-                        toolCallId: tc.toolCallId,
-                        decision: 'allow',
-                        remember,
-                      })
-                    }
-                    onDeny={(remember) =>
-                      rpcRequest().resolveToolApproval({
-                        streamId: streaming.streamId,
-                        toolCallId: tc.toolCallId,
-                        decision: 'deny',
-                        remember,
-                      })
-                    }
-                  />
-                ))}
-
-              <div className="text-base text-foreground leading-relaxed">
-                {streaming.textParts ? (
-                  <MessagePartRenderer
-                    part={{ type: 'text', text: streaming.textParts }}
-                    streaming
-                  />
-                ) : (
-                  streaming.toolCalls.length === 0 && (
-                    <span className="inline-block w-2 h-4 bg-brand rounded-sm animate-pulse" />
-                  )
-                )}
-              </div>
-              <SourcesBlock sources={streaming.sources} />
-            </div>
-          )}
+          {streaming && !streaming.done && <StreamingMessageView streaming={streaming} />}
 
           {/* Streaming error */}
           {streaming?.error && (
@@ -183,6 +104,77 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: Props) {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// Rough token estimate for the live reasoning counter: about 4 characters per token.
+const CHARS_PER_TOKEN = 4
+
+type StreamingMessageViewProps = {
+  streaming: StreamingMessage
+}
+
+// The in-progress assistant turn: live reasoning, tool calls (awaiting approval or
+// resolved), the streaming text or a blinking cursor before the first token, and sources.
+function StreamingMessageView({ streaming }: StreamingMessageViewProps) {
+  return (
+    <div className="mb-6">
+      {streaming.reasoningParts && (
+        <ThinkingBlock
+          messageId={streaming.id}
+          reasoning={streaming.reasoningParts}
+          active={!!streaming.reasoningStartedAt && !streaming.reasoningEndedAt}
+          tokenEstimate={Math.ceil(streaming.reasoningParts.length / CHARS_PER_TOKEN)}
+          durationMs={
+            streaming.reasoningStartedAt && streaming.reasoningEndedAt
+              ? streaming.reasoningEndedAt - streaming.reasoningStartedAt
+              : undefined
+          }
+        />
+      )}
+
+      {streaming.toolCalls
+        .filter((tc) => !isSilentTool(tc.toolName))
+        .map((tc) => (
+          <ToolCallBlock
+            key={tc.toolCallId}
+            toolName={tc.toolName}
+            input={tc.input}
+            output={tc.output}
+            awaitingApproval={tc.awaitingApproval}
+            onApprove={(remember) =>
+              rpcRequest().resolveToolApproval({
+                streamId: streaming.streamId,
+                toolCallId: tc.toolCallId,
+                decision: ToolDecision.enum.allow,
+                remember,
+              })
+            }
+            onDeny={(remember) =>
+              rpcRequest().resolveToolApproval({
+                streamId: streaming.streamId,
+                toolCallId: tc.toolCallId,
+                decision: ToolDecision.enum.deny,
+                remember,
+              })
+            }
+          />
+        ))}
+
+      <div className="text-base text-foreground leading-relaxed">
+        {streaming.textParts ? (
+          <MessagePartRenderer
+            part={{ type: PartKind.enum.text, text: streaming.textParts }}
+            streaming
+          />
+        ) : (
+          streaming.toolCalls.length === 0 && (
+            <span className="inline-block w-2 h-4 bg-brand rounded-sm animate-pulse" />
+          )
+        )}
+      </div>
+      <SourcesBlock sources={streaming.sources} />
     </div>
   )
 }

@@ -1,11 +1,18 @@
-import type { RetryMessageInput, SendMessageInput } from '@shared/rpc/app-rpc.types'
+import { AttachmentKind } from '@shared/schemas/attachment.schema'
 import type { ChatComposerState, ChatDTO, CreateChatInput } from '@shared/schemas/chat.schema'
-import type { MessageDTO, MessagePart } from '@shared/schemas/message.schema'
+import {
+  type MessageDTO,
+  type MessagePart,
+  MessageRole,
+  PartKind,
+  type RetryMessageInput,
+  type SendMessageInput,
+} from '@shared/schemas/message.schema'
 import { queryClient } from '@/lib/query-client'
 import { queryKeys } from '@/lib/query-keys'
 import { rpcRequest as req } from '@/lib/rpc.client'
 
-type OptimisticAttachment = { id: string; kind: 'image' | 'file'; mediaType: string }
+type OptimisticAttachment = { id: string; kind: AttachmentKind; mediaType: string }
 
 type UpdateChatInput = {
   id: string
@@ -30,11 +37,13 @@ export const chat = {
   },
 
   update: async (input: UpdateChatInput) => {
-    // Optimistic update — merge patch into every cached chat list immediately
-    const snapshots = queryClient.getQueriesData<ChatDTO[]>({ queryKey: ['chats'] })
-    queryClient.setQueriesData<ChatDTO[]>({ queryKey: ['chats'] }, (old) =>
+    // Optimistically merge the patch into every cached chat list.
+    const snapshots = queryClient.getQueriesData<ChatDTO[]>({ queryKey: queryKeys.chatsAll() })
+    queryClient.setQueriesData<ChatDTO[]>({ queryKey: queryKeys.chatsAll() }, (old) =>
       old?.map((c) => {
-        if (c.id !== input.id) return c
+        if (c.id !== input.id) {
+          return c
+        }
         return {
           ...c,
           ...(input.modelId !== undefined ? { modelId: input.modelId } : {}),
@@ -48,7 +57,7 @@ export const chat = {
     )
     try {
       const updated = await req().updateChat(input)
-      queryClient.invalidateQueries({ queryKey: ['chats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.chatsAll() })
       return updated
     } catch (err) {
       // Rollback to pre-mutation snapshots
@@ -61,7 +70,7 @@ export const chat = {
 
   remove: async (id: string) => {
     await req().deleteChat({ id })
-    queryClient.invalidateQueries({ queryKey: ['chats'] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.chatsAll() })
   },
 
   sendMessage: (input: SendMessageInput) => req().sendMessage(input),
@@ -95,18 +104,20 @@ export const chat = {
     attachments: OptimisticAttachment[] = [],
   ) => {
     const parts: MessagePart[] = []
-    if (content) parts.push({ type: 'text', text: content })
+    if (content) {
+      parts.push({ type: PartKind.enum.text, text: content })
+    }
     for (const att of attachments) {
-      if (att.kind === 'image') {
-        parts.push({ type: 'image', attachmentId: att.id })
-      } else {
-        parts.push({ type: 'file', attachmentId: att.id, mediaType: att.mediaType })
+      if (att.kind === AttachmentKind.enum.image) {
+        parts.push({ type: PartKind.enum.image, attachmentId: att.id })
+        continue
       }
+      parts.push({ type: PartKind.enum.file, attachmentId: att.id, mediaType: att.mediaType })
     }
     const optimistic: MessageDTO = {
       id: `optimistic-${Date.now()}`,
       chatId,
-      role: 'user',
+      role: MessageRole.enum.user,
       parts,
       modelId: null,
       usage: null,
@@ -118,5 +129,5 @@ export const chat = {
     ])
   },
 
-  invalidateList: () => queryClient.invalidateQueries({ queryKey: ['chats'] }),
+  invalidateList: () => queryClient.invalidateQueries({ queryKey: queryKeys.chatsAll() }),
 }

@@ -1,4 +1,4 @@
-import type { MessagePart } from '@shared/schemas/message.schema'
+import { type MessagePart, PartKind } from '@shared/schemas/message.schema'
 import React from 'react'
 import { IconCheck } from '@/components/icons/icon-check'
 import { IconCopy } from '@/components/icons/icon-copy'
@@ -8,7 +8,7 @@ import { TooltipWrapper } from '@/components/tooltip'
 
 const COPIED_RESET_MS = 1500
 
-interface Props {
+type MessageActionsProps = {
   canEdit: boolean
   parts: MessagePart[]
   disabled?: boolean
@@ -17,18 +17,24 @@ interface Props {
   onCopy: () => Promise<void>
 }
 
-const btnClass =
-  'flex items-center justify-center h-5 w-5 rounded-lg text-subtle hover:text-foreground transition cursor-pointer'
-
-export function MessageActions({ canEdit, parts, disabled, onRetry, onEdit, onCopy }: Props) {
+export function MessageActions({
+  canEdit,
+  parts,
+  disabled,
+  onRetry,
+  onEdit,
+  onCopy,
+}: MessageActionsProps) {
   const [copied, setCopied] = React.useState(false)
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const hasText = parts.some((p) => p.type === 'text')
+  const hasText = parts.some((p) => p.type === PartKind.enum.text)
 
   function handleCopy() {
     onCopy().then(() => {
-      if (timerRef.current) clearTimeout(timerRef.current)
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+      }
       setCopied(true)
       timerRef.current = setTimeout(() => setCopied(false), COPIED_RESET_MS)
     })
@@ -37,26 +43,51 @@ export function MessageActions({ canEdit, parts, disabled, onRetry, onEdit, onCo
   return (
     <div className="flex gap-0.5">
       {canEdit && onRetry && (
-        <TooltipWrapper content="Retry" side="bottom">
-          <button onClick={onRetry} disabled={disabled} className={btnClass}>
-            <IconRotateCcw width={13} />
-          </button>
-        </TooltipWrapper>
+        <MessageActionButton
+          tooltip="Retry"
+          icon={<IconRotateCcw width={13} />}
+          onClick={onRetry}
+          disabled={disabled}
+        />
       )}
       {canEdit && onEdit && (
-        <TooltipWrapper content="Edit" side="bottom">
-          <button onClick={onEdit} disabled={disabled} className={btnClass}>
-            <IconPencil width={13} />
-          </button>
-        </TooltipWrapper>
+        <MessageActionButton
+          tooltip="Edit"
+          icon={<IconPencil width={13} />}
+          onClick={onEdit}
+          disabled={disabled}
+        />
       )}
       {hasText && (
-        <TooltipWrapper content={copied ? 'Copied!' : 'Copy'} side="bottom">
-          <button onClick={handleCopy} disabled={disabled} className={btnClass}>
-            {copied ? <IconCheck width={13} /> : <IconCopy width={13} />}
-          </button>
-        </TooltipWrapper>
+        <MessageActionButton
+          tooltip={copied ? 'Copied!' : 'Copy'}
+          icon={copied ? <IconCheck width={13} /> : <IconCopy width={13} />}
+          onClick={handleCopy}
+          disabled={disabled}
+        />
       )}
     </div>
+  )
+}
+
+type MessageActionButtonProps = {
+  tooltip: string
+  icon: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+}
+
+function MessageActionButton({ tooltip, icon, onClick, disabled }: MessageActionButtonProps) {
+  // Deliberately minimal: color-only hover, no background or transform.
+  return (
+    <TooltipWrapper content={tooltip} side="bottom">
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className="flex items-center justify-center h-5 w-5 rounded-lg text-subtle hover:text-foreground transition cursor-pointer"
+      >
+        {icon}
+      </button>
+    </TooltipWrapper>
   )
 }

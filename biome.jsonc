@@ -35,6 +35,7 @@
         "noDangerouslySetInnerHtml": "off"
       },
       "style": {
+        "noNestedTernary": "error",
         "noNonNullAssertion": "off",
         "useFilenamingConvention": {
           "level": "error",
@@ -51,12 +52,7 @@
   "overrides": [
     {
       "includes": ["src/bun/**"],
-      "javascript": { "formatter": { "semicolons": "always" } },
-      "linter": {
-        "rules": {
-          "style": { "noNonNullAssertion": "off" }
-        }
-      }
+      "javascript": { "formatter": { "semicolons": "always" } }
     },
     {
       // The RPC schema uses `response: void` for fire-and-forget calls so the bun

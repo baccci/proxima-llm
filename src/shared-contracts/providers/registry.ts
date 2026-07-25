@@ -1,6 +1,12 @@
-export type ProviderId = 'anthropic' | 'openrouter'
+import { z } from 'zod'
 
-export const PROVIDER_IDS: readonly ProviderId[] = ['anthropic', 'openrouter']
+// The providers the app ships with. Single source of truth: the enum defines the
+// values, the type is derived, and PROVIDER_IDS reads the list back. Add a provider
+// here and it flows to ModelDTO.provider and every `provider === …` comparison.
+export const ProviderId = z.enum(['anthropic', 'openrouter'])
+export type ProviderId = z.infer<typeof ProviderId>
+
+export const PROVIDER_IDS = ProviderId.options
 
 export interface ProviderColors {
   accent: string
@@ -42,6 +48,12 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     syncable: true,
     supportsWebSearch: true,
   },
+}
+
+// True when the id is one of the providers the app ships with. Narrows the id so
+// callers can index PROVIDER_META / call getProvider without an unchecked cast.
+export function isKnownProvider(id: string): id is ProviderId {
+  return (PROVIDER_IDS as readonly string[]).includes(id)
 }
 
 export function getProvider(id: string): ProviderMeta {

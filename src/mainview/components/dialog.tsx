@@ -6,7 +6,7 @@ import { IconX } from '@/components/icons/icon-x'
 export const DialogRoot = Dialog.Root
 export const DialogTrigger = Dialog.Trigger
 
-interface DialogContentProps {
+type DialogContentProps = {
   title?: string
   description?: string
   children: React.ReactNode

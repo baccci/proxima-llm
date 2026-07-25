@@ -10,9 +10,13 @@ export function useMessageActions(chatItem: ChatDTO) {
   const isStreamingActive = !!streaming && !streaming.done
 
   async function retry(userMessageId: string) {
-    if (isStreamingActive) return
+    if (isStreamingActive) {
+      return
+    }
     const modelId = chatItem.modelId
-    if (!modelId) return
+    if (!modelId) {
+      return
+    }
 
     const { streamId, assistantMessageId } = await chat.retryFromMessage({
       chatId: chatItem.id,
@@ -27,9 +31,13 @@ export function useMessageActions(chatItem: ChatDTO) {
   }
 
   async function saveEdit(userMessageId: string, content: string) {
-    if (isStreamingActive) return
+    if (isStreamingActive) {
+      return
+    }
     const modelId = chatItem.modelId
-    if (!modelId) return
+    if (!modelId) {
+      return
+    }
 
     const { streamId, assistantMessageId } = await chat.retryFromMessage({
       chatId: chatItem.id,

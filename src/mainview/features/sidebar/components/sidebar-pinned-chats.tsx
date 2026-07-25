@@ -6,15 +6,19 @@ import { useChatStore } from '@/features/chat/store/chat.store'
 import { useSidebarStore } from '@/features/sidebar/store/sidebar.store'
 import { ChatRow } from './chat-row'
 
-interface Props {
+type SidebarPinnedChatsProps = {
   chats: ChatDTO[]
 }
 
-export function SidebarPinnedChats({ chats }: Props) {
-  const { selectedChatId, selectChat } = useChatStore()
-  const { pinnedCollapsed, togglePinned } = useSidebarStore()
+export function SidebarPinnedChats({ chats }: SidebarPinnedChatsProps) {
+  const selectedChatId = useChatStore((s) => s.selectedChatId)
+  const selectChat = useChatStore((s) => s.selectChat)
+  const pinnedCollapsed = useSidebarStore((s) => s.pinnedCollapsed)
+  const togglePinned = useSidebarStore((s) => s.togglePinned)
 
-  if (chats.length === 0) return null
+  if (chats.length === 0) {
+    return null
+  }
 
   return (
     <CollapsibleRoot open={!pinnedCollapsed} onOpenChange={() => togglePinned()}>

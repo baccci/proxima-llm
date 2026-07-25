@@ -1,3 +1,4 @@
+import { capitalize } from '@utils/capitalize'
 import { formatTokens } from '@utils/format-tokens'
 import React from 'react'
 import {
@@ -21,7 +22,7 @@ import { shortModelName } from '@/entities/model/short-name'
 import { MARKETPLACE_MODAL_ID } from '@/features/models/components/marketplace.constants'
 import { useModels } from '@/features/models/hooks/use-models'
 
-interface Props {
+type ModelSwitcherProps = {
   modelId: string | null
   onChange: (modelId: string) => void
   disabled?: boolean
@@ -37,16 +38,21 @@ export function ModelSwitcher({
   usedTokens,
   cachedFraction,
   effort,
-}: Props) {
+}: ModelSwitcherProps) {
   const { data: allModels = [] } = useModels()
   const enabled = allModels.filter((m) => m.isEnabled)
   const groups = groupByFamily(enabled)
+  const groupEntries = Array.from(groups.entries())
 
   const selected = allModels.find((m) => m.id === modelId)
   const baseName = selected ? shortModelName(selected.displayName) : 'Select model'
-  const effortLabel = effort ? effort.charAt(0).toUpperCase() + effort.slice(1) : null
+  const effortLabel = effort ? capitalize(effort) : null
+
   const limit = selected?.capabilities.contextWindow ?? null
   const used = usedTokens ?? 0
+  const contextLabel = limit != null ? `${formatTokens(used)} / ${formatTokens(limit)}` : null
+  const cachedPercent =
+    cachedFraction != null && cachedFraction > 0 ? Math.round(cachedFraction * 100) : null
 
   return (
     <DropdownRoot>
@@ -69,20 +75,18 @@ export function ModelSwitcher({
             <p className="mt-0.5 text-sm text-foreground truncate">
               {selected?.displayName ?? 'No model selected'}
             </p>
-            {limit != null && (
+            {contextLabel != null && (
               <p className="mt-0.5 text-2xs text-subtle">
-                {formatTokens(used)} / {formatTokens(limit)}
-                {cachedFraction != null && cachedFraction > 0 && (
-                  <> · {Math.round(cachedFraction * 100)}% cached</>
-                )}
+                {contextLabel}
+                {cachedPercent != null && <> · {cachedPercent}% cached</>}
               </p>
             )}
           </div>
 
-          {Array.from(groups.entries()).map(([family, models], i) => (
+          {groupEntries.map(([family, models], i) => (
             <React.Fragment key={family}>
               {i > 0 && <DropdownSeparator />}
-              <DropdownGroup label={family.charAt(0).toUpperCase() + family.slice(1)}>
+              <DropdownGroup label={capitalize(family)}>
                 {models.map((m) => (
                   <DropdownItem key={m.id} onClick={() => onChange(m.id)}>
                     <div className="flex items-center gap-1.5 min-w-0 w-full overflow-hidden">

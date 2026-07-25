@@ -33,8 +33,8 @@ export function ProviderCard({ provider, className, ...props }: ProviderCardProp
       )}
       {...props}
     >
-      {/* Compact header row — brand-colored, click to toggle. No status here:
-          connected/not is shown in the expanded body. */}
+      {/* Compact header row, brand-colored, click to toggle. The connected/not status is
+          shown in the expanded body, not here. */}
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}

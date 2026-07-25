@@ -15,15 +15,17 @@ function sendError(msg: string, stack?: string): void {
 
 export function installClientLogger(): void {
   window.addEventListener('error', (e) => {
-    const msg = e.error instanceof Error ? e.error.message : e.message
-    const stack = e.error instanceof Error ? e.error.stack : undefined
+    const isInstanceError = e.error instanceof Error
+    const msg = isInstanceError ? e.error.message : e.message
+    const stack = isInstanceError ? e.error.stack : undefined
     sendError(msg, stack)
   })
 
   window.addEventListener('unhandledrejection', (e) => {
     const reason = e.reason
-    const msg = reason instanceof Error ? reason.message : String(reason)
-    const stack = reason instanceof Error ? reason.stack : undefined
+    const isInstanceError = reason instanceof Error
+    const msg = isInstanceError ? reason.message : String(reason)
+    const stack = isInstanceError ? reason.stack : undefined
     sendError(msg, stack)
   })
 }

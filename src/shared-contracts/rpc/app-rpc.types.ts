@@ -1,12 +1,14 @@
-import type { AttachmentDTO } from '../schemas/attachment.schema'
+import type { DevOverrideKey } from '../dev/dev-override-keys'
+import type { AttachmentDTO, AttachmentKind } from '../schemas/attachment.schema'
 import type { ChatComposerState, ChatDTO, CreateChatInput } from '../schemas/chat.schema'
 import type {
   DeleteMemorySliceInput,
   ListMemorySlicesInput,
+  MemoryScope,
   MemorySliceDTO,
   UpsertMemorySliceInput,
 } from '../schemas/memory-slice.schema'
-import type { MessageDTO } from '../schemas/message.schema'
+import type { MessageDTO, RetryMessageInput, SendMessageInput } from '../schemas/message.schema'
 import type { ModelDTO } from '../schemas/model.schema'
 import type { CreateProjectInput, ProjectDTO, UpdateProjectInput } from '../schemas/project.schema'
 import type {
@@ -15,38 +17,11 @@ import type {
   ReadProjectFileInput,
 } from '../schemas/project-file.schema'
 import type { SettingsDTO, UpdateSettingsInput } from '../schemas/settings.schema'
+import type { ToolDecision, ToolPolicy } from '../tools/tool-policy'
+import type { CompactResult } from './compact-result'
+import type { StreamChunk } from './stream-chunk'
 
-export type StreamChunk =
-  | { kind: 'start'; assistantMessageId: string }
-  | { kind: 'compacting'; active: boolean }
-  | { kind: 'text-delta'; delta: string }
-  | { kind: 'reasoning-delta'; delta: string }
-  | { kind: 'source'; url: string; title?: string }
-  | { kind: 'tool-call'; toolCallId: string; toolName: string; input: unknown }
-  | { kind: 'tool-result'; toolCallId: string; output: unknown }
-  | { kind: 'tool-approval-request'; toolCallId: string; toolName: string; input: unknown }
-  | { kind: 'done'; message?: MessageDTO }
-  | { kind: 'error'; error: string }
-
-export type SendMessageInput = {
-  chatId: string
-  modelId: string
-  content: string
-  thinking?: boolean
-  webSearch?: boolean
-  effort?: string | null
-  attachmentIds?: string[]
-}
-
-export type RetryMessageInput = {
-  chatId: string
-  modelId: string
-  userMessageId: string
-  content?: string
-  thinking?: boolean
-  webSearch?: boolean
-  effort?: string | null
-}
+export type { StreamChunk }
 
 export type AppRPC = {
   bun: {
@@ -54,9 +29,7 @@ export type AppRPC = {
       // Models
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
       listModels: { params: {}; response: ModelDTO[] }
-      createModel: { params: Omit<ModelDTO, 'createdAt' | 'updatedAt'>; response: ModelDTO }
       updateModel: { params: Partial<ModelDTO> & { id: string }; response: ModelDTO }
-      deleteModel: { params: { id: string }; response: void }
 
       // Projects
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
@@ -100,9 +73,7 @@ export type AppRPC = {
       }
       compactNow: {
         params: { chatId: string }
-        response:
-          | { status: 'ok'; summarized: number }
-          | { status: 'noop'; reason: 'nothing-to-summarize' | 'no-title-model' | 'empty-summary' }
+        response: CompactResult
       }
       sendMessage: {
         params: SendMessageInput
@@ -117,7 +88,7 @@ export type AppRPC = {
         params: {
           streamId: string
           toolCallId: string
-          decision: 'allow' | 'deny'
+          decision: ToolDecision
           remember: boolean
         }
         response: void
@@ -133,7 +104,7 @@ export type AppRPC = {
         params: { id: string }
         response: {
           id: string
-          kind: 'image' | 'file'
+          kind: AttachmentKind
           mediaType: string
           name: string
           byteSize: number
@@ -156,11 +127,11 @@ export type AppRPC = {
           name: string
           label: string
           description: string
-          policy: 'allow' | 'ask' | 'deny'
+          policy: ToolPolicy
         }[]
       }
       setToolPolicy: {
-        params: { toolName: string; policy: 'allow' | 'ask' | 'deny' }
+        params: { toolName: string; policy: ToolPolicy }
         response: void
       }
 
@@ -203,7 +174,7 @@ export type AppRPC = {
 
       // Dev tools (TWEAK=1 only — handlers are no-ops in prod)
       devSetOverride: {
-        params: { key: string; value: number | string | boolean | null }
+        params: { key: DevOverrideKey; value: number | string | boolean | null }
         response: void
       }
       devForceCompact: { params: { chatId: string }; response: void }
@@ -220,7 +191,7 @@ export type AppRPC = {
       modelsUpdated: {}
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
       chatsUpdated: {}
-      memoryChanged: { scope: 'global' | 'project'; projectId: string | null }
+      memoryChanged: { scope: MemoryScope; projectId: string | null }
       controlNavigate: {
         chatId: string
         streamId: string

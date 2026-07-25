@@ -18,14 +18,10 @@ import { IconChevronRight } from '@/components/icons/icon-chevron-right'
 import { IconGlobe } from '@/components/icons/icon-globe'
 import { IconPaperclip } from '@/components/icons/icon-paperclip'
 import { IconPlus } from '@/components/icons/icon-plus'
-import {
-  supportsPdf,
-  supportsThinking,
-  supportsVision,
-  supportsWebSearch,
-} from '@/entities/model/capabilities'
+import { getCapabilities } from '@/features/chat/helpers/composer-capabilities'
+import { capitalize } from '@/utils/capitalize'
 
-interface Props {
+type ComposerAddMenuProps = {
   model: ModelDTO | undefined
   thinking: boolean
   webSearch: boolean
@@ -35,10 +31,6 @@ interface Props {
   onWebSearchChange: (v: boolean) => void
   onEffortChange: (v: string | null) => void
   onAttachClick: () => void
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 export function ComposerAddMenu({
@@ -51,12 +43,9 @@ export function ComposerAddMenu({
   onWebSearchChange,
   onEffortChange,
   onAttachClick,
-}: Props) {
-  const canThink = model ? supportsThinking(model) : false
-  const canVision = model ? supportsVision(model) : false
-  const canPdf = model ? supportsPdf(model) : false
+}: ComposerAddMenuProps) {
+  const { canThink, canVision, canPdf, canBrowse } = getCapabilities(model)
   const canAttach = canVision || canPdf
-  const canBrowse = model ? supportsWebSearch(model) : false
   const levels = model ? effortLevelsForModel(model) : []
   const hasEffortOptions = levels.length > 0
 
@@ -108,7 +97,7 @@ export function ComposerAddMenu({
                 <span className="flex h-4 w-4 shrink-0" />
                 <span className="flex-1">
                   Effort
-                  {effort ? <span className="ml-1 text-subtle">· {capitalize(effort)}</span> : null}
+                  {effort && <span className="ml-1 text-subtle">· {capitalize(effort)}</span>}
                 </span>
                 <IconChevronRight width={12} className="text-subtle" />
               </DropdownSubmenuTrigger>

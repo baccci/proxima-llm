@@ -1,10 +1,12 @@
-interface ToolSummary {
+type ToolSummary = {
   heading: string
   preview?: string
 }
 
 function asString(v: unknown): string | undefined {
-  if (typeof v === 'string') return v
+  if (typeof v === 'string') {
+    return v
+  }
   return undefined
 }
 

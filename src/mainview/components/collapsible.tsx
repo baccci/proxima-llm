@@ -4,10 +4,7 @@ import type React from 'react'
 
 export const CollapsibleRoot = Collapsible.Root
 
-interface CollapsibleTriggerProps
-  extends React.ComponentPropsWithoutRef<typeof Collapsible.Trigger> {
-  className?: string
-}
+type CollapsibleTriggerProps = React.ComponentPropsWithoutRef<typeof Collapsible.Trigger>
 
 export function CollapsibleTrigger({
   className = '',
@@ -28,9 +25,7 @@ export function CollapsibleTrigger({
   )
 }
 
-interface CollapsiblePanelProps extends React.ComponentPropsWithoutRef<typeof Collapsible.Panel> {
-  className?: string
-}
+type CollapsiblePanelProps = React.ComponentPropsWithoutRef<typeof Collapsible.Panel>
 
 export function CollapsiblePanel({ className = '', children, ...props }: CollapsiblePanelProps) {
   return (

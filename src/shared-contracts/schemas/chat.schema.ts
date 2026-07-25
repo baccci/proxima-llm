@@ -1,11 +1,16 @@
 import { z } from 'zod'
+import { ToolDecision } from '../tools/tool-policy'
+
+// Default title for a chat with no user-set name. Also the sentinel the auto-title
+// pass checks to know a chat is still unnamed, so it lives here as the one source.
+export const DEFAULT_CHAT_TITLE = 'New Chat'
 
 export const ChatComposerState = z
   .object({
     thinking: z.boolean().default(false),
     webSearch: z.boolean().default(false),
     effort: z.string().nullable().default(null),
-    toolGrants: z.record(z.string(), z.enum(['allow', 'deny'])).default({}),
+    toolGrants: z.record(z.string(), ToolDecision).default({}),
   })
   .default({})
 

@@ -1,4 +1,4 @@
-import type { MessageDTO } from '@shared/schemas/message.schema'
+import { type MessageDTO, MessageRole } from '@shared/schemas/message.schema'
 import React from 'react'
 import { useMessages } from '@/features/chat/hooks/use-messages'
 import {
@@ -16,7 +16,7 @@ function makeStreamingAssistant(
   return {
     id,
     chatId,
-    role: 'assistant',
+    role: MessageRole.enum.assistant,
     parts,
     modelId: null,
     usage: null,
@@ -25,13 +25,14 @@ function makeStreamingAssistant(
 }
 
 // Folds the in-flight streaming message into the committed exchanges so focus
-// mode can display a live turn.
+// mode can show a live turn. Three cases:
 //
-// (a) Assistant row already committed under this stream id → update it in place.
-// (b) Last exchange is a user turn awaiting its response → fill it in place
-//     (avoids the duplicate-slide bug when the user message commits before the
-//     assistant row exists).
-// (c) No committed exchange for this turn yet → synthesise one (timing race).
+// (a) The assistant row is already committed under this stream id, so update it
+//     in place.
+// (b) The last exchange is a user turn still waiting for its reply, so fill it
+//     in place. This avoids the duplicate-slide bug when the user message
+//     commits before the assistant row exists.
+// (c) No committed exchange for this turn yet, so synthesise one (timing race).
 function mergeStreaming(
   base: Exchange[],
   messages: MessageDTO[],
@@ -62,8 +63,10 @@ function mergeStreaming(
     return updated
   }
 
-  const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')
-  if (!lastUserMsg) return base
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === MessageRole.enum.user)
+  if (!lastUserMsg) {
+    return base
+  }
   return [
     ...base,
     {
@@ -81,7 +84,11 @@ export function useFocusModeExchanges(): Exchange[] {
 
   return React.useMemo(() => {
     const base = groupIntoExchanges(messages)
-    if (!streaming || streaming.done) return base
+
+    if (!streaming || streaming.done) {
+      return base
+    }
+
     return mergeStreaming(base, messages, streaming)
   }, [messages, streaming])
 }

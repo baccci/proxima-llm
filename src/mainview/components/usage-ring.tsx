@@ -1,4 +1,6 @@
-interface UsageRingProps {
+import { clamp } from '@utils/clamp'
+
+type UsageRingProps = {
   fraction: number
   size?: number
 }
@@ -7,7 +9,7 @@ export function UsageRing({ fraction, size = 20 }: UsageRingProps) {
   const strokeWidth = 2.5
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
-  const filled = circumference * Math.min(1, Math.max(0, fraction))
+  const filled = circumference * clamp(fraction, 0, 1)
 
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>

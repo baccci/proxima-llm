@@ -1,4 +1,5 @@
-import { MemorySliceList } from '@/features/projects/components/memory-slice-list'
+import { MemoryScope } from '@shared/schemas/memory-slice.schema'
+import { MemorySliceList } from '@/features/memory/components/memory-slice-list'
 
 export function MemorySection() {
   return (
@@ -7,7 +8,7 @@ export function MemorySection() {
         Global memory is available across every chat. Add notes, preferences, or context the model
         should always be able to access.
       </p>
-      <MemorySliceList scope="global" projectId={null} />
+      <MemorySliceList scope={MemoryScope.enum.global} projectId={null} />
     </div>
   )
 }

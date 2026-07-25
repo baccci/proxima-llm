@@ -17,27 +17,41 @@ import { MemorySection } from './memory-section'
 import { ProvidersSection } from './providers-section'
 import { ToolsSection } from './tools-section'
 
-// Tabs render in array order EXCEPT 'advanced', which is always pinned LAST (see ORDERED_TABS).
-// Add new tabs anywhere in this array — they will appear above Advanced automatically.
-export const TABS_ARR: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'appearance', label: 'Appearance', icon: <IconPalette width={15} /> },
-  { id: 'providers', label: 'Providers', icon: <IconKeyRound width={15} /> },
-  { id: 'memory', label: 'Memory', icon: <IconBrain width={15} /> },
-  { id: 'tools', label: 'Tools', icon: <IconWrench width={15} /> },
-  { id: 'connect', label: 'Connect', icon: <IconGlobe width={15} /> },
-  { id: 'advanced', label: 'Advanced', icon: <IconSlidersHorizontal width={15} /> },
-]
-
-// 'advanced' must always be the final tab. New tabs go above it; this keeps that invariant
-// even if someone appends a tab after 'advanced'.
-const ORDERED_TABS = [
-  ...TABS_ARR.filter((t) => t.id !== 'advanced'),
-  ...TABS_ARR.filter((t) => t.id === 'advanced'),
+// One row per tab: id, nav label + icon, and the panel it shows. Order here is the display
+// order; keep 'advanced' last.
+const TABS_ARR: { id: Tab; label: string; icon: React.ReactNode; panel: React.ReactNode }[] = [
+  {
+    id: TABS.APPEARANCE,
+    label: 'Appearance',
+    icon: <IconPalette width={15} />,
+    panel: <AppearanceSection />,
+  },
+  {
+    id: TABS.PROVIDERS,
+    label: 'Providers',
+    icon: <IconKeyRound width={15} />,
+    panel: <ProvidersSection />,
+  },
+  { id: TABS.MEMORY, label: 'Memory', icon: <IconBrain width={15} />, panel: <MemorySection /> },
+  { id: TABS.TOOLS, label: 'Tools', icon: <IconWrench width={15} />, panel: <ToolsSection /> },
+  {
+    id: TABS.CONNECT,
+    label: 'Connect',
+    icon: <IconGlobe width={15} />,
+    panel: <ControlServerSection />,
+  },
+  {
+    id: TABS.ADVANCED,
+    label: 'Advanced',
+    icon: <IconSlidersHorizontal width={15} />,
+    panel: <AdvancedSection />,
+  },
 ]
 
 export function SettingsDialog() {
-  const { settingsOpen, setSettingsOpen } = useChatStore()
-  const [tab, setTab] = React.useState<Tab>('appearance')
+  const settingsOpen = useChatStore((s) => s.settingsOpen)
+  const setSettingsOpen = useChatStore((s) => s.setSettingsOpen)
+  const [tab, setTab] = React.useState<Tab>(TABS.APPEARANCE)
 
   return (
     <Modal
@@ -60,7 +74,7 @@ export function SettingsDialog() {
         </div>
 
         <ModalNavBody
-          nav={ORDERED_TABS.map((t) => (
+          nav={TABS_ARR.map((t) => (
             <ModalNavItem
               key={t.id}
               active={tab === t.id}
@@ -72,12 +86,7 @@ export function SettingsDialog() {
           ))}
         >
           <div className="h-[528px] overflow-y-auto overflow-x-clip px-1 pb-1">
-            {tab === TABS.APPEARANCE && <AppearanceSection />}
-            {tab === TABS.PROVIDERS && <ProvidersSection />}
-            {tab === TABS.MEMORY && <MemorySection />}
-            {tab === TABS.ADVANCED && <AdvancedSection />}
-            {tab === TABS.TOOLS && <ToolsSection />}
-            {tab === TABS.CONNECT && <ControlServerSection />}
+            {TABS_ARR.find((t) => t.id === tab)?.panel}
           </div>
         </ModalNavBody>
       </Modal.Content>

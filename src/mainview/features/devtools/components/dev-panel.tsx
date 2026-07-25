@@ -1,12 +1,12 @@
+import { clamp } from '@utils/clamp'
 import { motion, useDragControls, useMotionValue } from 'motion/react'
 import React from 'react'
 import { Logo } from '@/components/logo'
-import { useDevtoolsStore } from '../store/devtools.store'
+import { DEFAULT_POSITION, useDevtoolsStore } from '../store/devtools.store'
 import { AppearanceSection } from './sections/appearance-section'
 import { CompactionSection } from './sections/compaction-section'
 
 const MIN_VISIBLE = 48
-const DEFAULT_POS = { x: 16, y: 80 }
 
 function GripDots() {
   return (
@@ -22,9 +22,69 @@ function clampToViewport(pos: { x: number; y: number }): { x: number; y: number 
   const maxX = Math.max(0, window.innerWidth - MIN_VISIBLE)
   const maxY = Math.max(0, window.innerHeight - MIN_VISIBLE)
   return {
-    x: Math.min(Math.max(0, pos.x), maxX),
-    y: Math.min(Math.max(0, pos.y), maxY),
+    x: clamp(pos.x, 0, maxX),
+    y: clamp(pos.y, 0, maxY),
   }
+}
+
+type PanelBranchProps = {
+  onToggle: () => void
+  onStartDrag: (e: React.PointerEvent) => void
+  onResetPosition: () => void
+}
+
+function DevPanelOpen({ onToggle, onStartDrag, onResetPosition }: PanelBranchProps) {
+  return (
+    <div className="w-52 rounded-xl bg-black/90 border border-white/10 shadow-2xl backdrop-blur-md overflow-hidden">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle, not a keyboard control */}
+      <div
+        onPointerDown={onStartDrag}
+        onDoubleClick={onResetPosition}
+        className="flex items-center justify-between px-3 py-2 border-b border-white/10 cursor-grab active:cursor-grabbing"
+        title="Drag to move · double-click to reset"
+      >
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-floating-foreground tracking-wide">
+          <Logo width={12} />
+          Dev Tools
+        </span>
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onToggle}
+          className="text-white/40 hover:text-white text-xs leading-none cursor-pointer transition-colors"
+          aria-label="Close dev panel"
+        >
+          ✕
+        </button>
+      </div>
+      <CompactionSection />
+      <AppearanceSection />
+    </div>
+  )
+}
+
+function DevPanelLauncher({ onToggle, onStartDrag, onResetPosition }: PanelBranchProps) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-9 h-9 rounded-full border border-subtle bg-background text-foreground shadow-lg flex items-center justify-center hover:brightness-105 cursor-pointer transition-[filter]"
+        aria-label="Open dev panel"
+      >
+        <Logo width={20} />
+      </button>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle, not a keyboard control */}
+      <div
+        onPointerDown={onStartDrag}
+        onDoubleClick={onResetPosition}
+        title="Drag to move · double-click to reset"
+        className="flex h-3.5 w-9 items-center justify-center gap-[3px] rounded-full border border-subtle bg-background shadow cursor-grab active:cursor-grabbing"
+      >
+        <GripDots />
+      </div>
+    </div>
+  )
 }
 
 export function DevPanel() {
@@ -52,9 +112,9 @@ export function DevPanel() {
   const startDrag = (e: React.PointerEvent) => dragControls.start(e)
 
   const resetPosition = () => {
-    x.set(DEFAULT_POS.x)
-    y.set(DEFAULT_POS.y)
-    setPosition(DEFAULT_POS)
+    x.set(DEFAULT_POSITION.x)
+    y.set(DEFAULT_POSITION.y)
+    setPosition(DEFAULT_POSITION)
   }
 
   return (
@@ -72,51 +132,13 @@ export function DevPanel() {
         className="select-none"
       >
         {isOpen ? (
-          <div className="w-52 rounded-xl bg-black/90 border border-white/10 shadow-2xl backdrop-blur-md overflow-hidden">
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle, not a keyboard control */}
-            <div
-              onPointerDown={startDrag}
-              onDoubleClick={resetPosition}
-              className="flex items-center justify-between px-3 py-2 border-b border-white/10 cursor-grab active:cursor-grabbing"
-              title="Drag to move · double-click to reset"
-            >
-              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-floating-foreground tracking-wide">
-                <Logo width={12} />
-                Dev Tools
-              </span>
-              <button
-                type="button"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={toggle}
-                className="text-white/40 hover:text-white text-xs leading-none cursor-pointer transition-colors"
-                aria-label="Close dev panel"
-              >
-                ✕
-              </button>
-            </div>
-            <CompactionSection />
-            <AppearanceSection />
-          </div>
+          <DevPanelOpen onToggle={toggle} onStartDrag={startDrag} onResetPosition={resetPosition} />
         ) : (
-          <div className="flex flex-col items-center gap-1">
-            <button
-              type="button"
-              onClick={toggle}
-              className="w-9 h-9 rounded-full border border-subtle bg-background text-foreground shadow-lg flex items-center justify-center hover:brightness-105 cursor-pointer transition-[filter]"
-              aria-label="Open dev panel"
-            >
-              <Logo width={20} />
-            </button>
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle, not a keyboard control */}
-            <div
-              onPointerDown={startDrag}
-              onDoubleClick={resetPosition}
-              title="Drag to move · double-click to reset"
-              className="flex h-3.5 w-9 items-center justify-center gap-[3px] rounded-full border border-subtle bg-background shadow cursor-grab active:cursor-grabbing"
-            >
-              <GripDots />
-            </div>
-          </div>
+          <DevPanelLauncher
+            onToggle={toggle}
+            onStartDrag={startDrag}
+            onResetPosition={resetPosition}
+          />
         )}
       </motion.div>
     </>

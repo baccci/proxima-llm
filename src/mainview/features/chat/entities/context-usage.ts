@@ -1,4 +1,4 @@
-import type { MessageDTO } from '@shared/schemas/message.schema'
+import { type MessageDTO, MessageRole } from '@shared/schemas/message.schema'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 
 export type ContextUsage = {
@@ -14,10 +14,16 @@ export function getContextUsage(
   model: ModelDTO | undefined,
 ): ContextUsage | null {
   const limit = model?.capabilities.contextWindow
-  if (!limit) return null
+  if (!limit) {
+    return null
+  }
 
-  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && m.usage)
-  if (!lastAssistant?.usage) return null
+  const lastAssistant = [...messages]
+    .reverse()
+    .find((m) => m.role === MessageRole.enum.assistant && m.usage)
+  if (!lastAssistant?.usage) {
+    return null
+  }
 
   const u = lastAssistant.usage
   // input + cache tokens = everything that was sent in the prompt this turn (system + full history).

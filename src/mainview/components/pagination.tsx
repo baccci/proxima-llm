@@ -1,25 +1,44 @@
 import { cn } from '@utils/tailwind-class-merge'
 
-type Props = {
+// Up to this many pages we render every number. Above it, the middle collapses.
+const MAX_PAGES_WITHOUT_ELLIPSIS = 7
+// Marker placed in the page list where the middle collapses.
+const ELLIPSIS = '…'
+
+type PaginationProps = {
   page: number
   pageCount: number
   onChange: (page: number) => void
 }
 
-function buildPages(page: number, pageCount: number): (number | '…')[] {
-  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i + 1)
-  const pages: (number | '…')[] = [1]
-  if (page > 3) pages.push('…')
+function buildPages(page: number, pageCount: number): (number | typeof ELLIPSIS)[] {
+  if (pageCount <= MAX_PAGES_WITHOUT_ELLIPSIS) {
+    return Array.from({ length: pageCount }, (_, i) => i + 1)
+  }
+
+  const pages: (number | typeof ELLIPSIS)[] = [1]
+
+  if (page > 3) {
+    pages.push(ELLIPSIS)
+  }
+
   for (let i = Math.max(2, page - 1); i <= Math.min(pageCount - 1, page + 1); i++) {
     pages.push(i)
   }
-  if (page < pageCount - 2) pages.push('…')
+
+  if (page < pageCount - 2) {
+    pages.push(ELLIPSIS)
+  }
+
   pages.push(pageCount)
   return pages
 }
 
-export function Pagination({ page, pageCount, onChange }: Props) {
-  if (pageCount <= 1) return null
+export function Pagination({ page, pageCount, onChange }: PaginationProps) {
+  if (pageCount <= 1) {
+    return null
+  }
+
   const items = buildPages(page, pageCount)
   return (
     <div className="flex items-center justify-center gap-1">
@@ -32,9 +51,9 @@ export function Pagination({ page, pageCount, onChange }: Props) {
         Prev
       </button>
       {items.map((item, i) =>
-        item === '…' ? (
+        item === ELLIPSIS ? (
           <span key={`ellipsis-${i}`} className="px-1 text-sm text-subtle select-none">
-            …
+            {item}
           </span>
         ) : (
           <button

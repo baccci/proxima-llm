@@ -1,4 +1,6 @@
+import { isFreeModel } from '@shared/models/pricing'
 import type { ModelDTO } from '@shared/schemas/model.schema'
+import { TitleMode } from '@shared/schemas/settings.schema'
 import { useMutation } from '@tanstack/react-query'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
@@ -16,6 +18,7 @@ import { IconRotateCcw } from '@/components/icons/icon-rotate-ccw'
 import { Spinner } from '@/components/spinner'
 import { Switch } from '@/components/switch'
 import { useModels } from '@/features/models/hooks/use-models'
+import { models } from '@/features/models/models.api'
 import { useSettings } from '@/features/settings/hooks/use-settings'
 import { settings } from '@/features/settings/settings.api'
 import type { ProviderId } from '../constants/providers'
@@ -25,15 +28,6 @@ type TitleModelControlProps = {
   syncable: boolean
   accent?: string
   foreground?: string
-}
-
-// Mirrors resolveTitleModel/isFreeModel on the backend: free models get
-// deactivated without notice, so Auto skips them and Custom warns about them.
-function isFreeModel(m: ModelDTO): boolean {
-  return (
-    m.id.endsWith(':free') ||
-    (m.pricing != null && m.pricing.prompt === 0 && m.pricing.completion === 0)
-  )
 }
 
 export function TitleModelControl({
@@ -53,7 +47,7 @@ export function TitleModelControl({
   }, [allModels, provider])
 
   const cfg = currentSettings?.titleModels?.[provider]
-  const isCustom = cfg?.mode === 'custom'
+  const isCustom = cfg?.mode === TitleMode.enum.custom
   const selectedModelId = cfg?.modelId ?? null
 
   // Auto resolves to the cheapest NON-free model (matches the backend resolver)
@@ -62,14 +56,17 @@ export function TitleModelControl({
   const selectedIsFree = selectedModel != null && isFreeModel(selectedModel)
 
   const syncMutation = useMutation({
-    mutationFn: () => settings.syncModels(),
+    mutationFn: () => models.syncModels(),
   })
 
   function toggleMode() {
     settings.update({
       titleModels: {
         ...(currentSettings?.titleModels ?? {}),
-        [provider]: { mode: isCustom ? 'auto' : 'custom', modelId: selectedModelId },
+        [provider]: {
+          mode: isCustom ? TitleMode.enum.auto : TitleMode.enum.custom,
+          modelId: selectedModelId,
+        },
       },
     })
   }
@@ -78,7 +75,7 @@ export function TitleModelControl({
     settings.update({
       titleModels: {
         ...(currentSettings?.titleModels ?? {}),
-        [provider]: { mode: 'custom', modelId },
+        [provider]: { mode: TitleMode.enum.custom, modelId },
       },
     })
   }
@@ -121,12 +118,14 @@ export function TitleModelControl({
         )}
       </div>
 
-      {/* Model dropdown — only in Custom mode */}
+      {/* Model dropdown, only in Custom mode */}
       {isCustom && (
         <div className="space-y-2">
-          {providerModels.length === 0 ? (
+          {providerModels.length === 0 && (
             <p className="text-xs text-subtle">No enabled models for this provider.</p>
-          ) : (
+          )}
+
+          {providerModels.length > 0 && (
             <DropdownRoot>
               <DropdownTrigger className="flex items-center gap-2 h-8 px-3 w-full rounded-lg border border-border bg-surface text-sm text-foreground hover:bg-surface-hover transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="flex-1 text-left truncate">
@@ -141,15 +140,7 @@ export function TitleModelControl({
                       <DropdownItem key={m.id} onClick={() => setModelId(m.id)}>
                         <div className="flex items-center justify-between w-full gap-2 min-w-0">
                           <span className="truncate min-w-0">{m.displayName}</span>
-                          {isFreeModel(m) ? (
-                            <span className="shrink-0 text-2xs text-subtle uppercase tracking-wider">
-                              Free
-                            </span>
-                          ) : (
-                            m.id === autoPick?.id && (
-                              <span className="shrink-0 text-2xs text-subtle font-mono">$</span>
-                            )
-                          )}
+                          <ModelBadge model={m} isAutoPick={m.id === autoPick?.id} />
                         </div>
                       </DropdownItem>
                     ))}
@@ -169,4 +160,23 @@ export function TitleModelControl({
       )}
     </div>
   )
+}
+
+type ModelBadgeProps = {
+  model: ModelDTO
+  isAutoPick: boolean
+}
+
+// Trailing badge on a model row: "Free" for free models, "$" on the cheapest paid pick
+// (the one Auto resolves to), nothing otherwise.
+function ModelBadge({ model, isAutoPick }: ModelBadgeProps) {
+  if (isFreeModel(model)) {
+    return <span className="shrink-0 text-2xs text-subtle uppercase tracking-wider">Free</span>
+  }
+
+  if (isAutoPick) {
+    return <span className="shrink-0 text-2xs text-subtle font-mono">$</span>
+  }
+
+  return null
 }

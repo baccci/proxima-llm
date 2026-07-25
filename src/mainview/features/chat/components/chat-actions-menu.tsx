@@ -17,10 +17,11 @@ import { IconPin } from '@/components/icons/icon-pin'
 import { IconPinOff } from '@/components/icons/icon-pin-off'
 import { IconTrash } from '@/components/icons/icon-trash'
 import { chat } from '@/features/chat/chat.api'
+import { chatTitle } from '@/features/chat/entities/chat-title'
 import { useChatStore } from '@/features/chat/store/chat.store'
-import { chatTitle } from '@/features/sidebar/entities/helpers'
+import { useMountEffect } from '@/hooks/use-mount-effect'
 
-interface Props {
+type ChatActionsMenuProps = {
   chatItem: ChatDTO
   /** When provided, the Rename item calls this instead of opening a dialog (sidebar inline-edit). */
   onRenameClick?: () => void
@@ -36,20 +37,11 @@ export function ChatActionsMenu({
   onOpenChange,
   triggerClassName,
   triggerSize = 14,
-}: Props) {
+}: ChatActionsMenuProps) {
   const selectChat = useChatStore((s) => s.selectChat)
   const selectedChatId = useChatStore((s) => s.selectedChatId)
   const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [renamingDialog, setRenamingDialog] = React.useState(false)
-  const [renameText, setRenameText] = React.useState('')
-  const renameInputRef = React.useRef<HTMLInputElement>(null)
-
-  React.useEffect(() => {
-    if (renamingDialog) {
-      setRenameText(chatTitle(chatItem))
-      requestAnimationFrame(() => renameInputRef.current?.select())
-    }
-  }, [renamingDialog, chatItem])
 
   async function handleTogglePin() {
     await chat.update({ id: chatItem.id, pinned: !chatItem.pinned })
@@ -58,30 +50,17 @@ export function ChatActionsMenu({
   function handleRenameClick() {
     if (onRenameClick) {
       onRenameClick()
-    } else {
-      setRenamingDialog(true)
+      return
     }
-  }
-
-  async function commitRenameDialog() {
-    const trimmed = renameText.trim()
-    if (trimmed && trimmed !== chatTitle(chatItem)) {
-      await chat.update({ id: chatItem.id, title: trimmed })
-    }
-    setRenamingDialog(false)
-  }
-
-  function handleRenameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      commitRenameDialog()
-    } else if (e.key === 'Escape') setRenamingDialog(false)
+    setRenamingDialog(true)
   }
 
   async function executeDelete() {
     setConfirmDelete(false)
     await chat.remove(chatItem.id)
-    if (selectedChatId === chatItem.id) selectChat(null)
+    if (selectedChatId === chatItem.id) {
+      selectChat(null)
+    }
   }
 
   return (
@@ -120,25 +99,11 @@ export function ChatActionsMenu({
         </DropdownPortal>
       </DropdownRoot>
 
-      {/* Rename dialog — used when no inline-rename callback is provided (e.g. chat header) */}
+      {/* Rename dialog, used when no inline-rename callback is provided (e.g. chat header) */}
       {!onRenameClick && (
         <DialogRoot open={renamingDialog} onOpenChange={setRenamingDialog}>
           <DialogContent title="Rename chat">
-            <input
-              ref={renameInputRef}
-              value={renameText}
-              onChange={(e) => setRenameText(e.target.value)}
-              onKeyDown={handleRenameKeyDown}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-surface-hover text-foreground outline-none border border-border focus:border-brand mb-4"
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setRenamingDialog(false)}>
-                Cancel
-              </Button>
-              <Button variant="brand" onClick={commitRenameDialog}>
-                Save
-              </Button>
-            </div>
+            <RenameDialogForm chatItem={chatItem} onClose={() => setRenamingDialog(false)} />
           </DialogContent>
         </DialogRoot>
       )}
@@ -159,6 +124,62 @@ export function ChatActionsMenu({
           </div>
         </DialogContent>
       </DialogRoot>
+    </>
+  )
+}
+
+type RenameDialogFormProps = {
+  chatItem: ChatDTO
+  onClose: () => void
+}
+
+// The rename form, mounted only while the dialog is open (base-ui unmounts the
+// popup on close), so it seeds fresh from the chat each time and selects on mount.
+function RenameDialogForm({ chatItem, onClose }: RenameDialogFormProps) {
+  const [text, setText] = React.useState(() => chatTitle(chatItem))
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  useMountEffect(() => {
+    requestAnimationFrame(() => inputRef.current?.select())
+  })
+
+  async function commit() {
+    const trimmed = text.trim()
+    if (trimmed && trimmed !== chatTitle(chatItem)) {
+      await chat.update({ id: chatItem.id, title: trimmed })
+    }
+    onClose()
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commit()
+      return
+    }
+
+    if (e.key === 'Escape') {
+      onClose()
+    }
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={handleKeyDown}
+        className="w-full px-3 py-2 text-sm rounded-lg bg-surface-hover text-foreground outline-none border border-border focus:border-brand mb-4"
+      />
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="brand" onClick={commit}>
+          Save
+        </Button>
+      </div>
     </>
   )
 }

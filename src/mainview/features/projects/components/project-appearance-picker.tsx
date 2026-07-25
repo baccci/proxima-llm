@@ -1,30 +1,55 @@
 import { Slider } from '@base-ui-components/react'
-import {
-  type CustomPalette,
-  composeIconColor,
-  isCustomPalette,
-  PROJECT_ICON_KEYS,
-  PROJECT_PALETTES,
-  parseCustomPalette,
-  parseIconColor,
-  resolveIconColor,
-  resolvePalette,
-  serializeCustomPalette,
-} from '@shared/project-appearance'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/popover'
+import {
+  composeIconColor,
+  DEFAULT_ICON_KEY,
+  PROJECT_ICON_KEYS,
+  parseIconColor,
+  resolveIconColor,
+} from '@/entities/project/icon'
+import {
+  type CustomPalette,
+  isCustomPalette,
+  PROJECT_PALETTES,
+  parseCustomPalette,
+  resolvePalette,
+  serializeCustomPalette,
+} from '@/entities/project/palette'
 import { getProjectIcon } from '@/features/projects/lib/project-icon'
-import { useIsDark } from '@/features/projects/lib/use-is-dark'
+import { useIsDark } from '@/hooks/use-is-dark'
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
+
+// A lone '#' is the empty state of a hex input: a prompt char, not a valid color.
+const EMPTY_HEX = '#'
+// Full opacity, used when no explicit opacity has been chosen yet.
+const DEFAULT_OPACITY_PCT = 100
+// Neutral track color for the opacity slider when no base color is set yet.
+const SLIDER_FALLBACK_COLOR = '#888'
 
 const DEFAULT_CUSTOM: CustomPalette = {
   light: { bg: '#F1F5F9', fr: '#334155' },
   dark: { bg: '#1E293B', fr: '#CBD5E1' },
 }
 
-interface ProjectAppearancePickerProps {
+// The four hex fields of the custom-palette editor: bg + fr for each theme.
+type CustomDraft = {
+  lightBg: string
+  lightFr: string
+  darkBg: string
+  darkFr: string
+}
+
+function customFromDraft(draft: CustomDraft): string {
+  return serializeCustomPalette({
+    light: { bg: draft.lightBg, fr: draft.lightFr },
+    dark: { bg: draft.darkBg, fr: draft.darkFr },
+  })
+}
+
+type ProjectAppearancePickerProps = {
   icon: string | null
   palette: string | null
   iconColor: string | null
@@ -33,17 +58,33 @@ interface ProjectAppearancePickerProps {
   onIconColorChange: (iconColor: string | null) => void
 }
 
+// A square grid button used for icon / color / palette swatches: owns the shared
+// shape (size, focus ring) and the selection ring, spreads the rest.
+type SwatchButtonProps = React.ComponentProps<'button'> & { selected?: boolean }
+
+function SwatchButton({ selected, className, ...props }: SwatchButtonProps) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        'h-8 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        selected && 'ring-2 ring-ring',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
 // Full-width slider that reads as opacity: the track fades transparent -> the
 // current icon color, with a knob and % label, so it can't be mistaken for a swatch.
-function OpacitySlider({
-  base,
-  value,
-  onChange,
-}: {
+type OpacitySliderProps = {
   base: string
   value: number
   onChange: (pct: number) => void
-}) {
+}
+
+function OpacitySlider({ base, value, onChange }: OpacitySliderProps) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
@@ -61,7 +102,9 @@ function OpacitySlider({
           <Slider.Track className="relative h-2 w-full rounded-full border border-border bg-surface">
             <div
               className="absolute inset-0 rounded-full"
-              style={{ background: `linear-gradient(to right, transparent, ${base || '#888'})` }}
+              style={{
+                background: `linear-gradient(to right, transparent, ${base || SLIDER_FALLBACK_COLOR})`,
+              }}
             />
             <Slider.Thumb className="relative z-10 size-3.5 rounded-full border-2 border-surface bg-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </Slider.Track>
@@ -78,16 +121,7 @@ function OpacitySlider({
 const BOX_SURFACE = { light: '#F7F7F8', dark: '#1D1D20' }
 const BOX_LABEL = { light: '#6C6C73', dark: '#8B8B92' }
 
-function PaletteBox({
-  label,
-  active,
-  boxDark,
-  bg,
-  fr,
-  onBg,
-  onFr,
-  Icon,
-}: {
+type PaletteBoxProps = {
   label: string
   active: boolean
   boxDark: boolean
@@ -96,7 +130,9 @@ function PaletteBox({
   onBg: (v: string) => void
   onFr: (v: string) => void
   Icon: React.FC<React.ComponentProps<'svg'>>
-}) {
+}
+
+function PaletteBox({ label, active, boxDark, bg, fr, onBg, onFr, Icon }: PaletteBoxProps) {
   const bgValid = HEX_RE.test(bg)
   const frValid = HEX_RE.test(fr)
   const theme = boxDark ? 'dark' : 'light'
@@ -157,11 +193,11 @@ export function ProjectAppearancePicker({
 }: ProjectAppearancePickerProps) {
   const isDark = useIsDark()
   const { base: iconColorBase, opacityPct } = parseIconColor(iconColor)
-  const [hexDraft, setHexDraft] = React.useState(iconColorBase || '#')
+  const [hexDraft, setHexDraft] = React.useState(iconColorBase || EMPTY_HEX)
 
   const isCustom = isCustomPalette(palette)
   const seededCustom = parseCustomPalette(palette) ?? DEFAULT_CUSTOM
-  const [customDraft, setCustomDraft] = React.useState({
+  const [customDraft, setCustomDraft] = React.useState<CustomDraft>({
     lightBg: seededCustom.light.bg,
     lightFr: seededCustom.light.fr,
     darkBg: seededCustom.dark.bg,
@@ -172,56 +208,51 @@ export function ProjectAppearancePicker({
   const previewIconColor = resolveIconColor(iconColor, previewColors)
   const PreviewIcon = getProjectIcon(icon)
 
-  function commitCustom(next: typeof customDraft) {
+  function commitCustom(next: CustomDraft) {
     setCustomDraft(next)
     const allValid = [next.lightBg, next.lightFr, next.darkBg, next.darkFr].every((h) =>
       HEX_RE.test(h),
     )
     if (allValid) {
-      onPaletteChange(
-        serializeCustomPalette({
-          light: { bg: next.lightBg, fr: next.lightFr },
-          dark: { bg: next.darkBg, fr: next.darkFr },
-        }),
-      )
+      onPaletteChange(customFromDraft(next))
     }
   }
 
   function selectCustom() {
-    if (isCustom) return
-    const built = resolvePalette(palette, false)
+    if (isCustom) {
+      return
+    }
+    // Seed the custom editor from the currently-selected preset palette (both
+    // themes), or from the neutral default when no preset is active.
+    const lightPreset = resolvePalette(palette, false)
+    const darkPreset = resolvePalette(palette, true)
     const seed =
-      built && !isCustom
-        ? { light: resolvePalette(palette, false)!, dark: resolvePalette(palette, true)! }
-        : DEFAULT_CUSTOM
-    const next = {
+      lightPreset && darkPreset ? { light: lightPreset, dark: darkPreset } : DEFAULT_CUSTOM
+    const next: CustomDraft = {
       lightBg: seed.light.bg.toUpperCase(),
       lightFr: seed.light.fr.toUpperCase(),
       darkBg: seed.dark.bg.toUpperCase(),
       darkFr: seed.dark.fr.toUpperCase(),
     }
     setCustomDraft(next)
-    onPaletteChange(
-      serializeCustomPalette({
-        light: { bg: next.lightBg, fr: next.lightFr },
-        dark: { bg: next.darkBg, fr: next.darkFr },
-      }),
-    )
+    onPaletteChange(customFromDraft(next))
   }
 
   function pickIconColor(base: string) {
     setHexDraft(base)
-    onIconColorChange(composeIconColor(base, opacityPct || 100))
+    onIconColorChange(composeIconColor(base, opacityPct || DEFAULT_OPACITY_PCT))
   }
 
   function clearIconColor() {
-    setHexDraft('#')
+    setHexDraft(EMPTY_HEX)
     onIconColorChange(null)
   }
 
   function onHexInput(value: string) {
     setHexDraft(value)
-    if (HEX_RE.test(value)) onIconColorChange(composeIconColor(value, opacityPct || 100))
+    if (HEX_RE.test(value)) {
+      onIconColorChange(composeIconColor(value, opacityPct || DEFAULT_OPACITY_PCT))
+    }
   }
 
   return (
@@ -240,19 +271,19 @@ export function ProjectAppearancePicker({
                 <div className="grid grid-cols-6 gap-1.5">
                   {PROJECT_ICON_KEYS.map((key) => {
                     const Icon = getProjectIcon(key)
-                    const selected = (icon ?? 'folder') === key
+                    const selected = (icon ?? DEFAULT_ICON_KEY) === key
                     return (
-                      <button
+                      <SwatchButton
                         key={key}
-                        type="button"
-                        onClick={() => onIconChange(key === 'folder' ? null : key)}
+                        onClick={() => onIconChange(key === DEFAULT_ICON_KEY ? null : key)}
+                        selected={selected}
                         className={cn(
-                          'flex items-center justify-center h-8 rounded-lg text-muted hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                          selected && 'ring-2 ring-ring text-foreground',
+                          'flex items-center justify-center text-muted hover:bg-surface-hover transition-colors',
+                          selected && 'text-foreground',
                         )}
                       >
                         <Icon width={16} />
-                      </button>
+                      </SwatchButton>
                     )
                   })}
                 </div>
@@ -275,35 +306,29 @@ export function ProjectAppearancePicker({
               <PopoverContent className="w-60">
                 <div className="flex flex-col gap-2">
                   <div className="grid grid-cols-6 gap-1.5">
-                    <button
-                      type="button"
+                    <SwatchButton
                       onClick={clearIconColor}
-                      className={cn(
-                        'h-8 rounded-lg border border-border text-2xs text-muted hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        iconColor === null && 'ring-2 ring-ring',
-                      )}
+                      selected={iconColor === null}
+                      className="border border-border text-2xs text-muted hover:bg-surface-hover transition-colors"
                     >
                       Match
-                    </button>
+                    </SwatchButton>
                     {PROJECT_PALETTES.map((p) => {
                       const base = resolvePalette(p.key, isDark)!.fr.toUpperCase()
                       const selected = iconColorBase === base
                       return (
-                        <button
+                        <SwatchButton
                           key={p.key}
-                          type="button"
                           title={p.name}
                           onClick={() => pickIconColor(base)}
-                          className={cn(
-                            'h-8 rounded-lg border border-border transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                            selected && 'ring-2 ring-ring',
-                          )}
+                          selected={selected}
+                          className="border border-border transition-transform hover:scale-105"
                         >
                           <span
                             className="block w-full h-full rounded-md"
                             style={{ backgroundColor: base }}
                           />
-                        </button>
+                        </SwatchButton>
                       )
                     })}
                   </div>
@@ -318,7 +343,7 @@ export function ProjectAppearancePicker({
                       className={cn(
                         'flex-1 min-w-0 h-7 px-2 rounded-md border bg-panel text-xs font-mono text-foreground',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        hexDraft !== '#' && !HEX_RE.test(hexDraft)
+                        hexDraft !== EMPTY_HEX && !HEX_RE.test(hexDraft)
                           ? 'border-danger'
                           : 'border-border',
                       )}
@@ -347,33 +372,27 @@ export function ProjectAppearancePicker({
       <div className="flex flex-col gap-2">
         <label className="text-xs font-medium text-muted">Palette</label>
         <div className="grid grid-cols-6 gap-1.5">
-          <button
-            type="button"
+          <SwatchButton
             onClick={() => onPaletteChange(null)}
-            className={cn(
-              'h-8 rounded-lg border border-border text-2xs text-muted hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              palette === null && 'ring-2 ring-ring',
-            )}
+            selected={palette === null}
+            className="border border-border text-2xs text-muted hover:bg-surface-hover transition-colors"
           >
             Native
-          </button>
+          </SwatchButton>
           {PROJECT_PALETTES.map((p) => {
             const colors = resolvePalette(p.key, isDark)!
             const selected = palette === p.key
             return (
-              <button
+              <SwatchButton
                 key={p.key}
-                type="button"
                 title={p.name}
                 onClick={() => onPaletteChange(p.key)}
+                selected={selected}
                 style={{ backgroundColor: colors.bg, color: colors.fr }}
-                className={cn(
-                  'h-8 rounded-lg text-2xs font-semibold transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  selected && 'ring-2 ring-ring',
-                )}
+                className="text-2xs font-semibold transition-transform hover:scale-105"
               >
                 Aa
-              </button>
+              </SwatchButton>
             )
           })}
           <PopoverRoot>

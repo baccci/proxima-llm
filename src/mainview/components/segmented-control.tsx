@@ -1,13 +1,13 @@
 import { cn } from '@utils/tailwind-class-merge'
 import type React from 'react'
 
-interface SegmentedOption<T extends string> {
+type SegmentedOption<T extends string> = {
   value: T
   label: string
   icon?: React.ReactNode
 }
 
-interface SegmentedControlProps<T extends string> {
+type SegmentedControlProps<T extends string> = {
   options: SegmentedOption<T>[]
   value: T
   onChange: (value: T) => void

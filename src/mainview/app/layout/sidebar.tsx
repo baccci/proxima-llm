@@ -49,7 +49,6 @@ export function Sidebar() {
       <div className="px-2 pb-1 shrink-0">
         <button
           onClick={handleNewChat}
-          disabled={false}
           className="flex items-center gap-2 w-full px-2 h-8 rounded-lg text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <IconPlus width={15} className="shrink-0" />
@@ -67,7 +66,7 @@ export function Sidebar() {
       {/* Pinned chats */}
       <SidebarPinnedChats chats={pinned} />
 
-      {/* Scrollable chat list — takes remaining height */}
+      {/* Scrollable chat list, takes remaining height */}
       <SidebarChatList chats={filteredUnpinned} />
 
       <SidebarFooter />

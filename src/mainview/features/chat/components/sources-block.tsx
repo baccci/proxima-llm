@@ -1,9 +1,9 @@
-interface Source {
+type Source = {
   url: string
   title?: string
 }
 
-interface Props {
+type SourcesBlockProps = {
   sources: Source[]
 }
 
@@ -15,8 +15,10 @@ function hostLabel(url: string): string {
   }
 }
 
-export function SourcesBlock({ sources }: Props) {
-  if (sources.length === 0) return null
+export function SourcesBlock({ sources }: SourcesBlockProps) {
+  if (sources.length === 0) {
+    return null
+  }
 
   return (
     <div className="mt-3 flex flex-wrap gap-1.5">

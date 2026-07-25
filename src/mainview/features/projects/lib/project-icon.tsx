@@ -11,10 +11,13 @@ import { IconPlane } from '@/components/icons/icon-plane'
 import { IconRocket } from '@/components/icons/icon-rocket'
 import { IconSparkles } from '@/components/icons/icon-sparkles'
 import { IconSuitcase } from '@/components/icons/icon-suitcase'
+import { DEFAULT_ICON_KEY, type ProjectIconKey } from '@/entities/project/icon'
 
 type IconComponent = React.FC<React.ComponentProps<'svg'>>
 
-const ICON_MAP: Record<string, IconComponent> = {
+// Keyed by ProjectIconKey so adding a key to PROJECT_ICON_KEYS without a matching
+// icon here is a compile error. The two lists can no longer drift apart.
+const ICON_MAP: Record<ProjectIconKey, IconComponent> = {
   folder: IconFolderOpen,
   suitcase: IconSuitcase,
   banknote: IconBanknote,
@@ -30,6 +33,8 @@ const ICON_MAP: Record<string, IconComponent> = {
 }
 
 export function getProjectIcon(key: string | null | undefined): IconComponent {
-  if (!key) return IconFolderOpen
-  return ICON_MAP[key] ?? IconFolderOpen
+  if (!key) {
+    return ICON_MAP[DEFAULT_ICON_KEY]
+  }
+  return ICON_MAP[key as ProjectIconKey] ?? ICON_MAP[DEFAULT_ICON_KEY]
 }

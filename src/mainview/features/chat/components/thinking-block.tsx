@@ -1,27 +1,38 @@
+import { formatSeconds } from '@utils/format-duration'
 import { cn } from '@utils/tailwind-class-merge'
 import { AnimatePresence, motion } from 'motion/react'
 import { IconChevronRight } from '@/components/icons/icon-chevron-right'
 import { useChatStore } from '@/features/chat/store/chat.store'
 
-interface Props {
+type ThinkingBlockProps = {
   messageId: string
   reasoning: string
   active?: boolean
-  durationLabel?: string
+  durationMs?: number | null
   tokenEstimate?: number
+}
+
+function thinkingLabel(active: boolean | undefined, durationMs: number | null | undefined) {
+  if (active) {
+    return 'Thinking…'
+  }
+  if (durationMs != null) {
+    return `Thought for ${formatSeconds(durationMs)}`
+  }
+  return 'Thought'
 }
 
 export function ThinkingBlock({
   messageId,
   reasoning,
   active,
-  durationLabel,
+  durationMs,
   tokenEstimate,
-}: Props) {
-  const { thinkingExpanded, setThinkingExpanded } = useChatStore()
-  const expanded = thinkingExpanded[messageId] ?? false
+}: ThinkingBlockProps) {
+  const expanded = useChatStore((s) => s.thinkingExpanded[messageId] ?? false)
+  const setThinkingExpanded = useChatStore((s) => s.setThinkingExpanded)
 
-  const label = active ? 'Thinking…' : durationLabel ? `Thought for ${durationLabel}` : 'Thought'
+  const label = thinkingLabel(active, durationMs)
 
   return (
     <div className="mb-3">

@@ -5,23 +5,13 @@ import { IconChevronRight } from '@/components/icons/icon-chevron-right'
 import { IconTerminal } from '@/components/icons/icon-terminal'
 import { getToolSummary } from '../lib/tool-summary'
 
-interface Props {
+type ToolCallBlockProps = {
   toolName: string
   input: unknown
   output?: unknown
   awaitingApproval?: boolean
   onApprove?: (remember: boolean) => void
   onDeny?: (remember: boolean) => void
-}
-
-type ToolPhrases = { running: string; done: string }
-
-const PHRASE_MAP = new Map<string, ToolPhrases>(
-  TOOL_CATALOG.map((t) => [t.name, { running: t.runningLabel, done: t.doneLabel }]),
-)
-
-function getPhrases(toolName: string): ToolPhrases {
-  return PHRASE_MAP.get(toolName) ?? { running: `Calling ${toolName}…`, done: toolName }
 }
 
 export function ToolCallBlock({
@@ -31,7 +21,7 @@ export function ToolCallBlock({
   awaitingApproval,
   onApprove,
   onDeny,
-}: Props) {
+}: ToolCallBlockProps) {
   const [expanded, setExpanded] = React.useState(false)
   const [remember, setRemember] = React.useState(false)
 
@@ -135,46 +125,66 @@ export function ToolCallBlock({
       >
         <div className="overflow-hidden">
           <div className="mt-1 ml-2 pl-3 border-l border-border py-1">
-            {(() => {
-              const summary = getToolSummary(toolName, input, output)
-              if (!summary) {
-                return (
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-2xs font-semibold text-subtle uppercase tracking-wider mb-1">
-                        Input
-                      </p>
-                      <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap wrap-break-word">
-                        {JSON.stringify(input, null, 2)}
-                      </pre>
-                    </div>
-                    {output !== undefined && (
-                      <div>
-                        <p className="text-2xs font-semibold text-subtle uppercase tracking-wider mb-1">
-                          Output
-                        </p>
-                        <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap wrap-break-word">
-                          {typeof output === 'string' ? output : JSON.stringify(output, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                )
-              }
-              return (
-                <div>
-                  <p className="text-xs font-medium text-foreground/80">{summary.heading}</p>
-                  {summary.preview && (
-                    <p className="mt-1 text-xs text-foreground/80 line-clamp-3 whitespace-pre-wrap">
-                      {summary.preview}
-                    </p>
-                  )}
-                </div>
-              )
-            })()}
+            <ToolCallDetail toolName={toolName} input={input} output={output} />
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+type ToolPhrases = { running: string; done: string }
+
+const PHRASE_MAP = new Map<string, ToolPhrases>(
+  TOOL_CATALOG.map((t) => [t.name, { running: t.runningLabel, done: t.doneLabel }]),
+)
+
+function getPhrases(toolName: string): ToolPhrases {
+  return PHRASE_MAP.get(toolName) ?? { running: `Calling ${toolName}…`, done: toolName }
+}
+
+type ToolCallDetailProps = {
+  toolName: string
+  input: unknown
+  output?: unknown
+}
+
+// The expanded body of a resolved tool call: a friendly summary when the tool
+// has one, otherwise the raw input and output JSON.
+function ToolCallDetail({ toolName, input, output }: ToolCallDetailProps) {
+  const summary = getToolSummary(toolName, input, output)
+
+  if (!summary) {
+    return (
+      <div className="space-y-2">
+        <div>
+          <p className="text-2xs font-semibold text-subtle uppercase tracking-wider mb-1">Input</p>
+          <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap wrap-break-word">
+            {JSON.stringify(input, null, 2)}
+          </pre>
+        </div>
+        {output !== undefined && (
+          <div>
+            <p className="text-2xs font-semibold text-subtle uppercase tracking-wider mb-1">
+              Output
+            </p>
+            <pre className="text-xs text-foreground/80 font-mono whitespace-pre-wrap wrap-break-word">
+              {typeof output === 'string' ? output : JSON.stringify(output, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-medium text-foreground/80">{summary.heading}</p>
+      {summary.preview && (
+        <p className="mt-1 text-xs text-foreground/80 line-clamp-3 whitespace-pre-wrap">
+          {summary.preview}
+        </p>
+      )}
     </div>
   )
 }

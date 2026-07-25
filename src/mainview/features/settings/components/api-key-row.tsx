@@ -7,13 +7,14 @@ import { IconEyeOff } from '@/components/icons/icon-eye-off'
 import { Input } from '@/components/input'
 import { useApiKeyStatus } from '@/features/settings/hooks/use-settings'
 import { settings } from '@/features/settings/settings.api'
+import type { ProviderId } from '../constants/providers'
 
-interface KeyFormValues {
+type KeyFormValues = {
   key: string
 }
 
 type ApiKeyRowProps = {
-  provider: string
+  provider: ProviderId
   placeholder?: string
   accent?: string
   foreground?: string
@@ -31,6 +32,7 @@ export function ApiKeyRow({ provider, placeholder, accent, foreground }: ApiKeyR
   } = useForm<KeyFormValues>()
 
   const typed = watch('key')
+  const hasInput = (typed?.length ?? 0) > 0
   const isConfigured = data?.configured ?? false
 
   async function onSubmit({ key }: KeyFormValues) {
@@ -55,9 +57,9 @@ export function ApiKeyRow({ provider, placeholder, accent, foreground }: ApiKeyR
             type={visible ? 'text' : 'password'}
             placeholder={isConfigured ? '••••••••••••••••' : (placeholder ?? 'sk-…')}
             {...register('key', { required: true })}
-            className={typed ? 'pr-9' : ''}
+            className={hasInput ? 'pr-9' : ''}
           />
-          {typed && (
+          {hasInput && (
             <button
               type="button"
               onClick={() => setVisible((v) => !v)}

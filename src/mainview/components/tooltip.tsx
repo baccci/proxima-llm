@@ -1,15 +1,17 @@
 import { Tooltip } from '@base-ui-components/react'
 import type React from 'react'
 
-interface TooltipWrapperProps {
+// Delay before a tooltip opens on hover. Applied app-wide by the provider.
+const TOOLTIP_DELAY_MS = 400
+
+type TooltipWrapperProps = {
   content: React.ReactNode
   children: React.ReactElement
   side?: 'top' | 'right' | 'bottom' | 'left'
-  delay?: number
 }
 
 export function TooltipProvider({ children }: { children: React.ReactNode }) {
-  return <Tooltip.Provider delay={400}>{children}</Tooltip.Provider>
+  return <Tooltip.Provider delay={TOOLTIP_DELAY_MS}>{children}</Tooltip.Provider>
 }
 
 export function TooltipWrapper({ content, children, side = 'top' }: TooltipWrapperProps) {

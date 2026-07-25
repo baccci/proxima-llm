@@ -10,9 +10,9 @@ export const IconBot: React.FC<IconBotProps> = ({ width = 24, ...props }) => {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       {...props}
     >
       <path d="M12 8V4H8" />

@@ -1,26 +1,26 @@
-import { effortLevelsForModel } from '@shared/models/effort'
 import { PROVIDER_IDS } from '@shared/providers/registry'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { IconArrowUp } from '@/components/icons/icon-arrow-up'
 import { IconStop } from '@/components/icons/icon-stop'
-import {
-  supportsPdf,
-  supportsThinking,
-  supportsVision,
-  supportsWebSearch,
-} from '@/entities/model/capabilities'
 import { chat } from '@/features/chat/chat.api'
-import { AttachmentChip } from '@/features/chat/components/attachment-chip'
 import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
+import { ComposerAttachmentRow } from '@/features/chat/components/composer-attachment-row'
+import { ComposerButton } from '@/features/chat/components/composer-button'
+import { attachmentAccept, getCapabilities } from '@/features/chat/helpers/composer-capabilities'
+import { reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
+import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
+import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-textarea'
 import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachments'
 import { useStreamingMessage } from '@/features/chat/hooks/use-streaming-message'
+import { sendTurn } from '@/features/chat/lib/send-turn'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useModels } from '@/features/models/hooks/use-models'
 import { useApiKeyStatuses, useSettings } from '@/features/settings/hooks/use-settings'
+import { errorMessage } from '@/utils/error-message'
 import { ModelSwitcher } from './model-switcher'
 
-interface ComposerBodyProps {
+type ComposerBodyProps = {
   projectId: string | null
   className?: string
 }
@@ -30,8 +30,8 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false)
   const [browserEnabled, setBrowserEnabled] = React.useState(false)
   const [effortValue, setEffortValue] = React.useState<string | null>(null)
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const { ref: textareaRef, autoResize, reset: resetTextarea } = useAutoResizeTextarea()
 
   const { data: settings } = useSettings()
   const { data: allModels = [] } = useModels()
@@ -45,42 +45,50 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   const isStreaming = !!streaming && !streaming.done
 
   const configuredProviders = new Set<string>(PROVIDER_IDS.filter((id) => keyStatuses[id]))
-  const settingsDefault =
+  const defaultModelId =
     settings?.defaultModelId ??
     allModels.find((m) => m.isEnabled && configuredProviders.has(m.provider))?.id ??
     allModels.find((m) => m.isEnabled)?.id ??
     null
-  const defaultModelId = settingsDefault
   const [currentModelId, setCurrentModelId] = React.useState<string | null>(null)
   const modelId = currentModelId ?? defaultModelId
   const selectedModel = allModels.find((m) => m.id === modelId)
-  const canThink = selectedModel ? supportsThinking(selectedModel) : false
-  const canBrowse = selectedModel ? supportsWebSearch(selectedModel) : false
-  const canVision = selectedModel ? supportsVision(selectedModel) : false
-  const canPdf = selectedModel ? supportsPdf(selectedModel) : false
+  const { canThink, canVision, canPdf, canBrowse } = getCapabilities(selectedModel)
   const canSubmit = (text.trim().length > 0 || pending.length > 0) && !isStreaming && !!modelId
 
-  const accept = [
-    ...(canVision ? ['image/png,image/jpeg,image/webp,image/gif'] : []),
-    ...(canPdf ? ['application/pdf'] : []),
-  ].join(',')
+  const accept = attachmentAccept({ canVision, canPdf })
 
   function handleModelChange(id: string) {
     setCurrentModelId(id)
-    const m = allModels.find((m) => m.id === id)
-    if (thinkingEnabled && m && !supportsThinking(m)) setThinkingEnabled(false)
-    if (browserEnabled && m && !supportsWebSearch(m)) setBrowserEnabled(false)
-    // Drop the effort if the new model doesn't offer it (covers losing thinking
-    // entirely and switching to a narrower level set, e.g. opus 'max' → an OR model).
-    if (effortValue && m && !effortLevelsForModel(m).includes(effortValue)) setEffortValue(null)
+    const model = allModels.find((m) => m.id === id)
+    if (!model) {
+      return
+    }
+
+    const patch = reconcileComposer(model, {
+      thinking: thinkingEnabled,
+      webSearch: browserEnabled,
+      effort: effortValue,
+    })
+    if (patch.thinking === false) {
+      setThinkingEnabled(false)
+    }
+    if (patch.webSearch === false) {
+      setBrowserEnabled(false)
+    }
+    if (patch.effort === null) {
+      setEffortValue(null)
+    }
   }
 
   async function handleSubmit() {
     const content = text.trim()
-    if ((!content && pending.length === 0) || !modelId || isStreaming) return
+    if (!canSubmit) {
+      return
+    }
 
     setText('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    resetTextarea()
     let createdId: string | null = null
 
     try {
@@ -97,52 +105,42 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
       createdId = created.id
       selectChat(created.id)
 
-      const attachmentIds = await flush(created.id)
-      clear()
-
-      chat.addOptimisticUserMessage(
-        created.id,
-        content,
-        pending.map((att, i) => ({
-          id: attachmentIds[i],
-          kind: att.kind,
-          mediaType: att.mediaType,
-        })),
-      )
-
-      const { streamId, assistantMessageId } = await chat.sendMessage({
+      await sendTurn({
         chatId: created.id,
-        modelId,
         content,
+        modelId,
         thinking: thinkingEnabled && canThink,
         webSearch: browserEnabled && canBrowse,
         effort: effortValue,
-        attachmentIds,
+        pending,
+        flush,
+        clear,
+        send,
       })
-
-      chat.invalidateMessages(created.id)
-      await send(streamId, assistantMessageId)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong'
+      const message = errorMessage(err, 'Something went wrong')
       if (createdId) {
         failStreaming(message)
-      } else {
-        setText(content)
+        return
       }
+      setText(content)
     }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    const sendOnEnter = settings?.sendOnEnter ?? true
-    if (e.key === 'Enter') {
-      if (sendOnEnter && !e.shiftKey) {
-        e.preventDefault()
-        handleSubmit()
-      } else if (!sendOnEnter && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        handleSubmit()
-      }
+    if (!shouldSendOnEnter(e, settings?.sendOnEnter ?? true)) {
+      return
     }
+
+    e.preventDefault()
+    handleSubmit()
+  }
+
+  function handleStopClick() {
+    if (streaming) {
+      chat.cancelStream(streaming.streamId)
+    }
+    finishStreaming()
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -155,31 +153,15 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   return (
     <div className={cn(className, 'w-full flex flex-col gap-2')}>
       <div className="w-full rounded-2xl border border-border bg-panel focus-within:border-border-strong transition-colors">
-        {pending.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-4 pt-3">
-            {pending.map((att) => (
-              <AttachmentChip
-                key={att.localId}
-                attachment={{
-                  id: att.localId,
-                  chatId: '',
-                  kind: att.kind,
-                  mediaType: att.mediaType,
-                  byteSize: att.byteSize,
-                  sha256: '',
-                  relPath: att.name,
-                  createdAt: new Date().toISOString(),
-                }}
-                onRemove={() => removeAttachment(att.localId)}
-              />
-            ))}
-          </div>
-        )}
+        <ComposerAttachmentRow pending={pending} chatId="" onRemove={removeAttachment} />
 
         <textarea
           ref={textareaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value)
+            autoResize()
+          }}
           onKeyDown={handleKeyDown}
           placeholder="Message…"
           disabled={isStreaming}
@@ -218,31 +200,19 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
 
           <div className="flex-1" />
 
-          {isStreaming ? (
-            <button
-              onClick={() => {
-                if (streaming) chat.cancelStream(streaming.streamId)
-                finishStreaming()
-              }}
-              className={cn(
-                'flex items-center justify-center h-8 w-8 rounded-full bg-brand text-brand-foreground hover:bg-brand-hover transition-colors cursor-pointer',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              )}
-            >
+          {isStreaming && (
+            <ComposerButton onClick={handleStopClick}>
               <IconStop width={12} />
-            </button>
-          ) : (
-            <button
+            </ComposerButton>
+          )}
+          {!isStreaming && (
+            <ComposerButton
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className={cn(
-                'flex items-center justify-center h-8 w-8 rounded-full bg-brand text-brand-foreground hover:bg-brand-hover transition duration-150 cursor-pointer',
-                'disabled:opacity-0 disabled:pointer-events-none',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              )}
+              className="disabled:opacity-0 disabled:pointer-events-none"
             >
               <IconArrowUp width={16} />
-            </button>
+            </ComposerButton>
           )}
         </div>
 

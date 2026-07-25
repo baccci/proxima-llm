@@ -1,4 +1,3 @@
-import { resolveIconColor, resolvePalette } from '@shared/project-appearance'
 import type { ProjectDTO } from '@shared/schemas/project.schema'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
@@ -9,21 +8,46 @@ import { DialogContent, DialogRoot } from '@/components/dialog'
 import { IconChevronRight } from '@/components/icons/icon-chevron-right'
 import { IconPlus } from '@/components/icons/icon-plus'
 import { Input } from '@/components/input'
+import { resolveIconColor } from '@/entities/project/icon'
+import { resolvePalette } from '@/entities/project/palette'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { ProjectAppearancePicker } from '@/features/projects/components/project-appearance-picker'
 import { useProjects } from '@/features/projects/hooks/use-projects'
 import { getProjectIcon } from '@/features/projects/lib/project-icon'
-import { useIsDark } from '@/features/projects/lib/use-is-dark'
 import { projects as projectsApi } from '@/features/projects/projects.api'
 import { useSidebarStore } from '@/features/sidebar/store/sidebar.store'
+import { useIsDark } from '@/hooks/use-is-dark'
 
-interface CreateProjectFields {
+type CreateProjectFields = {
   name: string
   description: string
 }
 
 function CreateProjectDialog() {
   const [open, setOpen] = React.useState(false)
+
+  return (
+    <>
+      <Button variant="ghost" size="icon-sm" onClick={() => setOpen(true)}>
+        <IconPlus width={14} />
+      </Button>
+      <DialogRoot open={open} onOpenChange={setOpen}>
+        <DialogContent title="New project" description="Give your project a name and purpose.">
+          <CreateProjectForm onClose={() => setOpen(false)} />
+        </DialogContent>
+      </DialogRoot>
+    </>
+  )
+}
+
+type CreateProjectFormProps = {
+  onClose: () => void
+}
+
+// Mounted only while the dialog is open (base-ui unmounts the popup on close), so
+// submit and cancel just close: the form and its appearance draft reset by
+// unmounting, no manual reset to keep in sync.
+function CreateProjectForm({ onClose }: CreateProjectFormProps) {
   const [icon, setIcon] = React.useState<string | null>(null)
   const [palette, setPalette] = React.useState<string | null>(null)
   const [iconColor, setIconColor] = React.useState<string | null>(null)
@@ -32,7 +56,6 @@ function CreateProjectDialog() {
   const {
     register,
     handleSubmit,
-    reset,
     formState: { isSubmitting },
   } = useForm<CreateProjectFields>({ defaultValues: { name: '', description: '' } })
 
@@ -45,66 +68,43 @@ function CreateProjectDialog() {
       iconColor: iconColor ?? undefined,
     })
     selectProject(created.id)
-    reset()
-    setIcon(null)
-    setPalette(null)
-    setIconColor(null)
-    setOpen(false)
+    onClose()
   }
 
   return (
-    <>
-      <Button variant="ghost" size="icon-sm" onClick={() => setOpen(true)}>
-        <IconPlus width={14} />
-      </Button>
-      <DialogRoot open={open} onOpenChange={setOpen}>
-        <DialogContent title="New project" description="Give your project a name and purpose.">
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted">Name</label>
-              <Input
-                placeholder="e.g. Marketing site"
-                autoFocus
-                {...register('name', { required: true })}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted">Purpose</label>
-              <Input
-                placeholder="What will you use this project for? (optional)"
-                {...register('description')}
-              />
-            </div>
-            <ProjectAppearancePicker
-              icon={icon}
-              palette={palette}
-              iconColor={iconColor}
-              onIconChange={setIcon}
-              onPaletteChange={setPalette}
-              onIconColorChange={setIconColor}
-            />
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  reset()
-                  setIcon(null)
-                  setPalette(null)
-                  setIconColor(null)
-                  setOpen(false)
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" variant="brand" disabled={isSubmitting}>
-                Create project
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </DialogRoot>
-    </>
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-muted">Name</label>
+        <Input
+          placeholder="e.g. Marketing site"
+          autoFocus
+          {...register('name', { required: true })}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-muted">Purpose</label>
+        <Input
+          placeholder="What will you use this project for? (optional)"
+          {...register('description')}
+        />
+      </div>
+      <ProjectAppearancePicker
+        icon={icon}
+        palette={palette}
+        iconColor={iconColor}
+        onIconChange={setIcon}
+        onPaletteChange={setPalette}
+        onIconColorChange={setIconColor}
+      />
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="brand" disabled={isSubmitting}>
+          Create project
+        </Button>
+      </div>
+    </form>
   )
 }
 
@@ -122,7 +122,8 @@ function ProjectPill({ project }: { project: ProjectDTO }) {
         style={colors ? { backgroundColor: colors.bg, color: colors.fr } : undefined}
         className={cn(
           'flex items-center gap-2 w-full px-2 h-8 text-sm rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          colors ? 'font-medium' : 'text-muted hover:bg-surface-hover hover:text-foreground',
+          colors && 'font-medium',
+          !colors && 'text-muted hover:bg-surface-hover hover:text-foreground',
         )}
       >
         <Icon
@@ -140,7 +141,8 @@ function ProjectPill({ project }: { project: ProjectDTO }) {
 
 export function SidebarProjects() {
   const { data: projectList = [] } = useProjects()
-  const { projectsCollapsed, toggleProjects } = useSidebarStore()
+  const projectsCollapsed = useSidebarStore((s) => s.projectsCollapsed)
+  const toggleProjects = useSidebarStore((s) => s.toggleProjects)
 
   return (
     <CollapsibleRoot open={!projectsCollapsed} onOpenChange={() => toggleProjects()}>

@@ -1,4 +1,6 @@
+import { ProviderId } from '@shared/providers/registry'
 import type { ModelDTO } from '@shared/schemas/model.schema'
+import { capitalize } from '@utils/capitalize'
 
 const VENDOR_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
@@ -17,7 +19,11 @@ const VENDOR_LABELS: Record<string, string> = {
 }
 
 export function modelCompany(model: ModelDTO): string {
-  if (model.provider === 'anthropic') return 'Anthropic'
+  // Anthropic model ids are not vendor/model-namespaced, so resolve by provider.
+  if (model.provider === ProviderId.enum.anthropic) {
+    return 'Anthropic'
+  }
+
   const vendor = model.id.split('/')[0] ?? model.provider
-  return VENDOR_LABELS[vendor] ?? vendor.charAt(0).toUpperCase() + vendor.slice(1)
+  return VENDOR_LABELS[vendor] ?? capitalize(vendor)
 }

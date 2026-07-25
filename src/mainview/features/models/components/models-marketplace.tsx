@@ -1,5 +1,9 @@
-import { getProvider, PROVIDER_IDS, type ProviderId } from '@shared/providers/registry'
+import { getProvider, isKnownProvider, PROVIDER_IDS, ProviderId } from '@shared/providers/registry'
+import type { ModelDTO } from '@shared/schemas/model.schema'
+import { useMutation } from '@tanstack/react-query'
+import { capitalize } from '@utils/capitalize'
 import { cn } from '@utils/tailwind-class-merge'
+import { relativeTime } from '@utils/time'
 import React from 'react'
 import { IconSearch } from '@/components/icons/icon-search'
 import { IconX } from '@/components/icons/icon-x'
@@ -9,54 +13,151 @@ import { Pagination } from '@/components/pagination'
 import { PROVIDER_LOGOS } from '@/entities/provider'
 import { useModelSyncInfo } from '@/features/models/hooks/use-model-sync-info'
 import { useModels } from '@/features/models/hooks/use-models'
-import { settings } from '@/features/settings/settings.api'
 import { useIsDark } from '@/hooks/use-is-dark'
+import { models } from '../models.api'
 import { MARKETPLACE_MODAL_ID } from './marketplace.constants'
 import { ModelCard } from './model-card'
 
 const PAGE_SIZE = 24
 
+const FILTER_MODES = ['all', 'enabled'] as const
+type FilterMode = (typeof FILTER_MODES)[number]
+
 function prettifyProvider(provider: string): string {
-  try {
+  if (isKnownProvider(provider)) {
     return getProvider(provider).label
-  } catch {
-    return provider.charAt(0).toUpperCase() + provider.slice(1)
   }
+  return capitalize(provider)
 }
 
 // Brand meta + logo for a known provider; null for custom/unknown providers so
 // the tab falls back to neutral styling instead of throwing.
 function providerBrand(provider: string) {
-  if (!(PROVIDER_IDS as readonly string[]).includes(provider)) return null
-  return { meta: getProvider(provider), Logo: PROVIDER_LOGOS[provider as ProviderId] }
+  if (!isKnownProvider(provider)) {
+    return null
+  }
+  return { meta: getProvider(provider), Logo: PROVIDER_LOGOS[provider] }
 }
 
-function syncedAgo(ts: number | null | undefined): string {
-  if (ts == null) return 'Never synced'
-  const diff = Date.now() - ts
-  if (diff < 60_000) return 'Just now'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
-  return `${Math.floor(diff / 86_400_000)}d ago`
+// The provider tabs to show: shipped providers that have at least one model, then
+// any custom providers seen in the data, de-duplicated in first-seen order.
+function providerTabs(allModels: ModelDTO[]): string[] {
+  const shipped = PROVIDER_IDS.filter((p) => allModels.some((m) => m.provider === p))
+  const custom = allModels.map((m) => m.provider).filter((p) => !isKnownProvider(p))
+  return [...shipped, ...new Set(custom)]
+}
+
+function lastSyncedLabel(ts: number | null | undefined): string {
+  if (ts == null) {
+    return 'Never synced'
+  }
+  return relativeTime(new Date(ts))
+}
+
+type MarketplaceEmptyStateProps = {
+  currentProvider: string
+  search: string
+  filterMode: FilterMode
+  syncing: boolean
+  onResync: () => void
+}
+
+// Shown when the current filter yields no models. Picks the message by why the
+// list is empty: an unsynced OpenRouter tab, an empty "enabled" filter, or a
+// search with no matches.
+function MarketplaceEmptyState({
+  currentProvider,
+  search,
+  filterMode,
+  syncing,
+  onResync,
+}: MarketplaceEmptyStateProps) {
+  if (currentProvider === ProviderId.enum.openrouter && !search && filterMode === 'all') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+        <p className="text-sm text-muted">No OpenRouter models synced yet.</p>
+        <button
+          type="button"
+          onClick={onResync}
+          disabled={syncing}
+          className="text-sm text-selected-foreground hover:text-selected-border transition-colors disabled:opacity-50 cursor-pointer"
+        >
+          {syncing ? 'Syncing…' : 'Sync models now'}
+        </button>
+      </div>
+    )
+  }
+
+  if (filterMode === 'enabled') {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-sm text-muted">No enabled models yet — toggle some on.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-center h-full">
+      <p className="text-sm text-muted">No models match your search.</p>
+    </div>
+  )
+}
+
+type ProviderTabProps = {
+  provider: string
+  selected: boolean
+  isDark: boolean
+  onSelect: () => void
+}
+
+function ProviderTab({ provider, selected, isDark, onSelect }: ProviderTabProps) {
+  const brand = providerBrand(provider)
+  const colors = brand && (isDark ? brand.meta.colors.dark : brand.meta.colors.light)
+  const Logo = brand?.Logo
+
+  // A selected branded tab paints the whole button in the brand accent; an
+  // unselected branded tab tints only its logo. Unknown providers stay neutral.
+  const buttonStyle =
+    selected && colors
+      ? { backgroundColor: colors.accent, color: colors.foreground, borderColor: colors.accent }
+      : undefined
+  const logoStyle = !selected && colors ? { color: colors.accent } : undefined
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      style={buttonStyle}
+      className={cn(
+        'flex items-center gap-2.5 w-full px-3 py-2 rounded-lg border border-transparent text-sm transition-colors cursor-pointer text-left',
+        selected && !brand && 'bg-surface-hover text-foreground font-medium',
+        selected && brand && 'font-medium',
+        !selected && 'text-muted hover:bg-surface-hover hover:text-foreground',
+      )}
+    >
+      {Logo && (
+        // Wrapper span sets `color` so the currentColor-filled logo picks up the
+        // brand accent even though the icon doesn't forward style.
+        <span className="shrink-0" style={logoStyle}>
+          <Logo width={16} />
+        </span>
+      )}
+      {prettifyProvider(provider)}
+    </button>
+  )
 }
 
 export function ModelsMarketplace() {
   const { data: allModels = [] } = useModels()
   const { data: syncInfo } = useModelSyncInfo()
+  const resync = useMutation({ mutationFn: () => models.syncModels() })
   const isDark = useIsDark()
   const [search, setSearch] = React.useState('')
   const [activeProvider, setActiveProvider] = React.useState<string | null>(null)
-  const [syncing, setSyncing] = React.useState(false)
   const [page, setPage] = React.useState(1)
-  const [filterMode, setFilterMode] = React.useState<'all' | 'enabled'>('all')
+  const [filterMode, setFilterMode] = React.useState<FilterMode>('all')
 
-  const providers = [
-    ...PROVIDER_IDS.filter((p) => allModels.some((m) => m.provider === p)),
-    ...allModels
-      .map((m) => m.provider)
-      .filter((p) => !(PROVIDER_IDS as readonly string[]).includes(p))
-      .filter((p, i, arr) => arr.indexOf(p) === i),
-  ]
+  const providers = providerTabs(allModels)
 
   const currentProvider = activeProvider ?? providers[0] ?? PROVIDER_IDS[0]
 
@@ -82,15 +183,6 @@ export function ModelsMarketplace() {
 
   const enabledCount = allModels.filter((m) => m.provider === currentProvider && m.isEnabled).length
 
-  async function handleResync() {
-    setSyncing(true)
-    try {
-      await settings.syncModels()
-    } finally {
-      setSyncing(false)
-    }
-  }
-
   return (
     <Modal id={MARKETPLACE_MODAL_ID} label="Models" overlayClassName="bg-black/50">
       <Modal.Content className="w-[900px] max-w-[95vw] rounded-xl border border-border bg-panel shadow-modal">
@@ -103,14 +195,14 @@ export function ModelsMarketplace() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-2xs text-subtle">{syncedAgo(syncInfo?.lastSyncAt)}</span>
+              <span className="text-2xs text-subtle">{lastSyncedLabel(syncInfo?.lastSyncAt)}</span>
               <button
                 type="button"
-                onClick={handleResync}
-                disabled={syncing}
+                onClick={() => resync.mutate()}
+                disabled={resync.isPending}
                 className="text-2xs text-selected-foreground hover:text-selected-border transition-colors disabled:opacity-50 cursor-pointer"
               >
-                {syncing ? 'Syncing…' : 'Resync'}
+                {resync.isPending ? 'Syncing…' : 'Resync'}
               </button>
             </div>
             <button
@@ -125,52 +217,19 @@ export function ModelsMarketplace() {
         </div>
 
         <ModalNavBody
-          nav={providers.map((p) => {
-            const selected = currentProvider === p
-            const brand = providerBrand(p)
-            const Logo = brand?.Logo
-            return (
-              <button
-                key={p}
-                type="button"
-                onClick={() => {
-                  setActiveProvider(p)
-                  setSearch('')
-                  setPage(1)
-                }}
-                style={(() => {
-                  if (!selected || !brand) return undefined
-                  const c = isDark ? brand.meta.colors.dark : brand.meta.colors.light
-                  return { backgroundColor: c.accent, color: c.foreground, borderColor: c.accent }
-                })()}
-                className={cn(
-                  'flex items-center gap-2.5 w-full px-3 py-2 rounded-lg border border-transparent text-sm transition-colors cursor-pointer text-left',
-                  selected && !brand && 'bg-surface-hover text-foreground font-medium',
-                  selected && brand && 'font-medium',
-                  !selected && 'text-muted hover:bg-surface-hover hover:text-foreground',
-                )}
-              >
-                {Logo && (
-                  // Wrapper span sets `color` so the currentColor-filled logo picks
-                  // up the brand accent even though the icon doesn't forward style.
-                  <span
-                    className="shrink-0"
-                    style={
-                      selected || !brand
-                        ? undefined
-                        : {
-                            color: (isDark ? brand.meta.colors.dark : brand.meta.colors.light)
-                              .accent,
-                          }
-                    }
-                  >
-                    <Logo width={16} />
-                  </span>
-                )}
-                {prettifyProvider(p)}
-              </button>
-            )
-          })}
+          nav={providers.map((p) => (
+            <ProviderTab
+              key={p}
+              provider={p}
+              selected={currentProvider === p}
+              isDark={isDark}
+              onSelect={() => {
+                setActiveProvider(p)
+                setSearch('')
+                setPage(1)
+              }}
+            />
+          ))}
         >
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
@@ -203,7 +262,7 @@ export function ModelsMarketplace() {
                 )}
               </div>
               <div className="flex shrink-0 gap-1">
-                {(['all', 'enabled'] as const).map((mode) => (
+                {FILTER_MODES.map((mode) => (
                   <button
                     key={mode}
                     type="button"
@@ -225,29 +284,14 @@ export function ModelsMarketplace() {
             </div>
 
             <div className="h-[440px] overflow-y-auto pr-1 pb-1">
-              {filtered.length === 0 &&
-              currentProvider === 'openrouter' &&
-              !search &&
-              filterMode === 'all' ? (
-                <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-                  <p className="text-sm text-muted">No OpenRouter models synced yet.</p>
-                  <button
-                    type="button"
-                    onClick={handleResync}
-                    disabled={syncing}
-                    className="text-sm text-selected-foreground hover:text-selected-border transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    {syncing ? 'Syncing…' : 'Sync models now'}
-                  </button>
-                </div>
-              ) : filtered.length === 0 && filterMode === 'enabled' ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-sm text-muted">No enabled models yet — toggle some on.</p>
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-sm text-muted">No models match your search.</p>
-                </div>
+              {filtered.length === 0 ? (
+                <MarketplaceEmptyState
+                  currentProvider={currentProvider}
+                  search={search}
+                  filterMode={filterMode}
+                  syncing={resync.isPending}
+                  onResync={() => resync.mutate()}
+                />
               ) : (
                 <div className="flex flex-col gap-4">
                   {visibleEnabled.length > 0 && (
