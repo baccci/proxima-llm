@@ -29,6 +29,10 @@ function textPart(text: string): MessagePart {
   return { type: PartKind.enum.text, text };
 }
 
+function reasoningPart(text: string): MessagePart {
+  return { type: PartKind.enum.reasoning, text };
+}
+
 // exceedsCompactionThreshold only reads capabilities.contextWindow, so stub that
 // one field instead of a full ModelDTO. Cast is safe: test fixture, not a boundary.
 function modelWithWindow(contextWindow?: number): ModelDTO {
@@ -54,7 +58,7 @@ describe('estimateContextTokens', () => {
     expect(estimateContextTokens(history)).toBe(2);
   });
 
-  test('non-text parts do not count toward the estimate', () => {
+  test('tool-call and other bodyless parts do not count toward the estimate', () => {
     const history = [
       msg({
         parts: [
@@ -65,6 +69,27 @@ describe('estimateContextTokens', () => {
     ];
     // Only the 4 text chars count: ceil(4 / 4) = 1.
     expect(estimateContextTokens(history)).toBe(1);
+  });
+
+  test('reasoning parts count, since toCoreMessages resends them in the payload', () => {
+    const history = [
+      msg({ role: MessageRole.enum.assistant, usage: null, parts: [reasoningPart('a'.repeat(4))] }),
+    ];
+    // Reasoning is folded back into the provider payload, so its chars must count:
+    // ceil(4 / 4) = 1. Before the fix, reasoning was skipped and this returned 0.
+    expect(estimateContextTokens(history)).toBe(1);
+  });
+
+  test('sums reasoning and text chars together', () => {
+    const history = [
+      msg({
+        role: MessageRole.enum.assistant,
+        usage: null,
+        parts: [reasoningPart('ab'), textPart('cdef')],
+      }),
+    ];
+    // 2 reasoning + 4 text = 6 chars, ceil(6 / 4) = 2.
+    expect(estimateContextTokens(history)).toBe(2);
   });
 
   test('prefers the last assistant provider usage over the char heuristic', () => {

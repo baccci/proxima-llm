@@ -12,7 +12,8 @@ const CHARS_PER_TOKEN = 4;
 
 // Estimate how many tokens the chat currently occupies. Prefer the last
 // assistant turn's provider-reported input count (authoritative); fall back to a
-// char/4 heuristic over all text parts when no turn has reported usage yet.
+// char/4 heuristic over text and reasoning parts when no turn has reported usage
+// yet. Reasoning counts because toCoreMessages folds it back into the payload.
 export function estimateContextTokens(history: MessageDTO[]): number {
   const lastAssistant = [...history]
     .reverse()
@@ -23,7 +24,7 @@ export function estimateContextTokens(history: MessageDTO[]): number {
 
   const chars = history.reduce((acc, m) => {
     for (const p of m.parts) {
-      if (p.type === PartKind.enum.text) {
+      if (p.type === PartKind.enum.text || p.type === PartKind.enum.reasoning) {
         acc += p.text.length;
       }
     }
