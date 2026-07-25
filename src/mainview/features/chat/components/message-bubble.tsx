@@ -140,7 +140,7 @@ function UserMessage({ message, chatItem }: UserMessageProps) {
       {!isOptimistic && (
         // Reveal on hover/focus with opacity only, no transition. opacity-0 keeps the
         // buttons keyboard-tabbable, and animating opacity to 0 leaves a stale WebKit
-        // paint layer (ghost buttons). See local-docs/slices/webkit-quirks.md
+        // paint layer (ghost buttons). See docs/conventions/webkit-quirks.md
         <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 mt-0.5">
           <MessageActions
             canEdit
