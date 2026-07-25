@@ -23,7 +23,8 @@ Models enter the catalog from **two sources**, and the source decides who may la
 | File | Role |
 |---|---|
 | [`features/model/model.repository.ts`](../../src/bun/features/model/model.repository.ts) | The aggregate's data layer: the only module that queries `models` (plus its sync marker) and parses rows to DTOs. Owns the sync write-invariants. |
-| [`features/model/model-sync.service.ts`](../../src/bun/features/model/model-sync.service.ts) | Orchestrates the OpenRouter fetch, parse, map, upsert/prune. Zero `db` imports. |
+| [`features/model/model-sync.service.ts`](../../src/bun/features/model/model-sync.service.ts) | Orchestrates the OpenRouter fetch, parse, map, upsert, reconcile. Zero `db` imports. |
+| [`features/model/reconcile-missing-models.ts`](../../src/bun/features/model/reconcile-missing-models.ts) | `planMissingModels` — the pure decision for rows the catalog dropped: disable an enabled one, delete a disabled one. |
 | [`features/model/title-model.service.ts`](../../src/bun/features/model/title-model.service.ts) | `resolveTitleModel` — pick the cheap model that auto-names chats and writes summaries. |
 | [`features/model/title.ts`](../../src/bun/features/model/title.ts) | `generateChatTitle` — the actual LLM call that turns the first message into a title. |
 | [`infra/db/model-seed.ts`](../../src/bun/infra/db/model-seed.ts) | `MODEL_SEED` — the builtin model definitions. |
@@ -41,12 +42,16 @@ arbitrate writes.
 |---|---|---|---|
 | **seed** (`seedModels`) | new builtin rows | `capabilities` + `displayName` of existing **builtin** rows | openrouter rows; any `isEnabled` |
 | **sync** (`upsertSyncedModel`) | new openrouter rows (**disabled**) | `displayName` / `capabilities` / `pricing` of existing **openrouter** rows | builtin rows; any `isEnabled` |
+| **sync reconcile** (`reconcileMissingModels`) | — | sets `isEnabled=false` on an **enabled openrouter** row the catalog dropped; deletes a **disabled** dropped one | builtin rows; any row still in the catalog |
 | **user** (`updateModel` RPC) | — | any field of any row (marketplace toggles) | — |
 
 Two invariants fall out of this and matter a lot:
 
-1. **`isEnabled` is the user's, always.** Neither seed nor sync ever writes `isEnabled` on an existing row.
-   New synced rows insert **disabled** so the user opts in from the marketplace.
+1. **`isEnabled` is the user's, with one deliberate exception.** Neither seed nor `upsertSyncedModel` ever
+   writes `isEnabled` on an existing row, and new synced rows insert **disabled** so the user opts in from the
+   marketplace. The exception is `reconcileMissingModels`: when the catalog drops a model the user had enabled,
+   sync disables it, because a model with no endpoints can no longer be called and would otherwise silently
+   break the title picker (step 4). A future `retired` flag could carry this state without writing `isEnabled`.
 2. **A source only refreshes its own rows.** `seedModels` skips a row whose source is not `builtin`;
    `upsertSyncedModel` returns early if the existing row's source is not `openrouter`. So a model you enabled
    can never be silently reshaped by the wrong subsystem.
@@ -85,10 +90,13 @@ no per-model cache flag; web search is a universal plugin), `maxOutputTokens` wi
 `family` from the vendor prefix (`deriveFamily` = `id.split('/')[0]`, for example `google/gemma-2-9b` to
 `google`).
 
-**4. Upsert + prune.** Upsert every mapped row (see Source ownership), then
-`pruneDisabledModelsMissing(keepIds)` deletes only **openrouter and disabled** rows the catalog dropped,
-never a builtin, never one the user enabled. **Empty keep-set skips the delete**: a failed or empty fetch
-must not wipe the table.
+**4. Upsert + reconcile.** Upsert every mapped row (see Source ownership), then
+`reconcileMissingModels(keepIds)` handles rows the catalog dropped, its plan decided by the pure
+`planMissingModels`: a **disabled** dropped row is deleted (declutter), an **enabled** dropped row is
+**disabled** (a dead model the user chose, kept as a row but no longer offered to the picker or marketplace),
+and builtin rows are never touched. **Empty keep-set is a no-op**: a failed or empty fetch must not wipe or
+disable the table. A row disabled here becomes a disabled-dropped row and is deleted on a later sync;
+`reconcileMissingModels` returns the disabled ids so the sync `log.warn`s them.
 
 **5. Mark.** `setSyncState(now, SYNC_VERSION)` records the timestamp plus version.
 
@@ -100,9 +108,10 @@ This module was the seam that proved the repository pattern. Two halves:
   provider or malformed capabilities blob fails **loudly here** instead of leaking a wrong type into the UI.
   This is the read-side boundary parse.
 - **Writes** carry their invariants: `upsertSyncedModel` owns insert-disabled + skip-non-openrouter +
-  refresh-metadata-only; `pruneDisabledModelsMissing` owns the empty-keep-set guard. Callers (`model-sync`)
-  never reassemble these rules from bare `insert` / `update`, which is what keeps `model-sync` pure
-  orchestration with **zero `db` imports**.
+  refresh-metadata-only; `reconcileMissingModels` owns the drop handling (delete disabled, disable enabled)
+  and delegates the decision to the pure `planMissingModels`, which owns the empty-keep-set guard. Callers
+  (`model-sync`) never reassemble these rules from bare `insert` / `update`, which is what keeps `model-sync`
+  pure orchestration with **zero `db` imports**.
 
 The **sync marker** is model's own slice of the shared `settings` key-value table: the `openrouter_sync` key
 stores `{ ts, version }`. `getSyncState` parses the blob with a `z.union` (a legacy bare-number **or** the
@@ -169,7 +178,7 @@ promote to `shared-contracts` and collapse the three copies.
 ## Named constants
 
 - `SYNC_THROTTLE_HOURS = 24` / `SYNC_THROTTLE_MS` — the minimum gap between background syncs.
-- `SYNC_VERSION = 2` — bump to force a re-sync when the mapping or schema changes.
+- `SYNC_VERSION = 3` — bump to force a re-sync when the mapping or schema changes.
 - `DEFAULT_MAX_OUTPUT_TOKENS = 8192` — the fallback when OpenRouter omits max output.
 - `OPENROUTER_PARAM` / `OPENROUTER_MODALITY` — the token vocabulary read from the catalog.
 - `SYNC_SETTINGS_KEY = 'openrouter_sync'` — model's key in the `settings` table.
@@ -182,6 +191,9 @@ promote to `shared-contracts` and collapse the three copies.
   `selectTitleModel` (auto picks cheapest non-free, skips free, unpriced to family-hint to first, custom
   pinned id, dead/disabled custom to auto, provider filter to null). Load-bearing: compaction and memory both
   resolve their summary model through this.
+- [`reconcile-missing-models.test.ts`](../../src/bun/features/model/reconcile-missing-models.test.ts) (5) —
+  the pure `planMissingModels`: an enabled dropped row is disabled, a disabled dropped row is deleted, a row
+  still in the catalog is untouched, builtin rows are never reconciled, and an empty keep-set is a no-op.
 
 **Still untested:** `mapToRow` — the capability derivation and the `Number() || 0` pricing footgun are pure
 but private inside the IO-heavy `model-sync`. A candidate for the same leaf extraction; a bigger lift. The

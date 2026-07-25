@@ -1,9 +1,10 @@
-import { and, count, eq, isNull, notInArray } from 'drizzle-orm';
+import { and, count, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { type ModelDefinition, ModelDTO } from '../../../shared-contracts/schemas/model.schema';
 import { db } from '../../infra/db/client';
 import { ModelSource } from '../../infra/db/model-source';
 import { models, settings } from '../../infra/db/schema';
+import { planMissingModels } from './reconcile-missing-models';
 
 // The model aggregate's data layer: the only place that queries the models table
 // (and its openrouter_sync marker) and parses rows into DTOs. model-sync orchestrates
@@ -94,23 +95,31 @@ export function upsertSyncedModel(row: SyncedModelRow): void {
     .run();
 }
 
-// Prune only openrouter rows the catalog dropped that are still disabled; never delete
-// a model the user enabled. An empty keep-set means the fetch yielded nothing, so skip
-// the delete: a failed sync must not wipe the table.
-export function pruneDisabledModelsMissing(keepIds: string[]): void {
-  if (keepIds.length === 0) {
-    return;
+// Reconcile openrouter rows against the latest catalog. A row the catalog dropped no
+// longer exists upstream (its endpoints are gone), so per planMissingModels a disabled
+// one is deleted and an enabled one is only disabled: we never silently delete a model
+// the user chose, but a dead model stops being offered to the title picker and the
+// marketplace. Returns the ids that were disabled so the caller can log them. An empty
+// keep-set is a no-op: a failed sync must not wipe or disable the table.
+export function reconcileMissingModels(keepIds: string[]): string[] {
+  const rows = db
+    .select({ id: models.id, source: models.source, isEnabled: models.isEnabled })
+    .from(models)
+    .all();
+
+  const plan = planMissingModels(rows, keepIds);
+
+  if (plan.toDelete.length > 0) {
+    db.delete(models).where(inArray(models.id, plan.toDelete)).run();
+  }
+  if (plan.toDisable.length > 0) {
+    db.update(models)
+      .set({ isEnabled: false, updatedAt: new Date() })
+      .where(inArray(models.id, plan.toDisable))
+      .run();
   }
 
-  db.delete(models)
-    .where(
-      and(
-        eq(models.source, ModelSource.enum.openrouter),
-        eq(models.isEnabled, false),
-        notInArray(models.id, keepIds),
-      ),
-    )
-    .run();
+  return plan.toDisable;
 }
 
 // True when any synced openrouter row is missing pricing, used to force a re-sync.

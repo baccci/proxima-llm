@@ -6,7 +6,7 @@ import { log } from '../../infra/logging/logger';
 import {
   getSyncState,
   hasStalePricing,
-  pruneDisabledModelsMissing,
+  reconcileMissingModels,
   type SyncedModelRow,
   setSyncState,
   upsertSyncedModel,
@@ -16,7 +16,7 @@ const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 const SYNC_THROTTLE_HOURS = 24;
 const SYNC_THROTTLE_MS = SYNC_THROTTLE_HOURS * 60 * 60 * 1000;
 // Bump when sync logic or schema changes to force a re-sync on next startup.
-const SYNC_VERSION = 2;
+const SYNC_VERSION = 3;
 // Fallback when OpenRouter does not report a model's max output tokens.
 const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
 
@@ -150,7 +150,12 @@ export async function syncOpenRouterModels(onSynced?: () => void, force = false)
     upsertSyncedModel(mapToRow(m));
   }
 
-  pruneDisabledModelsMissing(allModels.map((m) => m.id));
+  const disabledMissing = reconcileMissingModels(allModels.map((m) => m.id));
+  if (disabledMissing.length > 0) {
+    log.warn(
+      `OpenRouter sync disabled ${disabledMissing.length} enabled model(s) no longer in the catalog: ${disabledMissing.join(', ')}`,
+    );
+  }
 
   setSyncState(Date.now(), SYNC_VERSION);
   log.info(`OpenRouter sync complete: ${allModels.length} models synced`);
