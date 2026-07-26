@@ -78,13 +78,13 @@ export type StartChatStreamResult = {
   assistantMessageId: string;
 };
 
-interface LaunchTurnParams {
+type LaunchTurnParams = {
   chatId: string;
   modelId: string;
   thinking: boolean;
   webSearch: boolean;
   effort?: string | null;
-}
+};
 
 // Compact the chat's context in place when the estimate crosses the model's
 // threshold. Non-fatal: a failed compaction just proceeds with full history.
