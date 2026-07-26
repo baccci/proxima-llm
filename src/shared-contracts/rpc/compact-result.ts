@@ -8,7 +8,6 @@ export const COMPACT_STATUS = {
 
 export const COMPACT_NOOP_REASON = {
   nothingToSummarize: 'nothing-to-summarize',
-  noTitleModel: 'no-title-model',
   emptySummary: 'empty-summary',
 } as const
 

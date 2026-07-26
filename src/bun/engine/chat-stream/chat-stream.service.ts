@@ -2,7 +2,6 @@ import { randomUUID } from 'crypto';
 import { DevOverrideKey } from '../../../shared-contracts/dev/dev-override-keys';
 import type { AppRPC, StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
 import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
-import { DEFAULT_CHAT_TITLE } from '../../../shared-contracts/schemas/chat.schema';
 import { MemoryScope } from '../../../shared-contracts/schemas/memory-slice.schema';
 import type {
   MessageDTO,
@@ -27,6 +26,8 @@ import * as keychain from '../../infra/keychain';
 import { log } from '../../infra/logging/logger';
 import { toErrorMessage } from '../../utils/to-error';
 import * as compactionService from '../compaction.service';
+import { runResilientStep } from '../lifecycle/resilient-step';
+import { LIFECYCLE_STAGE } from '../lifecycle/stages';
 import type { ResolveAttachment } from '../stream/build-prompt';
 import { runStream } from '../stream/run';
 import { awaitApproval, settlePendingApprovals } from './approval-registry';
@@ -35,6 +36,7 @@ import {
   estimateContextTokens,
   exceedsCompactionThreshold,
 } from './context-window';
+import { resolveAutoTitle } from './resolve-auto-title';
 
 // In-flight streams: streamId -> AbortController
 export const activeStreams = new Map<string, AbortController>();
@@ -59,22 +61,22 @@ export function pushChatsUpdated(): void {
 }
 
 export type LifecycleEvent = 'started' | 'done' | 'error';
-export interface LifecycleMeta {
+export type LifecycleMeta = {
   streamId: string;
   chatId: string;
   assistantMessageId: string;
-}
+};
 
-export interface StartChatStreamOpts {
+export type StartChatStreamOpts = {
   onLifecycle?: (event: LifecycleEvent, meta: LifecycleMeta) => void;
   onChunk?: (chunk: StreamChunk) => void;
-}
+};
 
-export interface StartChatStreamResult {
+export type StartChatStreamResult = {
   streamId: string;
   userMessageId: string;
   assistantMessageId: string;
-}
+};
 
 interface LaunchTurnParams {
   chatId: string;
@@ -82,8 +84,6 @@ interface LaunchTurnParams {
   thinking: boolean;
   webSearch: boolean;
   effort?: string | null;
-  // sendMessage content only needed for title generation
-  originalContent?: string;
 }
 
 // Compact the chat's context in place when the estimate crosses the model's
@@ -124,41 +124,30 @@ async function maybeCompact(args: {
   }
 }
 
-// A freshly answered chat holds exactly one user turn plus one assistant reply.
-const FIRST_EXCHANGE_MESSAGE_COUNT = 2;
-
-// Auto-name a fresh chat after its first exchange (one user + one assistant turn,
-// still titled "New Chat"). Routes to the chat's own provider, reusing the key
-// already loaded for the stream; the title model self-heals dead ids.
+// Auto-name a chat while it still has the default title. Runs every turn, not only
+// the first exchange, so a title that failed to generate earlier self-heals on a
+// later turn (the guard is idempotent: once named, resolveAutoTitle returns null).
+// The cheap title model is the primary; the chat's own live model is the fallback,
+// both under the uniform resilient-step policy. resolveAutoTitle owns the guard and
+// picks the title source (the first user message).
 async function maybeAutoTitle(args: {
   chatId: string;
   model: ModelDTO;
   apiKey: string;
-  originalContent?: string;
 }): Promise<void> {
-  const history = chatService.listMessages(args.chatId);
   const chat = chatService.getChat(args.chatId);
-  // Only name the very first exchange, and only while it still has the default title.
-  if (
-    history.length !== FIRST_EXCHANGE_MESSAGE_COUNT ||
-    chat?.title !== DEFAULT_CHAT_TITLE ||
-    !args.originalContent
-  ) {
+  const history = chatService.listMessages(args.chatId);
+  const source = resolveAutoTitle(chat, history);
+  if (!source) {
     return;
   }
 
-  // Pick a cheap title model on the chat's provider; skip titling if none fits.
-  const titleModelId = resolveTitleModel(args.model.provider);
-  if (!titleModelId) {
-    return;
-  }
-
-  const title = await generateChatTitle(
-    args.originalContent,
-    args.model.provider,
-    args.apiKey,
-    titleModelId,
-  );
+  const title = await runResilientStep({
+    stage: LIFECYCLE_STAGE.autoTitle,
+    primaryModelId: resolveTitleModel(args.model.provider),
+    fallbackModelId: args.model.id,
+    run: (modelId) => generateChatTitle(source, args.model.provider, args.apiKey, modelId),
+  });
   if (title) {
     chatService.updateChat(args.chatId, { title });
     pushChatsUpdated();
@@ -249,8 +238,7 @@ const toAttachmentPayload: ResolveAttachment = (id) => {
  * nothing. Then it registers the stream, wires the chunk sink, emits `start`,
  * gathers the turn's context, and fires the detached turn.
  *
- * @param params - the chat, model, and per-turn flags; `originalContent` is set for
- *   a new message (which enables auto-title) and omitted for a retry.
+ * @param params - the chat, model, and per-turn flags.
  * @returns the stream id and the assistant message id, both available synchronously
  *   while the turn itself keeps running in the background.
  */
@@ -258,7 +246,7 @@ function launchTurn(
   params: LaunchTurnParams,
   opts?: StartChatStreamOpts,
 ): { streamId: string; assistantMessageId: string } {
-  const { chatId, modelId, thinking, webSearch, effort, originalContent } = params;
+  const { chatId, modelId, thinking, webSearch, effort } = params;
 
   // Resolve model and key before registering, so a preflight failure throws without
   // leaving a dead entry in activeStreams.
@@ -355,7 +343,7 @@ function launchTurn(
       emitChunk({ kind: STREAM_CHUNK_KIND.done, message: saved });
 
       try {
-        await maybeAutoTitle({ chatId, model, apiKey, originalContent });
+        await maybeAutoTitle({ chatId, model, apiKey });
       } catch (err) {
         log.error('Title generation failed (non-fatal)', err);
       }
@@ -376,8 +364,8 @@ function launchTurn(
 
 /**
  * Public entry for a brand-new message. Saves the user's message, then launches the
- * assistant turn. Passing the original content through is what lets the turn
- * auto-title a fresh chat after its first exchange.
+ * assistant turn. Auto-title runs inside the turn off the saved history, so no
+ * message content needs threading through here.
  *
  * @returns the stream id plus both message ids, so the caller can render the user
  *   bubble and the pending assistant bubble right away.
@@ -395,7 +383,6 @@ export function startChatStream(
       thinking: input.thinking ?? false,
       webSearch: input.webSearch ?? false,
       effort: input.effort ?? null,
-      originalContent: input.content,
     },
     opts,
   );
@@ -405,8 +392,8 @@ export function startChatStream(
 
 /**
  * Public entry for a retry. Overwrites the user message text when it was edited,
- * drops every message after it, then launches a fresh turn. No original content is
- * passed, so a retry never auto-titles.
+ * drops every message after it, then launches a fresh turn. If the chat is still
+ * unnamed, the turn's auto-title pass will name it from the first user message.
  *
  * @returns the stream id and the (new) assistant message id.
  */
@@ -419,7 +406,6 @@ export function retryChatStream(
   }
   chatService.truncateMessagesAfter(input.chatId, input.userMessageId);
 
-  // No originalContent, so a retried turn never triggers auto-title.
   return launchTurn(
     {
       chatId: input.chatId,

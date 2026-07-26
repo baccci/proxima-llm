@@ -13,6 +13,8 @@ import { getApiKey } from '../infra/keychain';
 import { getAdapter } from '../infra/llm/providers/index';
 import { buildCompactionPrompt } from './compaction-prompt';
 import { selectCompaction } from './compaction-selection';
+import { runResilientStep } from './lifecycle/resilient-step';
+import { LIFECYCLE_STAGE } from './lifecycle/stages';
 
 const KEEP_RECENT = 15;
 // A manual "compact now" (ring click) is an explicit free-context action, so it
@@ -43,12 +45,14 @@ export async function compact(
   }
 
   const { toSummarize, boundary, displayBoundary } = selection;
-  const titleModelId = resolveTitleModel(model.provider);
-  if (!titleModelId) {
-    return { status: COMPACT_STATUS.noop, reason: COMPACT_NOOP_REASON.noTitleModel };
-  }
 
-  // Bound the summary call so a slow/hung cheap model can't block stream start.
+  // The cheap title model is the primary; the chat's own model is the fallback (it
+  // just produced a reply, so its endpoints are live). The chat model id is always
+  // set, so the resilient step always has at least one attempt to make.
+  const primaryModelId = resolveTitleModel(model.provider);
+  const fallbackModelId = model.id;
+
+  // Bound the summary call so a slow/hung model can't block stream start.
   const signals: AbortSignal[] = [];
   if (opts.signal) {
     signals.push(opts.signal);
@@ -59,13 +63,21 @@ export async function compact(
   const abortSignal = signals.length > 0 ? AbortSignal.any(signals) : undefined;
 
   const prompt = buildCompactionPrompt(prev?.summaryText, toSummarize);
-  const llmModel = getAdapter(model.provider).buildModel(titleModelId, apiKey);
-  const { text } = await generateText({
-    model: llmModel,
-    messages: [{ role: 'user', content: prompt }],
-    abortSignal,
+  const summaryText = await runResilientStep({
+    stage: LIFECYCLE_STAGE.compaction,
+    primaryModelId,
+    fallbackModelId,
+    signal: abortSignal,
+    run: async (modelId) => {
+      const llmModel = getAdapter(model.provider).buildModel(modelId, apiKey);
+      const { text } = await generateText({
+        model: llmModel,
+        messages: [{ role: 'user', content: prompt }],
+        abortSignal,
+      });
+      return text.trim();
+    },
   });
-  const summaryText = text.trim();
   if (!summaryText) {
     return { status: COMPACT_STATUS.noop, reason: COMPACT_NOOP_REASON.emptySummary };
   }

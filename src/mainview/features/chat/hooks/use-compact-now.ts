@@ -16,7 +16,6 @@ function compactionNote(result: CompactResult): string {
 
   const noopMessages: Record<string, string> = {
     [COMPACT_NOOP_REASON.nothingToSummarize]: 'Already compact — nothing older to summarize',
-    [COMPACT_NOOP_REASON.noTitleModel]: 'No model available to summarize',
   }
   return noopMessages[result.reason] ?? 'Compaction produced no summary'
 }

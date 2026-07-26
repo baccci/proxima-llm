@@ -65,10 +65,12 @@ proceeds with the full history (better a pricey turn than a blocked one).
 
 **3. Summarize.** (`compact`)
 Resolve the provider's **title model**, the cheap model already used for chat titles, so summarization does
-not burn the main model's budget. No title model for the provider, no-op. `buildCompactionPrompt(prevSummary,
-toSummarize)` renders a plain-text prompt (any prior summary, then the turns as `User:` / `Assistant:`
-lines), and `generateText` produces the summary, bounded by `AbortSignal.any([userCancel, timeout])` so a
-slow cheap model cannot stall the stream start. Empty summary, no-op.
+not burn the main model's budget, as the **primary**; the chat's own model is the **fallback** (it just
+streamed a reply, so its endpoints are live). `buildCompactionPrompt(prevSummary, toSummarize)` renders a
+plain-text prompt (any prior summary, then the turns as `User:` / `Assistant:` lines), and `runResilientStep`
+runs `generateText` on the primary, then the fallback if the primary's model is dead, bounded by
+`AbortSignal.any([userCancel, timeout])` so a slow model cannot stall the stream start. A user-cancel or
+timeout aborts without falling back; every attempt failing, or an empty summary, is a no-op.
 
 **4. Save.** (`compact` calls `saveSnapshot`)
 Persist the snapshot: `summaryText`, the `boundary` (as `coveredThroughAt` plus id) and the `displayBoundary`
