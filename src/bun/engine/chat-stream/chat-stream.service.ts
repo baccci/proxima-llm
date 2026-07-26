@@ -1,5 +1,4 @@
 import { randomUUID } from 'crypto';
-import { DevOverrideKey } from '../../../shared-contracts/dev/dev-override-keys';
 import type { AppRPC, StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
 import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk';
 import { MemoryScope } from '../../../shared-contracts/schemas/memory-slice.schema';
@@ -14,29 +13,18 @@ import type { ToolDecision } from '../../../shared-contracts/tools/tool-policy';
 import * as attachmentService from '../../features/attachment/attachment.repository';
 import * as chatService from '../../features/chat/chat.repository';
 import { getLatestSnapshot } from '../../features/compaction/compaction.repository';
-import * as devOverrides from '../../features/dev-overrides/dev-overrides.service';
 import * as memoryService from '../../features/memory/memory.repository';
 import { getModel } from '../../features/model/model.repository';
-import { generateChatTitle } from '../../features/model/title';
-import { resolveTitleModel } from '../../features/model/title-model.service';
 import * as projectService from '../../features/project/project.repository';
 import * as projectFileService from '../../features/project-file/project-file.repository';
 import * as settingsService from '../../features/settings/settings.repository';
 import * as keychain from '../../infra/keychain';
-import { log } from '../../infra/logging/logger';
 import { toErrorMessage } from '../../utils/to-error';
-import * as compactionService from '../compaction.service';
-import { runResilientStep } from '../lifecycle/resilient-step';
+import { dispatchStage } from '../lifecycle/dispatch';
 import { LIFECYCLE_STAGE } from '../lifecycle/stages';
 import type { ResolveAttachment } from '../stream/build-prompt';
 import { runStream } from '../stream/run';
 import { awaitApproval, settlePendingApprovals } from './approval-registry';
-import {
-  DEFAULT_COMPACTION_RATIO,
-  estimateContextTokens,
-  exceedsCompactionThreshold,
-} from './context-window';
-import { resolveAutoTitle } from './resolve-auto-title';
 
 // In-flight streams: streamId -> AbortController
 export const activeStreams = new Map<string, AbortController>();
@@ -85,74 +73,6 @@ type LaunchTurnParams = {
   webSearch: boolean;
   effort?: string | null;
 };
-
-// Compact the chat's context in place when the estimate crosses the model's
-// threshold. Non-fatal: a failed compaction just proceeds with full history.
-async function maybeCompact(args: {
-  chatId: string;
-  model: ModelDTO;
-  apiKey: string;
-  history: MessageDTO[];
-  requestTimeoutMs: number;
-  signal: AbortSignal;
-  emitChunk: (chunk: StreamChunk) => void;
-}): Promise<void> {
-  // How many tokens the context holds now. A dev override can pin this for testing,
-  // otherwise estimate it from the history.
-  const tokens =
-    devOverrides.getOverride<number>(DevOverrideKey.enum.forcedContextTokens) ??
-    estimateContextTokens(args.history);
-  // The fraction of the window at which we start compacting. A dev override can pin it too.
-  const ratio =
-    devOverrides.getOverride<number>(DevOverrideKey.enum.compactionRatio) ??
-    DEFAULT_COMPACTION_RATIO;
-  if (!exceedsCompactionThreshold(tokens, args.model, ratio)) {
-    return;
-  }
-
-  // Show the "compacting" divider in the window; the finally below clears it.
-  args.emitChunk({ kind: STREAM_CHUNK_KIND.compacting, active: true });
-  try {
-    await compactionService.compact(args.chatId, args.model, args.apiKey, {
-      signal: args.signal,
-      timeoutMs: args.requestTimeoutMs,
-    });
-  } catch (err) {
-    log.error('Context compaction failed (non-fatal)', err);
-  } finally {
-    args.emitChunk({ kind: STREAM_CHUNK_KIND.compacting, active: false });
-  }
-}
-
-// Auto-name a chat while it still has the default title. Runs every turn, not only
-// the first exchange, so a title that failed to generate earlier self-heals on a
-// later turn (the guard is idempotent: once named, resolveAutoTitle returns null).
-// The cheap title model is the primary; the chat's own live model is the fallback,
-// both under the uniform resilient-step policy. resolveAutoTitle owns the guard and
-// picks the title source (the first user message).
-async function maybeAutoTitle(args: {
-  chatId: string;
-  model: ModelDTO;
-  apiKey: string;
-}): Promise<void> {
-  const chat = chatService.getChat(args.chatId);
-  const history = chatService.listMessages(args.chatId);
-  const source = resolveAutoTitle(chat, history);
-  if (!source) {
-    return;
-  }
-
-  const title = await runResilientStep({
-    stage: LIFECYCLE_STAGE.autoTitle,
-    primaryModelId: resolveTitleModel(args.model.provider),
-    fallbackModelId: args.model.id,
-    run: (modelId) => generateChatTitle(source, args.model.provider, args.apiKey, modelId),
-  });
-  if (title) {
-    chatService.updateChat(args.chatId, { title });
-    pushChatsUpdated();
-  }
-}
 
 // Resolve the model and its API key up front, or throw. Returns non-null values,
 // so the turn body doesn't have to lean on control-flow narrowing from guards.
@@ -285,7 +205,7 @@ function launchTurn(
       const currentSettings = settingsService.getSettings();
       const history = chatService.listMessages(chatId);
 
-      await maybeCompact({
+      await dispatchStage(LIFECYCLE_STAGE.compaction, {
         chatId,
         model,
         apiKey,
@@ -342,11 +262,12 @@ function launchTurn(
       opts?.onLifecycle?.('done', meta);
       emitChunk({ kind: STREAM_CHUNK_KIND.done, message: saved });
 
-      try {
-        await maybeAutoTitle({ chatId, model, apiKey });
-      } catch (err) {
-        log.error('Title generation failed (non-fatal)', err);
-      }
+      await dispatchStage(LIFECYCLE_STAGE.autoTitle, {
+        chatId,
+        model,
+        apiKey,
+        notifyChatsUpdated: pushChatsUpdated,
+      });
     } catch (err) {
       const error = toErrorMessage(err);
       emitChunk({ kind: STREAM_CHUNK_KIND.error, error });

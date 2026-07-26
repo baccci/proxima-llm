@@ -22,7 +22,7 @@ is unique, so writing the same title again updates that note rather than making 
 | [`features/memory/memory-notify.ts`](../../src/bun/features/memory/memory-notify.ts) | The single write/delete notify hub plus two injected hooks (renderer push, summary regen). |
 | [`features/memory/memory-summary-llm.ts`](../../src/bun/features/memory/memory-summary-llm.ts) | `generateMemorySummary`, the LLM call that condenses a project's slices to one paragraph. |
 | [`features/memory/tools/*`](../../src/bun/features/memory/tools/) | `read_memory` / `write_memory` / `delete_memory`, the model's access to memory. |
-| [`engine/memory-summary.service.ts`](../../src/bun/engine/memory-summary.service.ts) | `regenerateProjectSummary`, the cross-domain workflow that picks a model, regenerates, and persists. |
+| [`engine/memory-summary.service.ts`](../../src/bun/engine/memory-summary.service.ts) | `regenerateProjectSummary`, the cross-domain workflow that picks a model, regenerates, and persists. It is the `memory-summary` catalog action's implementation, invoked through `dispatchStage`. |
 | [`stream/build-prompt.ts`](../../src/bun/engine/stream/build-prompt.ts) | Consumer: lists slice titles in the system prompt. |
 | [`shared-contracts/schemas/memory-slice.schema.ts`](../../src/shared-contracts/schemas/memory-slice.schema.ts) | `MemoryScope`, `MemorySource`, `MemorySliceDTO`, and the RPC input schemas. |
 | [`src/mainview/features/memory/`](../../src/mainview/features/memory/) | The renderer editor: `MemorySliceList` (add / edit / delete UI, either scope) plus `use-memory-slices` (read plus upsert/delete mutations). Consumed by projects (`memories-card`, project scope) and settings (`memory-section`, global scope). See [../features/projects.md](../features/projects.md). |
@@ -118,7 +118,9 @@ Two functions, on purpose:
 Both effects are injected hooks, not imports, so the feature stays free of `engine/` and the RPC layer:
 
 - `setMemoryChangedPush(fn)` is wired by `rpc.ts` (`setSendMemoryChanged`) to the renderer channel.
-- `setMemoryRegenHook(fn)` is wired by `index.ts` at boot to `regenerateProjectSummary`.
+- `setMemoryRegenHook(fn)` is wired by `index.ts` at boot to dispatch the `memory-summary` stage
+  (`dispatchStage(memorySummary, { projectId })`), which runs the `regenerateProjectSummary` catalog
+  action. It fires out of band on any project-memory write or delete, not on every turn.
 
 Both hooks are nullable module singletons set once at startup (`fn?.()` if unset). This is the
 module-singleton dependency-injection pattern used across bun's app wiring: the leaf declares a setter,
@@ -160,5 +162,6 @@ The repository (DB), the LLM call, and the regen workflow are integration surfac
 
 - [compaction.md](compaction.md) — the neighbouring `engine/` summary workflow; the same title-model,
   non-fatal, and pure-leaf patterns.
+- [lifecycle.md](lifecycle.md) — the dispatch seam and the `memory-summary` stage the regen hook fires.
 - [stream-engine.md](stream-engine.md) — `buildSystem` (the memory-title consumer) and the tool gate.
 - [../architecture.md](../architecture.md) — process model, IPC, DB.

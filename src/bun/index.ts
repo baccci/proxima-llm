@@ -2,7 +2,8 @@ import { dlopen, FFIType } from 'bun:ffi';
 import { ApplicationMenu, BrowserWindow, Updater } from 'electrobun/bun';
 import { join } from 'path';
 import { setSendChatsUpdated, setSendToWebview } from './engine/chat-stream/chat-stream.service';
-import { regenerateProjectSummary } from './engine/memory-summary.service';
+import { dispatchStage } from './engine/lifecycle/dispatch';
+import { LIFECYCLE_STAGE } from './engine/lifecycle/stages';
 import { startControlServer, stopControlServer } from './entry/control-server/server';
 import {
   createRPC,
@@ -155,7 +156,9 @@ function wireWebviewPush(): void {
 wireWebviewPush();
 // Project-summary regen coordinates model + project + llm, so the workflow lives
 // in engine/; wire it into the memory feature's change notifier here.
-setMemoryRegenHook(regenerateProjectSummary);
+setMemoryRegenHook((projectId) => {
+  void dispatchStage(LIFECYCLE_STAGE.memorySummary, { projectId });
+});
 
 // Register control server start/stop with rpc.ts so updateSettings can toggle it
 setControlServerFns(startControlServer, stopControlServer);

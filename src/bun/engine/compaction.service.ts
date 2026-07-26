@@ -1,18 +1,28 @@
 import { generateText } from 'ai';
+import { DevOverrideKey } from '../../shared-contracts/dev/dev-override-keys';
 import {
   COMPACT_NOOP_REASON,
   COMPACT_STATUS,
   type CompactResult,
 } from '../../shared-contracts/rpc/compact-result';
+import { STREAM_CHUNK_KIND } from '../../shared-contracts/rpc/stream-chunk';
 import type { ModelDTO } from '../../shared-contracts/schemas/model.schema';
 import * as chatService from '../features/chat/chat.repository';
 import { getLatestSnapshot, saveSnapshot } from '../features/compaction/compaction.repository';
+import * as devOverrides from '../features/dev-overrides/dev-overrides.service';
 import { getModel } from '../features/model/model.repository';
 import { resolveTitleModel } from '../features/model/title-model.service';
 import { getApiKey } from '../infra/keychain';
 import { getAdapter } from '../infra/llm/providers/index';
+import { log } from '../infra/logging/logger';
+import {
+  DEFAULT_COMPACTION_RATIO,
+  estimateContextTokens,
+  exceedsCompactionThreshold,
+} from './chat-stream/context-window';
 import { buildCompactionPrompt } from './compaction-prompt';
 import { selectCompaction } from './compaction-selection';
+import type { CompactionContext } from './lifecycle/action';
 import { runResilientStep } from './lifecycle/resilient-step';
 import { LIFECYCLE_STAGE } from './lifecycle/stages';
 
@@ -91,6 +101,33 @@ export async function compact(
   });
 
   return { status: COMPACT_STATUS.ok, summarized: toSummarize.length };
+}
+
+// Compact the chat's context in place when the estimate crosses the model's threshold.
+// Non-fatal: a failed compaction just proceeds with full history. The compacting divider is
+// shown for the attempt and cleared in the finally.
+export async function maybeCompact(ctx: CompactionContext): Promise<void> {
+  const tokens =
+    devOverrides.getOverride<number>(DevOverrideKey.enum.forcedContextTokens) ??
+    estimateContextTokens(ctx.history);
+  const ratio =
+    devOverrides.getOverride<number>(DevOverrideKey.enum.compactionRatio) ??
+    DEFAULT_COMPACTION_RATIO;
+  if (!exceedsCompactionThreshold(tokens, ctx.model, ratio)) {
+    return;
+  }
+
+  ctx.emitChunk({ kind: STREAM_CHUNK_KIND.compacting, active: true });
+  try {
+    await compact(ctx.chatId, ctx.model, ctx.apiKey, {
+      signal: ctx.signal,
+      timeoutMs: ctx.requestTimeoutMs,
+    });
+  } catch (err) {
+    log.error('Context compaction failed (non-fatal)', err);
+  } finally {
+    ctx.emitChunk({ kind: STREAM_CHUNK_KIND.compacting, active: false });
+  }
 }
 
 // Resolve the model and API key a chat streams with. Throws a user-facing error
