@@ -1,8 +1,16 @@
 import { HOOK_ACTION_ID } from '../../../shared-contracts/lifecycle/hook-catalog';
+import { SOUND_ID } from '../../../shared-contracts/lifecycle/sound';
 import { runAutoTitle } from '../chat-stream/auto-title';
 import * as compactionService from '../compaction.service';
 import { regenerateProjectSummary } from '../memory-summary.service';
-import { ACTION_TIER, type AnyAction, defineAction, type MemorySummaryContext } from './action';
+import {
+  ACTION_TIER,
+  type AnyAction,
+  defineAction,
+  type MemorySummaryContext,
+  type TurnDoneContext,
+  type TurnErrorContext,
+} from './action';
 import { LIFECYCLE_STAGE } from './stages';
 
 // Stable ids are lifted to shared-contracts (the catalog metadata lives there). Re-exported
@@ -30,11 +38,51 @@ const memorySummaryAction = defineAction({
   run: (ctx: MemorySummaryContext) => regenerateProjectSummary(ctx.projectId),
 });
 
+const completionSoundAction = defineAction({
+  id: HOOK_ACTION_ID.completionSound,
+  stage: LIFECYCLE_STAGE.turnDone,
+  tier: ACTION_TIER.observe,
+  run: async (ctx: TurnDoneContext) => {
+    // Only cue audio when you are away; a ding while you are reading the reply is noise.
+    if (ctx.isWindowFocused()) {
+      return;
+    }
+    ctx.playSound(SOUND_ID.completion);
+  },
+});
+
+const completionNotificationAction = defineAction({
+  id: HOOK_ACTION_ID.completionNotification,
+  stage: LIFECYCLE_STAGE.turnDone,
+  tier: ACTION_TIER.observe,
+  run: async (ctx: TurnDoneContext) => {
+    if (ctx.isWindowFocused()) {
+      return;
+    }
+    // Silent: the completion-sound hook owns audio, so both on does not double up.
+    ctx.showNotification({ title: ctx.chatTitle, body: 'Your reply is ready.' });
+  },
+});
+
+const errorSoundAction = defineAction({
+  id: HOOK_ACTION_ID.errorSound,
+  stage: LIFECYCLE_STAGE.turnError,
+  tier: ACTION_TIER.observe,
+  run: async (ctx: TurnErrorContext) => {
+    // Always: a failure is worth hearing even while looking at the window.
+    ctx.playSound(SOUND_ID.error);
+  },
+});
+
 // The fixed set of shipped actions, keyed by id. Users/agents select from this; nothing
 // outside it runs (no sandbox needed for the catalog path).
 export const CATALOG = new Map<string, AnyAction>(
-  [compactionAction, autoTitleAction, memorySummaryAction].map((a): [string, AnyAction] => [
-    a.id,
-    a,
-  ]),
+  [
+    compactionAction,
+    autoTitleAction,
+    memorySummaryAction,
+    completionSoundAction,
+    completionNotificationAction,
+    errorSoundAction,
+  ].map((a): [string, AnyAction] => [a.id, a]),
 );
