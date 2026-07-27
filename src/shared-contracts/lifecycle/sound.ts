@@ -3,6 +3,7 @@
 export const SOUND_ID = {
   completion: 'completion',
   error: 'error',
+  approval: 'approval',
 } as const
 
 export type SoundId = (typeof SOUND_ID)[keyof typeof SOUND_ID]

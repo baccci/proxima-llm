@@ -6,6 +6,7 @@ import { regenerateProjectSummary } from '../memory-summary.service';
 import {
   ACTION_TIER,
   type AnyAction,
+  type ApprovalNeededContext,
   defineAction,
   type MemorySummaryContext,
   type TurnDoneContext,
@@ -71,6 +72,16 @@ const errorSoundAction = defineAction({
   },
 });
 
+const approvalSoundAction = defineAction({
+  id: HOOK_ACTION_ID.approvalSound,
+  stage: LIFECYCLE_STAGE.approvalNeeded,
+  tier: ACTION_TIER.observe,
+  run: async (ctx: ApprovalNeededContext) => {
+    // Always: the turn is blocked waiting on the user, worth hearing even with the window focused.
+    ctx.playSound(SOUND_ID.approval);
+  },
+});
+
 // The fixed set of shipped actions, keyed by id. Users/agents select from this; nothing
 // outside it runs (no sandbox needed for the catalog path).
 export const CATALOG = new Map<string, AnyAction>(
@@ -81,5 +92,6 @@ export const CATALOG = new Map<string, AnyAction>(
     completionSoundAction,
     completionNotificationAction,
     errorSoundAction,
+    approvalSoundAction,
   ].map((a): [string, AnyAction] => [a.id, a]),
 );

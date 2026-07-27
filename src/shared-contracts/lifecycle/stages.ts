@@ -10,6 +10,7 @@ export const LIFECYCLE_STAGE = {
   compaction: 'compaction',
   promptBuilt: 'prompt-built',
   modelStreaming: 'model-streaming',
+  approvalNeeded: 'approval-needed',
   streamFinished: 'stream-finished',
   assistantSaved: 'assistant-saved',
   turnDone: 'turn-done',

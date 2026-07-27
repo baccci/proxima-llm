@@ -49,6 +49,7 @@ describe('hook-config repository', () => {
       HOOK_ACTION_ID.completionSound,
       HOOK_ACTION_ID.completionNotification,
       HOOK_ACTION_ID.errorSound,
+      HOOK_ACTION_ID.approvalSound,
     ]);
     expect(rows.find((r) => r.actionId === HOOK_ACTION_ID.completionNotification)?.enabled).toBe(
       true,

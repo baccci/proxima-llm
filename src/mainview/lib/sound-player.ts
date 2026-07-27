@@ -39,7 +39,8 @@ function tone(freq: number, startAt: number, durationS: number, peakGain: number
   osc.stop(startAt + durationS)
 }
 
-// Completion: a gentle rising two-note bell. Error: a single lower, longer tone.
+// Completion: a gentle rising two-note bell. Approval: a soft double tap. Error: a single lower,
+// longer tone.
 // Audio is best-effort. WKWebView can refuse to build or resume an AudioContext, so any
 // Web Audio failure is swallowed here rather than thrown back at the caller.
 export function playSound(sound: SoundId): void {
@@ -48,6 +49,10 @@ export function playSound(sound: SoundId): void {
     if (sound === 'completion') {
       tone(660, now, 0.14, 0.14)
       tone(880, now + 0.1, 0.18, 0.14)
+    } else if (sound === 'approval') {
+      // A soft double tap, "your input is needed", distinct from the bell and the error tone.
+      tone(520, now, 0.12, 0.12)
+      tone(520, now + 0.16, 0.14, 0.12)
     } else {
       tone(300, now, 0.28, 0.16)
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from 'bun:test';
 import { HOOK_ACTION_ID } from '../../../shared-contracts/lifecycle/hook-catalog';
-import type { TurnDoneContext, TurnErrorContext } from './action';
+import type { ApprovalNeededContext, TurnDoneContext, TurnErrorContext } from './action';
 import { CATALOG } from './catalog';
 
 function turnDoneCtx(overrides: Partial<TurnDoneContext>): TurnDoneContext {
@@ -59,5 +59,14 @@ describe('error-sound action', () => {
     const ctx: TurnErrorContext = { chatId: 'c1', playSound };
     await CATALOG.get(HOOK_ACTION_ID.errorSound)?.run(ctx);
     expect(playSound).toHaveBeenCalledWith('error');
+  });
+});
+
+describe('approval-sound action', () => {
+  it('plays the approval sound regardless of focus', async () => {
+    const playSound = mock();
+    const ctx: ApprovalNeededContext = { chatId: 'c1', playSound };
+    await CATALOG.get(HOOK_ACTION_ID.approvalSound)?.run(ctx);
+    expect(playSound).toHaveBeenCalledWith('approval');
   });
 });

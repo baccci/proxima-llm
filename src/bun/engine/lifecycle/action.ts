@@ -48,6 +48,13 @@ export type TurnErrorContext = {
   playSound: (sound: SoundId) => void;
 };
 
+// A tool call is parked waiting on the user's approval. The approval sound plays regardless of
+// focus (the turn is blocked on the user), so this context is minimal like the error one.
+export type ApprovalNeededContext = {
+  chatId: string;
+  playSound: (sound: SoundId) => void;
+};
+
 // The stages that carry dispatch, each mapped to its action context. The other named stages
 // in stages.ts are reference points with no dispatch yet; adding a key here is what wires a
 // stage. dispatchStage only accepts these keys, so a non-wired stage cannot be dispatched by
@@ -58,6 +65,7 @@ export type StageContextMap = {
   [LIFECYCLE_STAGE.memorySummary]: MemorySummaryContext;
   [LIFECYCLE_STAGE.turnDone]: TurnDoneContext;
   [LIFECYCLE_STAGE.turnError]: TurnErrorContext;
+  [LIFECYCLE_STAGE.approvalNeeded]: ApprovalNeededContext;
 };
 export type DispatchStage = keyof StageContextMap;
 

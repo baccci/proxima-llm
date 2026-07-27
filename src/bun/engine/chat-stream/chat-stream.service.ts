@@ -248,6 +248,14 @@ function launchTurn(
             startedEmitted = true;
             opts?.onLifecycle?.('started', meta);
           }
+          if (chunk.kind === STREAM_CHUNK_KIND.toolApprovalRequest) {
+            // Fire-and-forget so the approval cue never stalls the stream; dispatch is non-fatal,
+            // so a disabled or failing hook cannot break chunk handling.
+            void dispatchStage(LIFECYCLE_STAGE.approvalNeeded, {
+              chatId,
+              playSound: pushPlaySound,
+            });
+          }
         },
         awaitApproval: gateApproval,
         maxRetries: currentSettings.maxRetries,

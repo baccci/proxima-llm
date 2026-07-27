@@ -190,9 +190,10 @@ describe('rebuildRegistry', () => {
     expect(typeof dispatchStage).toBe('function');
   });
 
-  test('gives buildRegistry a turn-error bucket', () => {
+  test('gives buildRegistry the turn-done, turn-error, and approval-needed buckets', () => {
     const registry = buildRegistry([], new Map());
     expect(registry[LIFECYCLE_STAGE.turnError]).toEqual([]);
     expect(registry[LIFECYCLE_STAGE.turnDone]).toEqual([]);
+    expect(registry[LIFECYCLE_STAGE.approvalNeeded]).toEqual([]);
   });
 });

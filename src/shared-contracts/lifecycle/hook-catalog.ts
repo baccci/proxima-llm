@@ -11,6 +11,7 @@ export const HOOK_ACTION_ID = {
   completionSound: 'builtin.completion-sound',
   completionNotification: 'builtin.completion-notification',
   errorSound: 'builtin.error-sound',
+  approvalSound: 'builtin.approval-sound',
 } as const
 
 export type HookActionId = (typeof HOOK_ACTION_ID)[keyof typeof HOOK_ACTION_ID]
@@ -110,6 +111,16 @@ export const HOOK_CATALOG: readonly HookCatalogEntry[] = [
     tier: ACTION_TIER.observe,
     label: 'Error sound',
     description: 'Play a distinct sound when a turn fails.',
+    provenance: HOOK_PROVENANCE.builtIn,
+    defaultEnabled: false,
+    userManageable: true,
+  },
+  {
+    actionId: HOOK_ACTION_ID.approvalSound,
+    stage: LIFECYCLE_STAGE.approvalNeeded,
+    tier: ACTION_TIER.observe,
+    label: 'Approval needed sound',
+    description: 'Play a sound when a tool call needs your approval.',
     provenance: HOOK_PROVENANCE.builtIn,
     defaultEnabled: false,
     userManageable: true,

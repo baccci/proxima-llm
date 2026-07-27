@@ -32,6 +32,7 @@ export function buildRegistry(
     [LIFECYCLE_STAGE.memorySummary]: [],
     [LIFECYCLE_STAGE.turnDone]: [],
     [LIFECYCLE_STAGE.turnError]: [],
+    [LIFECYCLE_STAGE.approvalNeeded]: [],
   };
   for (const entry of config) {
     if (!entry.enabled) {

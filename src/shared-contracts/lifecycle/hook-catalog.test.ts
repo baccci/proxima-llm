@@ -14,11 +14,12 @@ describe('HOOK_CATALOG', () => {
     }
   })
 
-  it('holds the three opt-in hooks as manageable and disabled by default', () => {
+  it('holds the opt-in hooks as manageable and disabled by default', () => {
     for (const id of [
       HOOK_ACTION_ID.completionSound,
       HOOK_ACTION_ID.completionNotification,
       HOOK_ACTION_ID.errorSound,
+      HOOK_ACTION_ID.approvalSound,
     ]) {
       const entry = HOOK_META.get(id)
       expect(entry?.userManageable).toBe(true)
