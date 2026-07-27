@@ -1,8 +1,12 @@
 import { z } from 'zod'
+import { Effort } from '../models/effort'
 import { ProviderId } from '../providers/registry'
 
 export const ModelCapabilities = z.object({
   thinking: z.boolean(),
+  reasoningMandatory: z.boolean().default(false),
+  efforts: z.array(Effort).default([]),
+  defaultEffort: Effort.nullable().default(null),
   vision: z.boolean(),
   pdf: z.boolean(),
   tools: z.boolean(),

@@ -11,6 +11,9 @@ export const MODEL_SEED: ModelDefinition[] = [
     pricing: null,
     capabilities: {
       thinking: true,
+      reasoningMandatory: false,
+      efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+      defaultEffort: 'medium',
       vision: true,
       pdf: true,
       tools: true,
@@ -30,6 +33,9 @@ export const MODEL_SEED: ModelDefinition[] = [
     pricing: null,
     capabilities: {
       thinking: false,
+      reasoningMandatory: false,
+      efforts: [],
+      defaultEffort: null,
       vision: true,
       pdf: true,
       tools: true,
@@ -48,6 +54,9 @@ export const MODEL_SEED: ModelDefinition[] = [
     pricing: null,
     capabilities: {
       thinking: false,
+      reasoningMandatory: false,
+      efforts: [],
+      defaultEffort: null,
       vision: true,
       pdf: false,
       tools: true,

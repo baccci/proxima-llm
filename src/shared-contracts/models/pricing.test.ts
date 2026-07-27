@@ -11,6 +11,9 @@ function model(over: Partial<ModelDTO> = {}): ModelDTO {
     displayName: 'M1',
     capabilities: {
       thinking: false,
+      reasoningMandatory: false,
+      efforts: [],
+      defaultEffort: null,
       vision: false,
       pdf: false,
       tools: false,

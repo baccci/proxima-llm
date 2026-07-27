@@ -17,7 +17,7 @@ const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models'
 const SYNC_THROTTLE_HOURS = 24
 const SYNC_THROTTLE_MS = SYNC_THROTTLE_HOURS * 60 * 60 * 1000
 // Bump when sync logic or schema changes to force a re-sync on next startup.
-const SYNC_VERSION = 3
+const SYNC_VERSION = 4
 // Fallback when OpenRouter does not report a model's max output tokens.
 const DEFAULT_MAX_OUTPUT_TOKENS = 8192
 
@@ -114,10 +114,13 @@ function mapToRow(m: OpenRouterModel): SyncedModelRow {
   const maxOutputTokens = m.top_provider?.max_completion_tokens ?? DEFAULT_MAX_OUTPUT_TOKENS
   const contextWindow = m.top_provider?.context_length ?? m.context_length
 
+  const { thinking, reasoningMandatory, efforts, defaultEffort } = mapReasoning(m.reasoning, params)
+
   const capabilities: ModelCapabilities = {
-    thinking:
-      params.includes(OPENROUTER_PARAM.reasoning) ||
-      params.includes(OPENROUTER_PARAM.includeReasoning),
+    thinking,
+    reasoningMandatory,
+    efforts,
+    defaultEffort,
     vision: modalities.includes(OPENROUTER_MODALITY.image),
     pdf: modalities.includes(OPENROUTER_MODALITY.file),
     tools: params.includes(OPENROUTER_PARAM.tools),
