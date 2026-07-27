@@ -273,13 +273,17 @@ function launchTurn(
       opts?.onLifecycle?.('done', meta);
       emitChunk({ kind: STREAM_CHUNK_KIND.done, message: saved });
 
-      await dispatchStage(LIFECYCLE_STAGE.turnDone, {
-        chatId,
-        chatTitle: chatService.getChat(chatId)?.title ?? 'Proxima',
-        isWindowFocused,
-        showNotification: showTurnNotification,
-        playSound: pushPlaySound,
-      });
+      // A stopped or idle-timed-out turn is not a clean completion, so skip the completion
+      // cues (sound and notification). A real error takes the catch path and its own cue.
+      if (stopReason == null) {
+        await dispatchStage(LIFECYCLE_STAGE.turnDone, {
+          chatId,
+          chatTitle: chatService.getChat(chatId)?.title ?? 'Proxima',
+          isWindowFocused,
+          showNotification: showTurnNotification,
+          playSound: pushPlaySound,
+        });
+      }
 
       await dispatchStage(LIFECYCLE_STAGE.autoTitle, {
         chatId,
