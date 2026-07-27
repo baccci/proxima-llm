@@ -10,8 +10,8 @@ the model streams, the reply is saved, and so on. This layer gives each moment a
 stage), so code can say "at the compaction stage" instead of pointing at a line inside `runTurn`. On top
 of the names sits a small **dispatch** system: a stage can carry an ordered list of **actions**, and
 reaching that stage runs them. The actions are a fixed, built-in set: three always-on core mechanics
-(compaction, auto-title, memory-summary) plus three opt-in cues (a completion sound, a completion
-notification, an error sound) a user turns on in Settings. The config only enables or disables shipped
+(compaction, auto-title, memory-summary) plus four opt-in cues (a completion sound, a completion
+notification, an error sound, and an approval-needed sound) a user turns on in Settings. The config only enables or disables shipped
 actions; it never runs code the app did not ship.
 
 The layer arrived in three pillars:
@@ -27,23 +27,24 @@ The layer arrived in three pillars:
 | File | Role |
 |---|---|
 | [`shared-contracts/lifecycle/`](../../src/shared-contracts/lifecycle/) | The renderer-visible vocabulary and metadata, lifted here so the config surface can name a stage/tier/provenance: `stages.ts`, `action-tier.ts`, `provenance.ts`, `sound.ts`, and `hook-catalog.ts` (`HOOK_ACTION_ID`, `HOOK_CATALOG`, `HOOK_META`, `DEFAULT_HOOK_CONFIG`, `HookConfigEntry` / `HookDetailRow`). |
-| [`lifecycle/stages.ts`](../../src/bun/engine/lifecycle/stages.ts) | Re-exports `LIFECYCLE_STAGE` / `LifecycleStage` (the 14 named stages) from shared-contracts. |
+| [`lifecycle/stages.ts`](../../src/bun/engine/lifecycle/stages.ts) | Re-exports `LIFECYCLE_STAGE` / `LifecycleStage` (the 15 named stages) from shared-contracts. |
 | [`lifecycle/resilient-step.ts`](../../src/bun/engine/lifecycle/resilient-step.ts) | `runResilientStep` — the primary-then-fallback LLM retry policy the post-response steps share. |
 | [`lifecycle/action.ts`](../../src/bun/engine/lifecycle/action.ts) | The action contract: `ACTION_TIER` (re-exported from shared), the per-stage context types (including `TurnDoneContext` / `TurnErrorContext`), `StageContextMap` / `DispatchStage`, `LifecycleAction` (authoring) and `AnyAction` (storage), `defineAction`, `ActionRegistry`. |
 | [`lifecycle/hook-config.ts`](../../src/bun/engine/lifecycle/hook-config.ts) | Re-exports `HookConfigEntry`, `HOOK_PROVENANCE`, and `DEFAULT_HOOK_CONFIG` from shared-contracts (a thin bun-side alias). |
-| [`lifecycle/catalog.ts`](../../src/bun/engine/lifecycle/catalog.ts) | `BUILTIN_ACTION_ID` (re-exported from shared `HOOK_ACTION_ID`) and `CATALOG` — the six shipped actions (three Act core mechanics, three Observe cues), bound to their workflows and ports. |
+| [`lifecycle/catalog.ts`](../../src/bun/engine/lifecycle/catalog.ts) | `BUILTIN_ACTION_ID` (re-exported from shared `HOOK_ACTION_ID`) and `CATALOG` — the seven shipped actions (three Act core mechanics, four Observe cues), bound to their workflows and ports. |
 | [`lifecycle/dispatch.ts`](../../src/bun/engine/lifecycle/dispatch.ts) | `runActions` (the ordered, error-isolated runner), `buildRegistry`, the mutable process-wide `registry` with `rebuildRegistry`, and `dispatchStage`. |
 | [`features/hook-config/hook-config.repository.ts`](../../src/bun/features/hook-config/hook-config.repository.ts) | `load` / `setEnabled` / `listDetailed` — the sparse `hook_config` override map over the catalog default. |
 
 ## The stages
 
-`stages.ts` declares `LIFECYCLE_STAGE`, an `as const` object of 14 names (`turn-triggered`,
+`stages.ts` declares `LIFECYCLE_STAGE`, an `as const` object of 15 names (`turn-triggered`,
 `user-persisted`, `preflight`, `stream-registered`, `context-gathered`, `compaction`, `prompt-built`,
-`model-streaming`, `stream-finished`, `assistant-saved`, `turn-done`, `auto-title`, `memory-summary`,
-`turn-error`), shaped like `STREAM_CHUNK_KIND` so a stage is a checked literal and renames are
-compiler-guided. Most stages are reference points with no machinery yet: they exist so a future hook can
-attach by name. Five carry dispatch — `compaction`, `auto-title`, and `memory-summary` (the post-response
-steps), plus `turn-done` and `turn-error` (which carry the opt-in completion and error cues).
+`model-streaming`, `approval-needed`, `stream-finished`, `assistant-saved`, `turn-done`, `auto-title`,
+`memory-summary`, `turn-error`), shaped like `STREAM_CHUNK_KIND` so a stage is a checked literal and
+renames are compiler-guided. Most stages are reference points with no machinery yet: they exist so a
+future hook can attach by name. Six carry dispatch — `compaction`, `auto-title`, and `memory-summary`
+(the post-response steps), plus `turn-done`, `turn-error`, and `approval-needed` (which carry the opt-in
+completion, error, and approval cues).
 
 ## The resilient step
 
@@ -97,14 +98,15 @@ The catalog ships **both** tiers. The tier is declared intent that the config su
 surface read, and the ground for tier-based gating. Neither tier mutates the in-flight prompt or vetoes
 the turn: Block is not a hook tier, and tool blocking stays at the approval gate.
 
-The catalog binds six built-in actions. Three **Act** core mechanics run their relocated workflows:
+The catalog binds seven built-in actions. Three **Act** core mechanics run their relocated workflows:
 `builtin.compaction` runs `compaction.service.maybeCompact`, `builtin.auto-title` runs
 `chat-stream/auto-title.runAutoTitle`, and `builtin.memory-summary` runs
-`memory-summary.service.regenerateProjectSummary`. Three **Observe** cues sit on the new stages:
-`builtin.completion-sound` and `builtin.completion-notification` on `turn-done`, and
-`builtin.error-sound` on `turn-error`. Each Observe cue is a pure function of its context that pushes
-through an injected port: the completion sound plays on every finished turn, the completion notification
-fires only when the window is unfocused, and the error sound plays on any failure (see
+`memory-summary.service.regenerateProjectSummary`. Four **Observe** cues sit on the new stages:
+`builtin.completion-sound` and `builtin.completion-notification` on `turn-done`, `builtin.error-sound`
+on `turn-error`, and `builtin.approval-sound` on `approval-needed`. Each Observe cue is a pure function
+of its context that pushes through an injected port: the completion sound plays on every finished turn,
+the completion notification fires only when the window is unfocused, the error sound plays on any
+failure, and the approval sound plays whenever a tool call needs approval, regardless of focus (see
 [Notifications and sounds](#notifications-and-sounds)).
 
 ## The config shape and the trust model
@@ -142,8 +144,8 @@ log. Both changes move in the safe direction.
 
 ## Notifications and sounds
 
-The `turn-done` and `turn-error` cues reach the user through Bun-side ports the orchestrator injects into
-the stage context, so an action never imports a transport:
+The `turn-done`, `turn-error`, and `approval-needed` cues reach the user through Bun-side ports the
+orchestrator injects into the stage context, so an action never imports a transport:
 
 - **Notification** — [`features/notifications/notification.ts`](../../src/bun/features/notifications/notification.ts)
   calls Electrobun's native `Utils.showNotification` (cross-platform via FFI). It is **silent** — the sound
@@ -152,15 +154,17 @@ the stage context, so an action never imports a transport:
   wired at boot.
 - **Sound** — there are no bundled audio assets. Bun pushes a `playSound` message (`sound-push.ts`) to the
   renderer, and [`mainview/lib/sound-player.ts`](../../src/mainview/lib/sound-player.ts) synthesizes the cue
-  with the Web Audio API (a two-note bell for completion, a lower tone for error). WKWebView blocks audio
-  until a user gesture, so the AudioContext resumes on the first `pointerdown`.
+  with the Web Audio API (a two-note bell for completion, a soft double tap for approval, a lower tone
+  for error). WKWebView blocks audio until a user gesture, so the AudioContext resumes on the first
+  `pointerdown`.
 
-The completion notification fires only when the window is unfocused; the completion sound and the error
-cue fire regardless of focus.
+The completion notification fires only when the window is unfocused; the completion sound, the error
+cue, and the approval cue fire regardless of focus. The approval cue is dispatched mid-stream when a
+tool call hits the approval gate, not at a turn boundary like the other cues.
 
 ## Links
 
-- [chat-bun.md](chat-bun.md) — `runTurn`, which dispatches the `compaction`, `auto-title`, `turn-done`, and `turn-error` stages.
+- [chat-bun.md](chat-bun.md) — `runTurn`, which dispatches the `compaction`, `auto-title`, `turn-done`, `turn-error`, and `approval-needed` stages.
 - [compaction.md](compaction.md) — the `compaction`-stage action (`maybeCompact`) and the `compact` flow.
 - [memory.md](memory.md) — the `memory-summary` action, dispatched out of band on a project-memory write.
 - [../architecture.md](../architecture.md) — process model, IPC, DB.
