@@ -1,19 +1,12 @@
+import { ACTION_TIER, type ActionTier } from '../../../shared-contracts/lifecycle/action-tier';
 import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
 import type { MessageDTO } from '../../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
 import { LIFECYCLE_STAGE } from './stages';
 
-// The power tier a catalog action declares. Observe: told a stage happened, does a side
-// effect (sound, notification, log). Act: runs work that writes state a later stage reads
-// (a title, a compaction snapshot, a memory slice). v1 ships an Act-only catalog; the tier
-// is declared intent a later editor/agent surface reads, and the ground for tier-based
-// gating. Neither tier mutates the in-flight prompt or vetoes the turn (Block is not a hook
-// tier; tool blocking stays at the approval gate).
-export const ACTION_TIER = {
-  observe: 'observe',
-  act: 'act',
-} as const;
-export type ActionTier = (typeof ACTION_TIER)[keyof typeof ACTION_TIER];
+// The power-tier vocabulary is lifted to shared-contracts (the config surface names a tier).
+// Re-exported here so the bun lifecycle layer keeps importing it from `./action`.
+export { ACTION_TIER, type ActionTier };
 
 // The context each wired stage hands its actions. Distinct per stage because the three
 // steps read different inputs. emitChunk and notifyChatsUpdated are injected by the

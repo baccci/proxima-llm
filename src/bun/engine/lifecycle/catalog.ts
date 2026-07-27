@@ -1,32 +1,30 @@
+import { HOOK_ACTION_ID } from '../../../shared-contracts/lifecycle/hook-catalog';
 import { runAutoTitle } from '../chat-stream/auto-title';
 import * as compactionService from '../compaction.service';
 import { regenerateProjectSummary } from '../memory-summary.service';
 import { ACTION_TIER, type AnyAction, defineAction, type MemorySummaryContext } from './action';
 import { LIFECYCLE_STAGE } from './stages';
 
-// Stable ids for the shipped actions. A config entry references an action by one of these.
-export const BUILTIN_ACTION_ID = {
-  compaction: 'builtin.compaction',
-  autoTitle: 'builtin.auto-title',
-  memorySummary: 'builtin.memory-summary',
-} as const;
+// Stable ids are lifted to shared-contracts (the catalog metadata lives there). Re-exported
+// under the old name so other bun importers keep working.
+export const BUILTIN_ACTION_ID = HOOK_ACTION_ID;
 
 const compactionAction = defineAction({
-  id: BUILTIN_ACTION_ID.compaction,
+  id: HOOK_ACTION_ID.compaction,
   stage: LIFECYCLE_STAGE.compaction,
   tier: ACTION_TIER.act,
   run: compactionService.maybeCompact,
 });
 
 const autoTitleAction = defineAction({
-  id: BUILTIN_ACTION_ID.autoTitle,
+  id: HOOK_ACTION_ID.autoTitle,
   stage: LIFECYCLE_STAGE.autoTitle,
   tier: ACTION_TIER.act,
   run: runAutoTitle,
 });
 
 const memorySummaryAction = defineAction({
-  id: BUILTIN_ACTION_ID.memorySummary,
+  id: HOOK_ACTION_ID.memorySummary,
   stage: LIFECYCLE_STAGE.memorySummary,
   tier: ACTION_TIER.act,
   run: (ctx: MemorySummaryContext) => regenerateProjectSummary(ctx.projectId),
