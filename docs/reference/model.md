@@ -8,8 +8,8 @@ also the reference example for the repository conventions (see
 ## What the catalog is, in plain language
 
 To show a model picker, stream a reply, or price a chat, the app needs a list of models and, per model, its
-**capabilities** (thinking, vision, pdf, tools, context window, max output), **pricing**, and whether the
-user **enabled** it. That list is the catalog: the `models` table in SQLite. The UI always reads from this
+**capabilities** (thinking plus its reasoning schema, vision, pdf, tools, context window, max output),
+**pricing**, and whether the user **enabled** it. That list is the catalog: the `models` table in SQLite. The UI always reads from this
 cached table so it renders instantly; the network never sits in the render path.
 
 Models enter the catalog from **two sources**, and the source decides who may later overwrite the row:
@@ -65,8 +65,11 @@ Runs at boot ([`index.ts`](../../src/bun/index.ts) calls `await seedModels()`), 
   versions).
 - Row present and **not** builtin, leave it untouched.
 
-`MODEL_SEED` is the three shipped Anthropic models (opus / sonnet / haiku) with hand-written capabilities.
-Note `pricing: null` for builtins: Anthropic pricing is not tracked here, only capabilities and enablement.
+`MODEL_SEED` is the three shipped Anthropic models (opus / sonnet / haiku) with hand-written capabilities,
+including each model's reasoning schema declared by hand: opus reasons with five effort tiers
+(`efforts: ['low','medium','high','xhigh','max']`, `defaultEffort: 'medium'`), while sonnet and haiku stay
+non-reasoning (`efforts: []`, `defaultEffort: null`). None are mandatory (`reasoningMandatory: false`). Note
+`pricing: null` for builtins: Anthropic pricing is not tracked here, only capabilities and enablement.
 
 ## The OpenRouter sync (`syncOpenRouterModels`)
 
@@ -84,11 +87,16 @@ then **`safeParse` each entry** with `OpenRouterModel` in the loop: one malforme
 app.
 
 **3. Map.** `mapToRow` turns an OpenRouter entry into a persistable row: capabilities derived from its
-`supported_parameters` / `input_modalities` (thinking = `reasoning` or `include_reasoning`, vision = `image`
-modality, pdf = `file` modality, tools), `promptCaching: false` and `webSearch: true` fixed (OpenRouter has
-no per-model cache flag; web search is a universal plugin), `maxOutputTokens` with an 8192 fallback, and
-`family` from the vendor prefix (`deriveFamily` = `id.split('/')[0]`, for example `google/gemma-2-9b` to
-`google`).
+`supported_parameters` / `input_modalities` (vision = `image` modality, pdf = `file` modality, tools),
+`promptCaching: false` and `webSearch: true` fixed (OpenRouter has no per-model cache flag; web search is a
+universal plugin), `maxOutputTokens` with an 8192 fallback, and `family` from the vendor prefix
+(`deriveFamily` = `id.split('/')[0]`, for example `google/gemma-2-9b` to `google`). The catalog's `reasoning`
+object is parsed through the pure `mapReasoning` helper into the reasoning capability fields — `thinking`
+(has a `reasoning` object, or an older row advertising `reasoning` / `include_reasoning`),
+`reasoningMandatory`, `efforts` (`supported_efforts` filtered to our `Effort` vocabulary and sorted
+low→high), and `defaultEffort`. Those three reasoning fields are defaulted in the schema
+(`reasoningMandatory: false`, `efforts: []`, `defaultEffort: null`), so a capability blob stored before they
+existed still parses.
 
 **4. Upsert + reconcile.** Upsert every mapped row (see Source ownership), then
 `reconcileMissingModels(keepIds)` handles rows the catalog dropped, its plan decided by the pure
@@ -178,7 +186,7 @@ promote to `shared-contracts` and collapse the three copies.
 ## Named constants
 
 - `SYNC_THROTTLE_HOURS = 24` / `SYNC_THROTTLE_MS` — the minimum gap between background syncs.
-- `SYNC_VERSION = 3` — bump to force a re-sync when the mapping or schema changes.
+- `SYNC_VERSION = 4` — bump to force a re-sync when the mapping or schema changes.
 - `DEFAULT_MAX_OUTPUT_TOKENS = 8192` — the fallback when OpenRouter omits max output.
 - `OPENROUTER_PARAM` / `OPENROUTER_MODALITY` — the token vocabulary read from the catalog.
 - `SYNC_SETTINGS_KEY = 'openrouter_sync'` — model's key in the `settings` table.
@@ -194,10 +202,15 @@ promote to `shared-contracts` and collapse the three copies.
 - [`reconcile-missing-models.test.ts`](../../src/bun/features/model/reconcile-missing-models.test.ts) (5) —
   the pure `planMissingModels`: an enabled dropped row is disabled, a disabled dropped row is deleted, a row
   still in the catalog is untouched, builtin rows are never reconciled, and an empty keep-set is a no-op.
+- [`model-sync.service.test.ts`](../../src/bun/features/model/model-sync.service.test.ts) (8) — the pure
+  `mapReasoning`: `mandatory` true / false / absent, `supported_efforts` sorted low→high with `minimal` kept
+  and `none` / unknown tokens dropped, `default_effort` parsed or null, and the `supported_parameters`
+  thinking fallback when there is no `reasoning` object.
 
-**Still untested:** `mapToRow` — the capability derivation and the `Number() || 0` pricing footgun are pure
-but private inside the IO-heavy `model-sync`. A candidate for the same leaf extraction; a bigger lift. The
-repository (DB), the fetch, and the seed are integration surface.
+**Still untested:** the rest of `mapToRow` — the modality / tools derivation and the `Number() || 0` pricing
+footgun are pure but private inside the IO-heavy `model-sync` (the reasoning half is now extracted into the
+tested `mapReasoning`). A candidate for the same leaf extraction; a bigger lift. The repository (DB), the
+fetch, and the seed are integration surface.
 
 ## Links
 

@@ -32,8 +32,11 @@ The `ProviderAdapter` interface:
   provider-shaped options object, or `undefined` when there is nothing to set.
 - `buildServerTools?(model, req)` — optional; provider-**hosted** tools (like Anthropic's server-side web
   search) that are not part of our own tool registry.
-- `effortLevels(model)` — the effort levels this model exposes (delegates to the shared
-  `effortLevelsForModel`).
+
+The adapter no longer computes effort levels. The tiers a model exposes are **data on the model**
+(`capabilities.efforts`, ordered low→high), written by whoever owns the row — the OpenRouter sync parses
+them, the seed declares them — so the renderer and the adapters just read them. `buildProviderOptions`
+receives the already-chosen `req.effort` and never re-derives the list.
 
 ## How the two providers differ (the interesting part)
 
@@ -42,7 +45,10 @@ The same three request flags map to **different provider shapes**, which is exac
 **Thinking**
 - Anthropic: `thinking: { type: 'adaptive' }` (plus `output_config.effort` when an effort is set), or
   `{ type: 'disabled' }`.
-- OpenRouter: `reasoning: { enabled: true, effort? }` or `{ enabled: false }`.
+- OpenRouter: `reasoning: { enabled: true, effort? }` when thinking is on; `{ enabled: false }` when off —
+  **unless** `capabilities.reasoningMandatory`, in which case `enabled: true` is forced even with thinking
+  off. Mandatory-reasoning models 400 on `enabled: false`; the UI already prevents the off state, and this
+  guard stops a stale client from sending the bad request anyway.
 
 **Web search** (note these are *not the same kind of thing*):
 - Anthropic exposes it as a **server tool** (`buildServerTools` returns a `web_search` tool the model
@@ -93,9 +99,9 @@ branching, so it is covered by colocated unit tests:
 [`anthropic.test.ts`](../../src/bun/infra/llm/providers/anthropic.test.ts) (prompt caching; thinking
 adaptive / effort / disabled; empty to `undefined`; the `{ anthropic }` wrapper; `buildServerTools` web
 search on/off) and [`openrouter.test.ts`](../../src/bun/infra/llm/providers/openrouter.test.ts) (reasoning
-enabled / effort / disabled; the `web` plugin; empty to `undefined`; the `{ openrouter }` wrapper). Only
-`buildModel` (which constructs an SDK client) is left out, as it is a thin SDK passthrough. `effortLevels`
-delegates to the shared, already type-safe `effortLevelsForModel`.
+enabled / effort / disabled; mandatory reasoning stays enabled with thinking off; the `web` plugin; empty to
+`undefined`; the `{ openrouter }` wrapper). Only `buildModel` (which constructs an SDK client) is left out,
+as it is a thin SDK passthrough.
 
 ## Links
 
