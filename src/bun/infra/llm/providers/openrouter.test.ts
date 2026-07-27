@@ -28,6 +28,14 @@ describe('OpenRouterAdapter.buildProviderOptions', () => {
     expect(opts).toEqual({ openrouter: { reasoning: { enabled: false } } })
   })
 
+  test('mandatory reasoning stays enabled even when thinking is off', () => {
+    const opts = adapter.buildProviderOptions(
+      model({ thinking: true, reasoningMandatory: true }),
+      req({ thinking: false }),
+    )
+    expect(opts).toEqual({ openrouter: { reasoning: { enabled: true } } })
+  })
+
   test('web search adds the web plugin', () => {
     const opts = adapter.buildProviderOptions(model({}), req({ webSearch: true }))
     expect(opts).toEqual({ openrouter: { plugins: [{ id: 'web' }] } })
