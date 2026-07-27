@@ -19,8 +19,10 @@ import { createIdleTimeout } from './idle-timeout';
 import { createStreamAccumulator } from './stream-accumulator';
 import { classifyAbort, extractUsage } from './stream-result';
 
-// Max agentic steps before the run stops on its own (tool-call round trips).
-const MAX_STEPS = 5;
+// Max agentic steps before the run stops on its own (tool-call round trips). Six
+// rather than five leaves a step for the model to acknowledge a denied tool call
+// and ask how to proceed, instead of spending its last round-trip on a retry.
+const MAX_STEPS = 6;
 
 type StreamOptions = {
   model: ModelDTO;
