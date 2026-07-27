@@ -9,9 +9,10 @@ A chat turn passes through a fixed sequence of moments: the user message is save
 the model streams, the reply is saved, and so on. This layer gives each moment a stable **name** (a
 stage), so code can say "at the compaction stage" instead of pointing at a line inside `runTurn`. On top
 of the names sits a small **dispatch** system: a stage can carry an ordered list of **actions**, and
-reaching that stage runs them. In v1 the actions are a fixed, built-in set (compaction, auto-title,
-memory-summary); the system is shaped so a user or agent could later enable or disable them through
-config, without ever running code the app did not ship.
+reaching that stage runs them. The actions are a fixed, built-in set: three always-on core mechanics
+(compaction, auto-title, memory-summary) plus three opt-in cues (a completion sound, a completion
+notification, an error sound) a user turns on in Settings. The config only enables or disables shipped
+actions; it never runs code the app did not ship.
 
 The layer arrived in three pillars:
 
@@ -25,12 +26,14 @@ The layer arrived in three pillars:
 
 | File | Role |
 |---|---|
-| [`lifecycle/stages.ts`](../../src/bun/engine/lifecycle/stages.ts) | `LIFECYCLE_STAGE` — the 14 named stages, plus the `LifecycleStage` union. |
+| [`shared-contracts/lifecycle/`](../../src/shared-contracts/lifecycle/) | The renderer-visible vocabulary and metadata, lifted here so the config surface can name a stage/tier/provenance: `stages.ts`, `action-tier.ts`, `provenance.ts`, `sound.ts`, and `hook-catalog.ts` (`HOOK_ACTION_ID`, `HOOK_CATALOG`, `HOOK_META`, `DEFAULT_HOOK_CONFIG`, `HookConfigEntry` / `HookDetailRow`). |
+| [`lifecycle/stages.ts`](../../src/bun/engine/lifecycle/stages.ts) | Re-exports `LIFECYCLE_STAGE` / `LifecycleStage` (the 14 named stages) from shared-contracts. |
 | [`lifecycle/resilient-step.ts`](../../src/bun/engine/lifecycle/resilient-step.ts) | `runResilientStep` — the primary-then-fallback LLM retry policy the post-response steps share. |
-| [`lifecycle/action.ts`](../../src/bun/engine/lifecycle/action.ts) | The action contract: `ACTION_TIER`, the per-stage context types, `StageContextMap` / `DispatchStage`, `LifecycleAction` (authoring) and `AnyAction` (storage), `defineAction`, `ActionRegistry`. |
-| [`lifecycle/hook-config.ts`](../../src/bun/engine/lifecycle/hook-config.ts) | `HOOK_PROVENANCE`, `HookConfigEntry`, and `DEFAULT_HOOK_CONFIG` — the declarative config and its built-in seed. |
-| [`lifecycle/catalog.ts`](../../src/bun/engine/lifecycle/catalog.ts) | `BUILTIN_ACTION_ID` and `CATALOG` — the fixed set of shipped actions, bound to their workflows. |
-| [`lifecycle/dispatch.ts`](../../src/bun/engine/lifecycle/dispatch.ts) | `runActions` (the ordered, error-isolated runner), `buildRegistry`, the process-wide `registry`, and `dispatchStage`. |
+| [`lifecycle/action.ts`](../../src/bun/engine/lifecycle/action.ts) | The action contract: `ACTION_TIER` (re-exported from shared), the per-stage context types (including `TurnDoneContext` / `TurnErrorContext`), `StageContextMap` / `DispatchStage`, `LifecycleAction` (authoring) and `AnyAction` (storage), `defineAction`, `ActionRegistry`. |
+| [`lifecycle/hook-config.ts`](../../src/bun/engine/lifecycle/hook-config.ts) | Re-exports `HookConfigEntry`, `HOOK_PROVENANCE`, and `DEFAULT_HOOK_CONFIG` from shared-contracts (a thin bun-side alias). |
+| [`lifecycle/catalog.ts`](../../src/bun/engine/lifecycle/catalog.ts) | `BUILTIN_ACTION_ID` (re-exported from shared `HOOK_ACTION_ID`) and `CATALOG` — the six shipped actions (three Act core mechanics, three Observe cues), bound to their workflows and ports. |
+| [`lifecycle/dispatch.ts`](../../src/bun/engine/lifecycle/dispatch.ts) | `runActions` (the ordered, error-isolated runner), `buildRegistry`, the mutable process-wide `registry` with `rebuildRegistry`, and `dispatchStage`. |
+| [`features/hook-config/hook-config.repository.ts`](../../src/bun/features/hook-config/hook-config.repository.ts) | `load` / `setEnabled` / `listDetailed` — the sparse `hook_config` override map over the catalog default. |
 
 ## The stages
 
@@ -39,8 +42,8 @@ The layer arrived in three pillars:
 `model-streaming`, `stream-finished`, `assistant-saved`, `turn-done`, `auto-title`, `memory-summary`,
 `turn-error`), shaped like `STREAM_CHUNK_KIND` so a stage is a checked literal and renames are
 compiler-guided. Most stages are reference points with no machinery yet: they exist so a future hook can
-attach by name. Only three carry dispatch in v1 — `compaction`, `auto-title`, and `memory-summary` — the
-three post-response steps.
+attach by name. Five carry dispatch — `compaction`, `auto-title`, and `memory-summary` (the post-response
+steps), plus `turn-done` and `turn-error` (which carry the opt-in completion and error cues).
 
 ## The resilient step
 
@@ -54,9 +57,10 @@ separate from dispatch, which is the per-action error isolation *around* an acti
 
 ## Dispatch
 
-At boot, `registry = buildRegistry(DEFAULT_HOOK_CONFIG, CATALOG)` builds a map from each wired stage to
-its ordered list of enabled actions. `dispatchStage(stage, ctx)` looks up that stage's actions and runs
-them in order through `runActions`, handing each the stage's typed context.
+At module load, `registry = buildRegistry(DEFAULT_HOOK_CONFIG, CATALOG)` seeds a map from each wired stage
+to its ordered list of enabled actions, so dispatch is safe before the DB is up; boot then calls
+`rebuildRegistry(hookConfigRepo.load())` to swap in the persisted config. `dispatchStage(stage, ctx)` looks
+up that stage's actions and runs them in order through `runActions`, handing each the stage's typed context.
 
 `runActions` isolates errors per action: a thrown action is logged and the next still runs, and the call
 resolves even when every action throws (**non-fatal by contract**). Actions are awaited in order, so an
@@ -89,13 +93,17 @@ Each action declares a **tier** via `ACTION_TIER`:
 - **Observe** — told a stage happened, does a side effect (a sound, a notification, a log).
 - **Act** — writes state a later stage reads (a title, a compaction snapshot, a memory slice).
 
-v1 ships an **Act-only** catalog. The tier is declared intent that a later editor or agent surface reads,
-and the ground for tier-based gating. Neither tier mutates the in-flight prompt or vetoes the turn: Block
-is not a hook tier, and tool blocking stays at the approval gate.
+The catalog ships **both** tiers. The tier is declared intent that the config surface and a future agent
+surface read, and the ground for tier-based gating. Neither tier mutates the in-flight prompt or vetoes
+the turn: Block is not a hook tier, and tool blocking stays at the approval gate.
 
-The catalog binds three built-in actions to their relocated workflows: `builtin.compaction` runs
-`compaction.service.maybeCompact`, `builtin.auto-title` runs `chat-stream/auto-title.runAutoTitle`, and
-`builtin.memory-summary` runs `memory-summary.service.regenerateProjectSummary`.
+The catalog binds six built-in actions. Three **Act** core mechanics run their relocated workflows:
+`builtin.compaction` runs `compaction.service.maybeCompact`, `builtin.auto-title` runs
+`chat-stream/auto-title.runAutoTitle`, and `builtin.memory-summary` runs
+`memory-summary.service.regenerateProjectSummary`. Three **Observe** cues sit on the new stages:
+`builtin.completion-sound` and `builtin.completion-notification` on `turn-done`, and
+`builtin.error-sound` on `turn-error`. Each Observe cue is a pure function of its context — it
+focus-gates, then pushes through an injected port (see [Notifications and sounds](#notifications-and-sounds)).
 
 ## The config shape and the trust model
 
@@ -107,24 +115,49 @@ raw-command hook; `agent` and `imported` are catalog-only. `params` is reserved 
 it; when an action starts reading `params` it must be safe under any attacker-chosen value, since an
 `agent` or `imported` config may set it.
 
-v1 seeds the registry from a code constant, `DEFAULT_HOOK_CONFIG` (the three post-response steps, each
-enabled and `built-in`), not from the database. A settings surface that edits and persists this config
-comes later; when it lands, the registry rebuilds from the persisted config instead of the constant.
+`DEFAULT_HOOK_CONFIG` is derived from the hook catalog, so every shipped action appears with its default
+enabled bit. The effective config is that default overlaid with a persisted **sparse override map**: the
+`hook_config` KV key (in the settings table) stores only the deviations a user has made, keyed by
+`actionId`. Storing just the on/off bit keeps persisted data from ever drifting from a catalog action's
+stage, tier, or provenance, and lets a new built-in appear automatically with its default. The `listHooks`
+/ `setHook` RPC pair drives the Settings surface; `setHook` writes the override and calls
+`rebuildRegistry(hookConfigRepo.load())`, and boot calls the same once the DB is up — so a toggle takes
+effect immediately and survives relaunch. Only user-manageable actions are togglable: the three core
+mechanics are `userManageable: false`, never listed and never written. The DB stays out of `dispatch.ts`'s
+import graph — `rebuildRegistry` takes the config as a parameter and the caller loads it.
 
 ## What v1 does not build
 
-So a reader does not go looking for it, v1 deliberately omits: a hook editor UI, a command runner or
-`command` hook type (raw shell or JS actions), the Block tier, an agent-facing config tool, a durable
-task queue, and config persistence to the DB. Dispatch is the internal seam only; the three post-response
-steps are relocated onto it with their behavior preserved, save one intended refinement. Because
+So a reader does not go looking for it, v1 deliberately omits: a full hook editor (only on/off toggles
+ship, in the Settings → Notifications tab), a command runner or `command` hook type (raw shell or JS
+actions), the Block tier, an agent-facing config tool, a durable task queue, and any use of the reserved
+`params` field. The three post-response steps kept their behavior when they moved onto dispatch, save one
+intended refinement. Because
 `runActions` isolates every action, the non-fatal envelope is now uniform: a failure in the compaction
 trigger that could previously abort the turn is caught so the turn proceeds on full history, and a
 memory-summary regen failure that was previously an unhandled rejection is now a stage-tagged non-fatal
 log. Both changes move in the safe direction.
 
+## Notifications and sounds
+
+The `turn-done` and `turn-error` cues reach the user through Bun-side ports the orchestrator injects into
+the stage context, so an action never imports a transport:
+
+- **Notification** — [`features/notifications/notification.ts`](../../src/bun/features/notifications/notification.ts)
+  calls Electrobun's native `Utils.showNotification` (cross-platform via FFI). It is **silent** — the sound
+  cue owns audio, so enabling both does not double up — and the OS handles Do-Not-Disturb. It fires only
+  when the window is unfocused, which Bun tracks in `window-focus.ts` from Electrobun `focus`/`blur` events
+  wired at boot.
+- **Sound** — there are no bundled audio assets. Bun pushes a `playSound` message (`sound-push.ts`) to the
+  renderer, and [`mainview/lib/sound-player.ts`](../../src/mainview/lib/sound-player.ts) synthesizes the cue
+  with the Web Audio API (a two-note bell for completion, a lower tone for error). WKWebView blocks audio
+  until a user gesture, so the AudioContext resumes on the first `pointerdown`.
+
+The two completion cues focus-gate (fire only when you are away); the error cue fires regardless of focus.
+
 ## Links
 
-- [chat-bun.md](chat-bun.md) — `runTurn`, which dispatches the `compaction` and `auto-title` stages.
+- [chat-bun.md](chat-bun.md) — `runTurn`, which dispatches the `compaction`, `auto-title`, `turn-done`, and `turn-error` stages.
 - [compaction.md](compaction.md) — the `compaction`-stage action (`maybeCompact`) and the `compact` flow.
 - [memory.md](memory.md) — the `memory-summary` action, dispatched out of band on a project-memory write.
 - [../architecture.md](../architecture.md) — process model, IPC, DB.
