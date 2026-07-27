@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { compareEffort, Effort } from '../../../shared-contracts/models/effort'
 import { ProviderId } from '../../../shared-contracts/providers/registry'
 import type { ModelCapabilities } from '../../../shared-contracts/schemas/model.schema'
 import { ModelSource } from '../../infra/db/model-source'
@@ -40,6 +41,15 @@ const OpenRouterModel = z.object({
   pricing: z.object({ prompt: z.string(), completion: z.string() }),
   architecture: z.object({ input_modalities: z.array(z.string()).optional() }).optional(),
   supported_parameters: z.array(z.string()).optional(),
+  reasoning: z
+    .object({
+      mandatory: z.boolean().optional(),
+      supported_efforts: z.array(z.string()).optional(),
+      default_effort: z.string().optional(),
+      default_enabled: z.boolean().optional(),
+    })
+    .nullable()
+    .optional(),
   context_length: z.number().optional(),
   top_provider: z
     .object({
@@ -55,6 +65,46 @@ const OpenRouterModelsResponse = z.object({ data: z.array(z.unknown()) })
 // Family groups a synced model by its OpenRouter vendor prefix, so "google/gemma-2-9b" lands under "google".
 function deriveFamily(id: string): string {
   return id.split('/')[0] ?? 'unknown'
+}
+
+// Turn the OpenRouter reasoning object into the reasoning-related capability fields.
+// Pure so it can be unit-tested; mapToRow (IO-bound) folds the result into the row.
+// default_enabled is intentionally not consumed in v1 (a deferred refinement).
+export function mapReasoning(
+  reasoning: OpenRouterModel['reasoning'],
+  params: string[],
+): {
+  thinking: boolean
+  reasoningMandatory: boolean
+  efforts: Effort[]
+  defaultEffort: Effort | null
+} {
+  // A model can reason if it carries a reasoning object, or (older rows) advertises a
+  // reasoning param without one.
+  const thinking =
+    reasoning != null ||
+    params.includes(OPENROUTER_PARAM.reasoning) ||
+    params.includes(OPENROUTER_PARAM.includeReasoning)
+
+  // supported_efforts arrives highest-first and may include `none` or future tokens;
+  // keep only values in our Effort vocabulary, then reorder low→high.
+  const efforts: Effort[] = []
+  for (const raw of reasoning?.supported_efforts ?? []) {
+    const parsed = Effort.safeParse(raw)
+    if (parsed.success) {
+      efforts.push(parsed.data)
+    }
+  }
+  efforts.sort(compareEffort)
+
+  const parsedDefault = Effort.safeParse(reasoning?.default_effort)
+
+  return {
+    thinking,
+    reasoningMandatory: reasoning?.mandatory ?? false,
+    efforts,
+    defaultEffort: parsedDefault.success ? parsedDefault.data : null,
+  }
 }
 
 // Convert one entry from the OpenRouter catalog into a persistable model row.
