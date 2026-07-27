@@ -1,4 +1,4 @@
-import type { SoundId } from '@shared/lifecycle/sound'
+import { SOUND_ID, type SoundId } from '@shared/lifecycle/sound'
 
 // A single shared AudioContext, created lazily. WKWebView blocks audio until a user gesture, so
 // we resume the context on the first pointerdown and then stop listening.
@@ -46,16 +46,18 @@ function tone(freq: number, startAt: number, durationS: number, peakGain: number
 export function playSound(sound: SoundId): void {
   try {
     const now = audioContext().currentTime
-    if (sound === 'completion') {
+    if (sound === SOUND_ID.completion) {
       tone(660, now, 0.14, 0.14)
       tone(880, now + 0.1, 0.18, 0.14)
-    } else if (sound === 'approval') {
+      return
+    }
+    if (sound === SOUND_ID.approval) {
       // A soft double tap, "your input is needed", distinct from the bell and the error tone.
       tone(520, now, 0.12, 0.12)
       tone(520, now + 0.16, 0.14, 0.12)
-    } else {
-      tone(300, now, 0.28, 0.16)
+      return
     }
+    tone(300, now, 0.28, 0.16)
   } catch {
     // best-effort cue, never let an audio error reach the caller
   }
