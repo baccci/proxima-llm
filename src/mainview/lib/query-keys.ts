@@ -12,6 +12,7 @@ export const queryKeys = {
   settings: () => ['settings'] as const,
   apiKey: (provider: ProviderId) => ['apiKey', provider] as const,
   toolPolicies: () => ['toolPolicies'] as const,
+  hooks: () => ['hooks'] as const,
   controlTokens: () => ['controlTokens'] as const,
   modelSyncInfo: () => ['modelSyncInfo'] as const,
   memorySlices: (scope: MemoryScope, projectId: string | null) =>
