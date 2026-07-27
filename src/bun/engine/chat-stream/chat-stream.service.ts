@@ -15,6 +15,9 @@ import * as chatService from '../../features/chat/chat.repository';
 import { getLatestSnapshot } from '../../features/compaction/compaction.repository';
 import * as memoryService from '../../features/memory/memory.repository';
 import { getModel } from '../../features/model/model.repository';
+import { showTurnNotification } from '../../features/notifications/notification';
+import { pushPlaySound } from '../../features/notifications/sound-push';
+import { isWindowFocused } from '../../features/notifications/window-focus';
 import * as projectService from '../../features/project/project.repository';
 import * as projectFileService from '../../features/project-file/project-file.repository';
 import * as settingsService from '../../features/settings/settings.repository';
@@ -262,6 +265,14 @@ function launchTurn(
       opts?.onLifecycle?.('done', meta);
       emitChunk({ kind: STREAM_CHUNK_KIND.done, message: saved });
 
+      await dispatchStage(LIFECYCLE_STAGE.turnDone, {
+        chatId,
+        chatTitle: chatService.getChat(chatId)?.title ?? 'Proxima',
+        isWindowFocused,
+        showNotification: showTurnNotification,
+        playSound: pushPlaySound,
+      });
+
       await dispatchStage(LIFECYCLE_STAGE.autoTitle, {
         chatId,
         model,
@@ -271,6 +282,7 @@ function launchTurn(
     } catch (err) {
       const error = toErrorMessage(err);
       emitChunk({ kind: STREAM_CHUNK_KIND.error, error });
+      await dispatchStage(LIFECYCLE_STAGE.turnError, { chatId, playSound: pushPlaySound });
       opts?.onLifecycle?.('error', meta);
     } finally {
       settlePendingApprovals(streamId);
