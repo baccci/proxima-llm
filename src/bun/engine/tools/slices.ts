@@ -43,4 +43,4 @@ Lets the model look things up on the internet while it answers, for questions th
 - Toggle it with the globe icon in the message box.
 
 Note: this is still being built and isn't fully available yet.`,
-};
+}

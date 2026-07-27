@@ -4,8 +4,8 @@
 export {
   DEFAULT_HOOK_CONFIG,
   type HookConfigEntry,
-} from '../../../shared-contracts/lifecycle/hook-catalog';
+} from '../../../shared-contracts/lifecycle/hook-catalog'
 export {
   HOOK_PROVENANCE,
   type HookProvenance,
-} from '../../../shared-contracts/lifecycle/provenance';
+} from '../../../shared-contracts/lifecycle/provenance'

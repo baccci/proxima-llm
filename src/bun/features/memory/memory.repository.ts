@@ -1,16 +1,16 @@
-import { randomUUID } from 'crypto';
-import { and, eq, isNull, type SQL } from 'drizzle-orm';
+import { randomUUID } from 'crypto'
+import { and, eq, isNull, type SQL } from 'drizzle-orm'
 import {
   MemoryScope,
   MemorySliceDTO,
   MemorySource,
   type UpsertMemorySliceInput,
-} from '../../../shared-contracts/schemas/memory-slice.schema';
-import { db } from '../../infra/db/client';
-import { memorySlices } from '../../infra/db/schema';
+} from '../../../shared-contracts/schemas/memory-slice.schema'
+import { db } from '../../infra/db/client'
+import { memorySlices } from '../../infra/db/schema'
 
 function projectIdCond(projectId: string | null | undefined): SQL {
-  return projectId != null ? eq(memorySlices.projectId, projectId) : isNull(memorySlices.projectId);
+  return projectId != null ? eq(memorySlices.projectId, projectId) : isNull(memorySlices.projectId)
 }
 
 // One slice looked up by its natural key (scope + project + title). Shared by the upsert's
@@ -26,7 +26,7 @@ function sliceByTitle(
     .where(
       and(eq(memorySlices.scope, scope), projectIdCond(projectId), eq(memorySlices.title, title)),
     )
-    .get();
+    .get()
 }
 
 function rowToDTO(row: typeof memorySlices.$inferSelect): MemorySliceDTO {
@@ -39,25 +39,25 @@ function rowToDTO(row: typeof memorySlices.$inferSelect): MemorySliceDTO {
     source: row.source,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
-  });
+  })
 }
 
 export function listSlices(scope: MemoryScope, projectId?: string | null): MemorySliceDTO[] {
   const conditions =
     scope === MemoryScope.enum.global
       ? eq(memorySlices.scope, MemoryScope.enum.global)
-      : and(eq(memorySlices.scope, MemoryScope.enum.project), projectIdCond(projectId));
+      : and(eq(memorySlices.scope, MemoryScope.enum.project), projectIdCond(projectId))
 
-  return db.select().from(memorySlices).where(conditions).all().map(rowToDTO);
+  return db.select().from(memorySlices).where(conditions).all().map(rowToDTO)
 }
 
 // Upsert precedence: an explicit id updates that row; else a same-title slice in the same
 // scope is updated; else insert. The title-match branch deliberately leaves the title as-is.
 export function upsertSlice(input: UpsertMemorySliceInput): MemorySliceDTO {
-  const now = new Date();
+  const now = new Date()
 
   if (input.id) {
-    const existing = db.select().from(memorySlices).where(eq(memorySlices.id, input.id)).get();
+    const existing = db.select().from(memorySlices).where(eq(memorySlices.id, input.id)).get()
 
     if (existing) {
       const updated = db
@@ -70,17 +70,17 @@ export function upsertSlice(input: UpsertMemorySliceInput): MemorySliceDTO {
         })
         .where(eq(memorySlices.id, input.id))
         .returning()
-        .get();
+        .get()
 
       if (!updated) {
-        throw new Error(`upsertSlice: update returned no row for id ${input.id}`);
+        throw new Error(`upsertSlice: update returned no row for id ${input.id}`)
       }
 
-      return rowToDTO(updated);
+      return rowToDTO(updated)
     }
   }
 
-  const byTitle = sliceByTitle(input.scope, input.projectId, input.title);
+  const byTitle = sliceByTitle(input.scope, input.projectId, input.title)
 
   if (byTitle) {
     const updated = db
@@ -92,13 +92,13 @@ export function upsertSlice(input: UpsertMemorySliceInput): MemorySliceDTO {
       })
       .where(eq(memorySlices.id, byTitle.id))
       .returning()
-      .get();
+      .get()
 
     if (!updated) {
-      throw new Error(`upsertSlice: update returned no row for id ${byTitle.id}`);
+      throw new Error(`upsertSlice: update returned no row for id ${byTitle.id}`)
     }
 
-    return rowToDTO(updated);
+    return rowToDTO(updated)
   }
 
   const inserted = db
@@ -114,25 +114,25 @@ export function upsertSlice(input: UpsertMemorySliceInput): MemorySliceDTO {
       updatedAt: now,
     })
     .returning()
-    .get();
+    .get()
 
   if (!inserted) {
-    throw new Error('upsertSlice: insert returned no row');
+    throw new Error('upsertSlice: insert returned no row')
   }
 
-  return rowToDTO(inserted);
+  return rowToDTO(inserted)
 }
 
 export function deleteSlice(id: string): { scope: MemoryScope; projectId: string | null } | null {
-  const row = db.select().from(memorySlices).where(eq(memorySlices.id, id)).get();
+  const row = db.select().from(memorySlices).where(eq(memorySlices.id, id)).get()
 
   if (!row) {
-    return null;
+    return null
   }
 
-  db.delete(memorySlices).where(eq(memorySlices.id, id)).run();
+  db.delete(memorySlices).where(eq(memorySlices.id, id)).run()
 
-  return { scope: row.scope, projectId: row.projectId ?? null };
+  return { scope: row.scope, projectId: row.projectId ?? null }
 }
 
 export function readByTitle(
@@ -140,8 +140,8 @@ export function readByTitle(
   projectId: string | null,
   title: string,
 ): MemorySliceDTO | undefined {
-  const row = sliceByTitle(scope, projectId, title);
-  return row ? rowToDTO(row) : undefined;
+  const row = sliceByTitle(scope, projectId, title)
+  return row ? rowToDTO(row) : undefined
 }
 
 export function writeByTitle(
@@ -151,13 +151,13 @@ export function writeByTitle(
   content: string,
   source: MemorySource = MemorySource.enum.model,
 ): MemorySliceDTO {
-  return upsertSlice({ scope, projectId, title, content, source });
+  return upsertSlice({ scope, projectId, title, content, source })
 }
 
 export function deleteByTitle(scope: MemoryScope, projectId: string | null, title: string): void {
-  const row = sliceByTitle(scope, projectId, title);
+  const row = sliceByTitle(scope, projectId, title)
 
   if (row) {
-    db.delete(memorySlices).where(eq(memorySlices.id, row.id)).run();
+    db.delete(memorySlices).where(eq(memorySlices.id, row.id)).run()
   }
 }

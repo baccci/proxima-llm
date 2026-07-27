@@ -1,16 +1,16 @@
-import { createHash, randomUUID } from 'crypto';
-import { and, eq } from 'drizzle-orm';
-import { Utils } from 'electrobun/bun';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
-import { extname, join } from 'path';
-import { ProjectFileDTO } from '../../../shared-contracts/schemas/project-file.schema';
-import { db } from '../../infra/db/client';
-import { projectFiles } from '../../infra/db/schema';
+import { createHash, randomUUID } from 'crypto'
+import { and, eq } from 'drizzle-orm'
+import { Utils } from 'electrobun/bun'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { extname, join } from 'path'
+import { ProjectFileDTO } from '../../../shared-contracts/schemas/project-file.schema'
+import { db } from '../../infra/db/client'
+import { projectFiles } from '../../infra/db/schema'
 
-const MAX_MB = 20;
-const MAX_BYTE_SIZE = MAX_MB * 1024 * 1024;
+const MAX_MB = 20
+const MAX_BYTE_SIZE = MAX_MB * 1024 * 1024
 
-const ALLOWED_TYPES = new Set(['text/markdown', 'text/plain', 'application/json', 'text/csv']);
+const ALLOWED_TYPES = new Set(['text/markdown', 'text/plain', 'application/json', 'text/csv'])
 
 const CODE_EXTENSIONS = new Set([
   'ts',
@@ -34,7 +34,7 @@ const CODE_EXTENSIONS = new Set([
   'yml',
   'toml',
   'sql',
-]);
+])
 
 const TEXT_EXTENSIONS: Record<string, string> = {
   md: 'text/markdown',
@@ -42,29 +42,29 @@ const TEXT_EXTENSIONS: Record<string, string> = {
   txt: 'text/plain',
   csv: 'text/csv',
   json: 'application/json',
-};
+}
 
 function resolveMediaType(name: string, provided: string): string {
   if (ALLOWED_TYPES.has(provided)) {
-    return provided;
+    return provided
   }
 
-  const ext = extname(name).replace('.', '').toLowerCase();
-  const text = TEXT_EXTENSIONS[ext];
+  const ext = extname(name).replace('.', '').toLowerCase()
+  const text = TEXT_EXTENSIONS[ext]
 
   if (text) {
-    return text;
+    return text
   }
 
   if (CODE_EXTENSIONS.has(ext)) {
-    return 'text/plain';
+    return 'text/plain'
   }
 
-  throw new Error(`Unsupported media type: ${provided}`);
+  throw new Error(`Unsupported media type: ${provided}`)
 }
 
 function resolveExtension(name: string): string {
-  return extname(name).replace('.', '').toLowerCase() || 'txt';
+  return extname(name).replace('.', '').toLowerCase() || 'txt'
 }
 
 function rowToDTO(row: typeof projectFiles.$inferSelect): ProjectFileDTO {
@@ -77,57 +77,57 @@ function rowToDTO(row: typeof projectFiles.$inferSelect): ProjectFileDTO {
     sha256: row.sha256,
     relPath: row.relPath,
     createdAt: new Date(row.createdAt).toISOString(),
-  });
+  })
 }
 
 function readTextForRow(row: typeof projectFiles.$inferSelect | undefined, label: string): string {
   if (!row) {
-    throw new Error(`Project file not found: ${label}`);
+    throw new Error(`Project file not found: ${label}`)
   }
 
-  const absPath = join(Utils.paths.userData, row.relPath);
+  const absPath = join(Utils.paths.userData, row.relPath)
 
   if (!existsSync(absPath)) {
-    throw new Error(`Project file missing on disk: ${label}`);
+    throw new Error(`Project file missing on disk: ${label}`)
   }
 
-  return readFileSync(absPath, 'utf-8');
+  return readFileSync(absPath, 'utf-8')
 }
 
 export function saveProjectFile(input: {
-  projectId: string;
-  name: string;
-  data: string;
-  mediaType: string;
+  projectId: string
+  name: string
+  data: string
+  mediaType: string
 }): ProjectFileDTO {
-  const mediaType = resolveMediaType(input.name, input.mediaType);
-  const bytes = new Uint8Array(Buffer.from(input.data, 'base64'));
+  const mediaType = resolveMediaType(input.name, input.mediaType)
+  const bytes = new Uint8Array(Buffer.from(input.data, 'base64'))
 
   if (bytes.byteLength > MAX_BYTE_SIZE) {
     throw new Error(
       `File too large: max ${MAX_MB} MB (got ${Math.round(bytes.byteLength / 1024 / 1024)} MB)`,
-    );
+    )
   }
 
-  const sha256 = createHash('sha256').update(bytes).digest('hex');
-  const ext = resolveExtension(input.name);
-  const relPath = `projects/${input.projectId}/files/${sha256}.${ext}`;
-  const absDir = join(Utils.paths.userData, 'projects', input.projectId, 'files');
-  const absPath = join(Utils.paths.userData, relPath);
+  const sha256 = createHash('sha256').update(bytes).digest('hex')
+  const ext = resolveExtension(input.name)
+  const relPath = `projects/${input.projectId}/files/${sha256}.${ext}`
+  const absDir = join(Utils.paths.userData, 'projects', input.projectId, 'files')
+  const absPath = join(Utils.paths.userData, relPath)
 
   const existing = db
     .select()
     .from(projectFiles)
     .where(and(eq(projectFiles.sha256, sha256), eq(projectFiles.projectId, input.projectId)))
-    .get();
+    .get()
 
   if (existing) {
-    return rowToDTO(existing);
+    return rowToDTO(existing)
   }
 
   if (!existsSync(absPath)) {
-    mkdirSync(absDir, { recursive: true });
-    writeFileSync(absPath, bytes);
+    mkdirSync(absDir, { recursive: true })
+    writeFileSync(absPath, bytes)
   }
 
   const inserted = db
@@ -143,13 +143,13 @@ export function saveProjectFile(input: {
       createdAt: new Date(),
     })
     .returning()
-    .get();
+    .get()
 
   if (!inserted) {
-    throw new Error('saveProjectFile: insert returned no row');
+    throw new Error('saveProjectFile: insert returned no row')
   }
 
-  return rowToDTO(inserted);
+  return rowToDTO(inserted)
 }
 
 export function listProjectFiles(projectId: string): ProjectFileDTO[] {
@@ -158,7 +158,7 @@ export function listProjectFiles(projectId: string): ProjectFileDTO[] {
     .from(projectFiles)
     .where(eq(projectFiles.projectId, projectId))
     .all()
-    .map(rowToDTO);
+    .map(rowToDTO)
 }
 
 export function readProjectFileText(projectId: string, fileId: string): string {
@@ -166,9 +166,9 @@ export function readProjectFileText(projectId: string, fileId: string): string {
     .select()
     .from(projectFiles)
     .where(and(eq(projectFiles.id, fileId), eq(projectFiles.projectId, projectId)))
-    .get();
+    .get()
 
-  return readTextForRow(row, fileId);
+  return readTextForRow(row, fileId)
 }
 
 export function readProjectFileTextByName(projectId: string, name: string): string {
@@ -176,23 +176,23 @@ export function readProjectFileTextByName(projectId: string, name: string): stri
     .select()
     .from(projectFiles)
     .where(and(eq(projectFiles.projectId, projectId), eq(projectFiles.name, name)))
-    .get();
+    .get()
 
-  return readTextForRow(row, `"${name}"`);
+  return readTextForRow(row, `"${name}"`)
 }
 
 export function deleteProjectFile(id: string): void {
-  const row = db.select().from(projectFiles).where(eq(projectFiles.id, id)).get();
+  const row = db.select().from(projectFiles).where(eq(projectFiles.id, id)).get()
 
   if (!row) {
-    return;
+    return
   }
 
-  const absPath = join(Utils.paths.userData, row.relPath);
+  const absPath = join(Utils.paths.userData, row.relPath)
 
   if (existsSync(absPath)) {
-    rmSync(absPath);
+    rmSync(absPath)
   }
 
-  db.delete(projectFiles).where(eq(projectFiles.id, id)).run();
+  db.delete(projectFiles).where(eq(projectFiles.id, id)).run()
 }

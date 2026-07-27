@@ -1,7 +1,7 @@
-import { tool } from 'ai';
-import { z } from 'zod';
-import { toErrorMessage } from '../../../utils/to-error';
-import * as projectFileService from '../project-file.repository';
+import { tool } from 'ai'
+import { z } from 'zod'
+import { toErrorMessage } from '../../../utils/to-error'
+import * as projectFileService from '../project-file.repository'
 
 export function readProjectFileTool(ctx: { projectId?: string }) {
   return tool({
@@ -12,14 +12,14 @@ export function readProjectFileTool(ctx: { projectId?: string }) {
     }),
     execute: async ({ name }) => {
       if (!ctx.projectId) {
-        return { error: 'No project is active. Project files require a project context.' };
+        return { error: 'No project is active. Project files require a project context.' }
       }
       try {
-        const content = projectFileService.readProjectFileTextByName(ctx.projectId, name);
-        return { name, content };
+        const content = projectFileService.readProjectFileTextByName(ctx.projectId, name)
+        return { name, content }
       } catch (err) {
-        return { error: toErrorMessage(err) };
+        return { error: toErrorMessage(err) }
       }
     },
-  });
+  })
 }

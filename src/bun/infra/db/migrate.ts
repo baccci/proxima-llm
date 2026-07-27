@@ -1,24 +1,24 @@
-import { sqlite } from './client';
+import { sqlite } from './client'
 
 // Add a column only if the table lacks it: SQLite has no idempotent ADD COLUMN.
 // Returns whether it was just added, so callers can run one-time backfills.
 function addColumnIfMissing(table: string, column: string, type: string): boolean {
-  const cols = sqlite.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  const cols = sqlite.query(`PRAGMA table_info(${table})`).all() as { name: string }[]
   if (cols.some((c) => c.name === column)) {
-    return false;
+    return false
   }
-  sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
-  return true;
+  sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`)
+  return true
 }
 
 // Drop a column only if the table still has it. Mirror of addColumnIfMissing for retired
 // columns. Modern SQLite (Bun's) supports DROP COLUMN directly when no index depends on it.
 function dropColumnIfPresent(table: string, column: string): void {
-  const cols = sqlite.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  const cols = sqlite.query(`PRAGMA table_info(${table})`).all() as { name: string }[]
   if (!cols.some((c) => c.name === column)) {
-    return;
+    return
   }
-  sqlite.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+  sqlite.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`)
 }
 
 export function setupSchema() {
@@ -123,25 +123,25 @@ export function setupSchema() {
     CREATE INDEX IF NOT EXISTS idx_messages_chat      ON messages(chat_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_memory_scope       ON memory_slices(scope, project_id);
     CREATE INDEX IF NOT EXISTS idx_compaction_chat    ON compaction_snapshots(chat_id, created_at DESC);
-  `);
+  `)
 
   // Back-add columns onto DBs created before each was introduced.
-  addColumnIfMissing('models', 'pricing', 'TEXT');
+  addColumnIfMissing('models', 'pricing', 'TEXT')
 
   if (addColumnIfMissing('models', 'source', "TEXT NOT NULL DEFAULT 'builtin'")) {
     // Backfill: tag existing OpenRouter rows correctly.
-    sqlite.exec(`UPDATE models SET source = 'openrouter' WHERE provider = 'openrouter'`);
+    sqlite.exec(`UPDATE models SET source = 'openrouter' WHERE provider = 'openrouter'`)
   }
 
-  addColumnIfMissing('chats', 'composer', "TEXT NOT NULL DEFAULT '{}'");
-  addColumnIfMissing('compaction_snapshots', 'display_through_at', 'INTEGER');
-  addColumnIfMissing('messages', 'stop_reason', 'TEXT');
-  addColumnIfMissing('projects', 'memory_summary', 'TEXT');
-  addColumnIfMissing('projects', 'icon', 'TEXT');
-  addColumnIfMissing('projects', 'palette', 'TEXT');
-  addColumnIfMissing('projects', 'icon_color', 'TEXT');
+  addColumnIfMissing('chats', 'composer', "TEXT NOT NULL DEFAULT '{}'")
+  addColumnIfMissing('compaction_snapshots', 'display_through_at', 'INTEGER')
+  addColumnIfMissing('messages', 'stop_reason', 'TEXT')
+  addColumnIfMissing('projects', 'memory_summary', 'TEXT')
+  addColumnIfMissing('projects', 'icon', 'TEXT')
+  addColumnIfMissing('projects', 'palette', 'TEXT')
+  addColumnIfMissing('projects', 'icon_color', 'TEXT')
 
   // Retired: the custom-model feature is gone and ModelSource replaced source='custom',
   // but the boolean outlived both. Nothing branches on it.
-  dropColumnIfPresent('models', 'is_custom');
+  dropColumnIfPresent('models', 'is_custom')
 }

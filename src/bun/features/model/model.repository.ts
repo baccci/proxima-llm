@@ -1,10 +1,10 @@
-import { and, count, eq, inArray, isNull } from 'drizzle-orm';
-import { z } from 'zod';
-import { type ModelDefinition, ModelDTO } from '../../../shared-contracts/schemas/model.schema';
-import { db } from '../../infra/db/client';
-import { ModelSource } from '../../infra/db/model-source';
-import { models, settings } from '../../infra/db/schema';
-import { planMissingModels } from './reconcile-missing-models';
+import { and, count, eq, inArray, isNull } from 'drizzle-orm'
+import { z } from 'zod'
+import { type ModelDefinition, ModelDTO } from '../../../shared-contracts/schemas/model.schema'
+import { db } from '../../infra/db/client'
+import { ModelSource } from '../../infra/db/model-source'
+import { models, settings } from '../../infra/db/schema'
+import { planMissingModels } from './reconcile-missing-models'
 
 // The model aggregate's data layer: the only place that queries the models table
 // (and its openrouter_sync marker) and parses rows into DTOs. model-sync orchestrates
@@ -25,18 +25,18 @@ function rowToDTO(row: typeof models.$inferSelect): ModelDTO {
     pricing: row.pricing ?? null,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
-  });
+  })
 }
 
 // Read every model in the catalog.
 export function listModels(): ModelDTO[] {
-  return db.select().from(models).all().map(rowToDTO);
+  return db.select().from(models).all().map(rowToDTO)
 }
 
 // Read one model by id, or undefined when it is not stored.
 export function getModel(id: string): ModelDTO | undefined {
-  const row = db.select().from(models).where(eq(models.id, id)).get();
-  return row ? rowToDTO(row) : undefined;
+  const row = db.select().from(models).where(eq(models.id, id)).get()
+  return row ? rowToDTO(row) : undefined
 }
 
 // Apply a partial change to one model and return the updated row.
@@ -47,12 +47,12 @@ export function updateModel(id: string, patch: Partial<ModelDefinition>): ModelD
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(models.id, id))
     .returning()
-    .get();
+    .get()
   if (!row) {
-    throw new Error(`updateModel: no model with id ${id}`);
+    throw new Error(`updateModel: no model with id ${id}`)
   }
 
-  return rowToDTO(row);
+  return rowToDTO(row)
 }
 
 // --- OpenRouter sync persistence ------------------------------------------------
@@ -64,24 +64,24 @@ export function updateModel(id: string, patch: Partial<ModelDefinition>): ModelD
 export type SyncedModelRow = Omit<
   typeof models.$inferInsert,
   'isEnabled' | 'createdAt' | 'updatedAt'
->;
+>
 
 // Insert new catalog rows disabled so the user opts in from the marketplace, leave
 // builtin rows the sync does not own untouched, and otherwise refresh metadata only.
 // isEnabled is never changed on update: that is the user's choice.
 export function upsertSyncedModel(row: SyncedModelRow): void {
-  const existing = db.select().from(models).where(eq(models.id, row.id)).get();
-  const now = new Date();
+  const existing = db.select().from(models).where(eq(models.id, row.id)).get()
+  const now = new Date()
 
   if (!existing) {
     db.insert(models)
       .values({ ...row, isEnabled: false, createdAt: now, updatedAt: now })
-      .run();
-    return;
+      .run()
+    return
   }
 
   if (existing.source !== ModelSource.enum.openrouter) {
-    return;
+    return
   }
 
   db.update(models)
@@ -92,7 +92,7 @@ export function upsertSyncedModel(row: SyncedModelRow): void {
       updatedAt: now,
     })
     .where(eq(models.id, row.id))
-    .run();
+    .run()
 }
 
 // Reconcile openrouter rows against the latest catalog. A row the catalog dropped no
@@ -105,21 +105,21 @@ export function reconcileMissingModels(keepIds: string[]): string[] {
   const rows = db
     .select({ id: models.id, source: models.source, isEnabled: models.isEnabled })
     .from(models)
-    .all();
+    .all()
 
-  const plan = planMissingModels(rows, keepIds);
+  const plan = planMissingModels(rows, keepIds)
 
   if (plan.toDelete.length > 0) {
-    db.delete(models).where(inArray(models.id, plan.toDelete)).run();
+    db.delete(models).where(inArray(models.id, plan.toDelete)).run()
   }
   if (plan.toDisable.length > 0) {
     db.update(models)
       .set({ isEnabled: false, updatedAt: new Date() })
       .where(inArray(models.id, plan.toDisable))
-      .run();
+      .run()
   }
 
-  return plan.toDisable;
+  return plan.toDisable
 }
 
 // True when any synced openrouter row is missing pricing, used to force a re-sync.
@@ -128,55 +128,55 @@ export function hasStalePricing(): boolean {
     .select({ n: count() })
     .from(models)
     .where(and(eq(models.source, ModelSource.enum.openrouter), isNull(models.pricing)))
-    .get();
-  return (row?.n ?? 0) > 0;
+    .get()
+  return (row?.n ?? 0) > 0
 }
 
 // --- OpenRouter sync marker -----------------------------------------------------
 // A single settings-table row (the model aggregate's slice of that shared key-value
 // table) records when the last sync ran and under which logic version.
 
-const SYNC_SETTINGS_KEY = 'openrouter_sync';
+const SYNC_SETTINGS_KEY = 'openrouter_sync'
 
 export type SyncState = {
-  ts: number | null;
-  version: number;
-};
+  ts: number | null
+  version: number
+}
 
 // Persisted marker. Legacy rows stored a bare timestamp before the versioned object.
 const SyncStateBlob = z.union([
   z.number(),
   z.object({ ts: z.number().nullable().optional(), version: z.number().optional() }),
-]);
+])
 
 export function getSyncState(): SyncState {
-  let row: typeof settings.$inferSelect | undefined;
+  let row: typeof settings.$inferSelect | undefined
   try {
-    row = db.select().from(settings).where(eq(settings.key, SYNC_SETTINGS_KEY)).get();
+    row = db.select().from(settings).where(eq(settings.key, SYNC_SETTINGS_KEY)).get()
   } catch {
     // A corrupt marker blob must not crash the startup sync; treat it as never-synced.
-    return { ts: null, version: 0 };
+    return { ts: null, version: 0 }
   }
 
   if (!row) {
-    return { ts: null, version: 0 };
+    return { ts: null, version: 0 }
   }
 
-  const parsed = SyncStateBlob.safeParse(row.value);
+  const parsed = SyncStateBlob.safeParse(row.value)
   if (!parsed.success) {
-    return { ts: null, version: 0 };
+    return { ts: null, version: 0 }
   }
 
   if (typeof parsed.data === 'number') {
-    return { ts: parsed.data, version: 0 };
+    return { ts: parsed.data, version: 0 }
   }
 
-  return { ts: parsed.data.ts ?? null, version: parsed.data.version ?? 0 };
+  return { ts: parsed.data.ts ?? null, version: parsed.data.version ?? 0 }
 }
 
 export function setSyncState(ts: number, version: number): void {
   db.insert(settings)
     .values({ key: SYNC_SETTINGS_KEY, value: { ts, version } })
     .onConflictDoUpdate({ target: settings.key, set: { value: { ts, version } } })
-    .run();
+    .run()
 }

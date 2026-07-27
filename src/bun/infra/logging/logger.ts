@@ -1,44 +1,44 @@
-import { Utils } from 'electrobun/bun';
-import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs';
-import { join } from 'path';
-import { toError } from '../../utils/to-error';
+import { Utils } from 'electrobun/bun'
+import { appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs'
+import { join } from 'path'
+import { toError } from '../../utils/to-error'
 
-const LOG_RETENTION_DAYS = 14;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const LOG_DIR = Utils.paths.userLogs;
+const LOG_RETENTION_DAYS = 14
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+const LOG_DIR = Utils.paths.userLogs
 
-type LogLevel = 'error' | 'warn' | 'info';
-type LogSource = 'main' | 'renderer';
+type LogLevel = 'error' | 'warn' | 'info'
+type LogSource = 'main' | 'renderer'
 
-mkdirSync(LOG_DIR, { recursive: true });
+mkdirSync(LOG_DIR, { recursive: true })
 
-let lastDateStr = '';
+let lastDateStr = ''
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 10)
 }
 
 function currentFile(): string {
-  return join(LOG_DIR, `proxima-${todayStr()}.log`);
+  return join(LOG_DIR, `proxima-${todayStr()}.log`)
 }
 
 function appendLine(line: Record<string, unknown>): void {
   try {
-    appendFileSync(currentFile(), `${JSON.stringify(line)}\n`);
+    appendFileSync(currentFile(), `${JSON.stringify(line)}\n`)
   } catch {
     // ignore write errors: never throw from the logger
   }
 }
 
 function cleanup(): void {
-  const cutoff = Date.now() - LOG_RETENTION_DAYS * MS_PER_DAY;
+  const cutoff = Date.now() - LOG_RETENTION_DAYS * MS_PER_DAY
   try {
-    const files = readdirSync(LOG_DIR).filter((f) => f.endsWith('.log'));
+    const files = readdirSync(LOG_DIR).filter((f) => f.endsWith('.log'))
     for (const file of files) {
-      const filePath = join(LOG_DIR, file);
+      const filePath = join(LOG_DIR, file)
       try {
         if (statSync(filePath).mtimeMs < cutoff) {
-          unlinkSync(filePath);
+          unlinkSync(filePath)
         }
       } catch {
         // ignore per-file errors
@@ -51,50 +51,50 @@ function cleanup(): void {
 
 // Roll cleanup once per calendar day, on the first write of that day.
 function maybeRollover(): void {
-  const now = todayStr();
+  const now = todayStr()
   if (now !== lastDateStr) {
-    lastDateStr = now;
-    cleanup();
+    lastDateStr = now
+    cleanup()
   }
 }
 
 function write(level: LogLevel, source: LogSource, msg: string, errOrCtx?: unknown): void {
-  maybeRollover();
+  maybeRollover()
 
   const line: Record<string, unknown> = {
     ts: new Date().toISOString(),
     level,
     source,
     msg,
-  };
-
-  if (errOrCtx instanceof Error) {
-    line.msg = `${msg}: ${errOrCtx.message}`;
-    line.stack = errOrCtx.stack;
-  } else if (errOrCtx !== undefined) {
-    line.context = errOrCtx;
   }
 
-  appendLine(line);
+  if (errOrCtx instanceof Error) {
+    line.msg = `${msg}: ${errOrCtx.message}`
+    line.stack = errOrCtx.stack
+  } else if (errOrCtx !== undefined) {
+    line.context = errOrCtx
+  }
+
+  appendLine(line)
 }
 
 function rendererError(msg: string, stack?: string, context?: Record<string, unknown>): void {
-  maybeRollover();
+  maybeRollover()
 
   const line: Record<string, unknown> = {
     ts: new Date().toISOString(),
     level: 'error',
     source: 'renderer',
     msg,
-  };
+  }
   if (stack) {
-    line.stack = stack;
+    line.stack = stack
   }
   if (context) {
-    line.context = context;
+    line.context = context
   }
 
-  appendLine(line);
+  appendLine(line)
 }
 
 /**
@@ -113,19 +113,19 @@ export const log = {
 
   // Lifecycle: call once during boot
   init: () => {
-    lastDateStr = todayStr();
-    cleanup();
+    lastDateStr = todayStr()
+    cleanup()
   },
   installGlobalHandlers: () => {
     process.on('uncaughtException', (err) => {
-      write('error', 'main', 'Uncaught exception', err);
-    });
+      write('error', 'main', 'Uncaught exception', err)
+    })
     process.on('unhandledRejection', (reason) => {
-      write('error', 'main', 'Unhandled rejection', toError(reason));
-    });
+      write('error', 'main', 'Unhandled rejection', toError(reason))
+    })
   },
 
   // Introspection: used by the logs service for the Diagnostics UI
   dir: () => LOG_DIR,
   currentFile: () => currentFile(),
-};
+}

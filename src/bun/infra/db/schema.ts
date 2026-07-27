@@ -1,8 +1,8 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import type { ChatComposerState } from '../../../shared-contracts/schemas/chat.schema';
-import type { MessagePart, TokenUsage } from '../../../shared-contracts/schemas/message.schema';
-import type { ModelCapabilities } from '../../../shared-contracts/schemas/model.schema';
-import { ModelSource } from './model-source';
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import type { ChatComposerState } from '../../../shared-contracts/schemas/chat.schema'
+import type { MessagePart, TokenUsage } from '../../../shared-contracts/schemas/message.schema'
+import type { ModelCapabilities } from '../../../shared-contracts/schemas/model.schema'
+import { ModelSource } from './model-source'
 
 export const models = sqliteTable('models', {
   id: text('id').primaryKey(),
@@ -15,7 +15,7 @@ export const models = sqliteTable('models', {
   source: text('source', { enum: ModelSource.options }).notNull().default(ModelSource.enum.builtin),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-});
+})
 
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
@@ -30,7 +30,7 @@ export const projects = sqliteTable('projects', {
   iconColor: text('icon_color'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-});
+})
 
 export const chats = sqliteTable('chats', {
   id: text('id').primaryKey(),
@@ -42,7 +42,7 @@ export const chats = sqliteTable('chats', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   lastMessageAt: integer('last_message_at', { mode: 'timestamp_ms' }).notNull(),
-});
+})
 
 export const messages = sqliteTable('messages', {
   id: text('id').primaryKey(),
@@ -55,7 +55,7 @@ export const messages = sqliteTable('messages', {
   usage: text('usage', { mode: 'json' }).$type<TokenUsage>(),
   stopReason: text('stop_reason'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-});
+})
 
 export const attachments = sqliteTable('attachments', {
   id: text('id').primaryKey(),
@@ -68,7 +68,7 @@ export const attachments = sqliteTable('attachments', {
   sha256: text('sha256').notNull(),
   relPath: text('rel_path').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-});
+})
 
 // A key -> JSON-blob key/value store shared by several subsystems ('app' settings,
 // 'control_server_tokens', 'tool_policies'). The value shape depends on the key, so
@@ -77,7 +77,7 @@ export const attachments = sqliteTable('attachments', {
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value', { mode: 'json' }).$type<unknown>().notNull(),
-});
+})
 
 export const memorySlices = sqliteTable('memory_slices', {
   id: text('id').primaryKey(),
@@ -90,7 +90,7 @@ export const memorySlices = sqliteTable('memory_slices', {
     .default('user'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-});
+})
 
 export const projectFiles = sqliteTable('project_files', {
   id: text('id').primaryKey(),
@@ -103,7 +103,7 @@ export const projectFiles = sqliteTable('project_files', {
   sha256: text('sha256').notNull(),
   relPath: text('rel_path').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-});
+})
 
 export const compactionSnapshots = sqliteTable('compaction_snapshots', {
   id: text('id').primaryKey(),
@@ -119,4 +119,4 @@ export const compactionSnapshots = sqliteTable('compaction_snapshots', {
   displayThroughAt: integer('display_through_at', { mode: 'timestamp_ms' }),
   summaryText: text('summary_text').notNull(),
   tokensSaved: integer('tokens_saved'),
-});
+})

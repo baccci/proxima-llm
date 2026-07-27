@@ -1,7 +1,7 @@
-import { tool } from 'ai';
-import { z } from 'zod';
-import { MemoryScope } from '../../../../shared-contracts/schemas/memory-slice.schema';
-import * as memoryService from '../memory.repository';
+import { tool } from 'ai'
+import { z } from 'zod'
+import { MemoryScope } from '../../../../shared-contracts/schemas/memory-slice.schema'
+import * as memoryService from '../memory.repository'
 
 export function readMemoryTool(ctx: { projectId?: string }) {
   return tool({
@@ -15,14 +15,14 @@ export function readMemoryTool(ctx: { projectId?: string }) {
     }),
     execute: async ({ scope, title }) => {
       if (scope === MemoryScope.enum.project && !ctx.projectId) {
-        return { error: 'No project is active. Use scope: global.' };
+        return { error: 'No project is active. Use scope: global.' }
       }
-      const projectId = scope === MemoryScope.enum.project ? (ctx.projectId ?? null) : null;
-      const slice = memoryService.readByTitle(scope, projectId, title);
+      const projectId = scope === MemoryScope.enum.project ? (ctx.projectId ?? null) : null
+      const slice = memoryService.readByTitle(scope, projectId, title)
       if (!slice) {
-        return { error: `Memory slice not found: "${title}"` };
+        return { error: `Memory slice not found: "${title}"` }
       }
-      return { title: slice.title, content: slice.content };
+      return { title: slice.title, content: slice.content }
     },
-  });
+  })
 }
