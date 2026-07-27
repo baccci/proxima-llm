@@ -88,7 +88,7 @@ export const HOOK_CATALOG: readonly HookCatalogEntry[] = [
     stage: LIFECYCLE_STAGE.turnDone,
     tier: ACTION_TIER.observe,
     label: 'Completion sound',
-    description: 'Play a sound when a reply finishes while Proxima is in the background.',
+    description: 'Play a sound when a reply finishes.',
     provenance: HOOK_PROVENANCE.builtIn,
     defaultEnabled: false,
     userManageable: true,

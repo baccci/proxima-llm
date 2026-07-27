@@ -43,10 +43,7 @@ const completionSoundAction = defineAction({
   stage: LIFECYCLE_STAGE.turnDone,
   tier: ACTION_TIER.observe,
   run: async (ctx: TurnDoneContext) => {
-    // Only cue audio when you are away; a ding while you are reading the reply is noise.
-    if (ctx.isWindowFocused()) {
-      return;
-    }
+    // Play on every finished turn, focused or not, so the cue is a reliable "reply is ready".
     ctx.playSound(SOUND_ID.completion);
   },
 });

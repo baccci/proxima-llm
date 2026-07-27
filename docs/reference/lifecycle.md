@@ -102,8 +102,10 @@ The catalog binds six built-in actions. Three **Act** core mechanics run their r
 `chat-stream/auto-title.runAutoTitle`, and `builtin.memory-summary` runs
 `memory-summary.service.regenerateProjectSummary`. Three **Observe** cues sit on the new stages:
 `builtin.completion-sound` and `builtin.completion-notification` on `turn-done`, and
-`builtin.error-sound` on `turn-error`. Each Observe cue is a pure function of its context — it
-focus-gates, then pushes through an injected port (see [Notifications and sounds](#notifications-and-sounds)).
+`builtin.error-sound` on `turn-error`. Each Observe cue is a pure function of its context that pushes
+through an injected port: the completion sound plays on every finished turn, the completion notification
+fires only when the window is unfocused, and the error sound plays on any failure (see
+[Notifications and sounds](#notifications-and-sounds)).
 
 ## The config shape and the trust model
 
@@ -153,7 +155,8 @@ the stage context, so an action never imports a transport:
   with the Web Audio API (a two-note bell for completion, a lower tone for error). WKWebView blocks audio
   until a user gesture, so the AudioContext resumes on the first `pointerdown`.
 
-The two completion cues focus-gate (fire only when you are away); the error cue fires regardless of focus.
+The completion notification fires only when the window is unfocused; the completion sound and the error
+cue fire regardless of focus.
 
 ## Links
 

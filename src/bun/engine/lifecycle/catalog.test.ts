@@ -23,12 +23,12 @@ describe('completion-sound action', () => {
     expect(playSound).toHaveBeenCalledWith('completion');
   });
 
-  it('stays silent when the window is focused', async () => {
+  it('plays even when the window is focused', async () => {
     const playSound = mock();
     await CATALOG.get(HOOK_ACTION_ID.completionSound)?.run(
       turnDoneCtx({ isWindowFocused: () => true, playSound }),
     );
-    expect(playSound).not.toHaveBeenCalled();
+    expect(playSound).toHaveBeenCalledWith('completion');
   });
 });
 
