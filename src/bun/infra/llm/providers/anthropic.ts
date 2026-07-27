@@ -1,6 +1,5 @@
 import { anthropic as anthropicProvider, createAnthropic } from '@ai-sdk/anthropic'
 import type { LanguageModel, Tool } from 'ai'
-import { effortLevelsForModel } from '../../../../shared-contracts/models/effort'
 import type { ModelDTO } from '../../../../shared-contracts/schemas/model.schema'
 import type { ComposerRequest, ProviderAdapter } from './adapter'
 
@@ -44,9 +43,5 @@ export class AnthropicAdapter implements ProviderAdapter {
       // (version skew between the two packages); shapes are compatible at runtime.
       web_search: anthropicProvider.tools.webSearch_20260209({ maxUses: 5 }) as unknown as Tool,
     }
-  }
-
-  effortLevels(model: ModelDTO): string[] {
-    return effortLevelsForModel(model)
   }
 }

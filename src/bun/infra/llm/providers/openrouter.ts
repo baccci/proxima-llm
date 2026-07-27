@@ -1,6 +1,5 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
-import { effortLevelsForModel } from '../../../../shared-contracts/models/effort'
 import type { ModelDTO } from '../../../../shared-contracts/schemas/model.schema'
 import type { ComposerRequest, ProviderAdapter } from './adapter'
 
@@ -30,9 +29,5 @@ export class OpenRouterAdapter implements ProviderAdapter {
       return undefined
     }
     return { openrouter: opts }
-  }
-
-  effortLevels(model: ModelDTO): string[] {
-    return effortLevelsForModel(model)
   }
 }

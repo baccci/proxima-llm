@@ -12,5 +12,4 @@ export interface ProviderAdapter {
   buildModel(modelId: string, apiKey: string): LanguageModel
   buildProviderOptions(model: ModelDTO, req: ComposerRequest): Record<string, unknown> | undefined
   buildServerTools?(model: ModelDTO, req: ComposerRequest): Record<string, Tool> | undefined
-  effortLevels(model: ModelDTO): string[]
 }

@@ -1,4 +1,3 @@
-import { effortLevelsForModel } from '@shared/models/effort'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import { supportsThinking, supportsWebSearch } from '@/entities/model/capabilities'
 
@@ -29,7 +28,7 @@ export function reconcileComposer(model: ModelDTO, flags: ComposerFlags): Compos
   }
   // Drop the effort if the new model doesn't offer it (covers losing thinking
   // entirely and switching to a narrower level set, e.g. opus 'max' → an OR model).
-  if (flags.effort && !effortLevelsForModel(model).includes(flags.effort)) {
+  if (flags.effort && !model.capabilities.efforts.some((e) => e === flags.effort)) {
     patch.effort = null
   }
 

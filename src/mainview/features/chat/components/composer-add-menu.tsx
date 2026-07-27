@@ -1,4 +1,3 @@
-import { effortLevelsForModel } from '@shared/models/effort'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import {
   DropdownContent,
@@ -46,7 +45,7 @@ export function ComposerAddMenu({
 }: ComposerAddMenuProps) {
   const { canThink, canVision, canPdf, canBrowse } = getCapabilities(model)
   const canAttach = canVision || canPdf
-  const levels = model ? effortLevelsForModel(model) : []
+  const levels: string[] = model?.capabilities.efforts ?? []
   const hasEffortOptions = levels.length > 0
 
   return (
