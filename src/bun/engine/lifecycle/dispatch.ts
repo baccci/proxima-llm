@@ -30,6 +30,8 @@ export function buildRegistry(
     [LIFECYCLE_STAGE.compaction]: [],
     [LIFECYCLE_STAGE.autoTitle]: [],
     [LIFECYCLE_STAGE.memorySummary]: [],
+    [LIFECYCLE_STAGE.turnDone]: [],
+    [LIFECYCLE_STAGE.turnError]: [],
   };
   for (const entry of config) {
     if (!entry.enabled) {
@@ -47,9 +49,15 @@ export function buildRegistry(
   return registry;
 }
 
-// The process-wide registry, built once from the built-in defaults. When a user config
-// surface lands it rebuilds from the persisted config instead of the constant.
-const registry = buildRegistry(DEFAULT_HOOK_CONFIG, CATALOG);
+// The process-wide registry. Seeded from the built-in defaults so pre-boot dispatch is safe;
+// rebuilt from the persisted config once the DB is ready and after every setHook write.
+let registry = buildRegistry(DEFAULT_HOOK_CONFIG, CATALOG);
+
+// Rebuild the process registry from a fresh config. The DB is kept out of this module's import
+// graph: the caller (boot, the setHook handler) loads the config and passes it in.
+export function rebuildRegistry(config: HookConfigEntry[]): void {
+  registry = buildRegistry(config, CATALOG);
+}
 
 // Fire every enabled action bound to a stage, with the stage's typed context. The stage key
 // is constrained to the wired stages, so a non-dispatch stage cannot be passed. Resolves once

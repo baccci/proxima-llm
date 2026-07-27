@@ -1,4 +1,5 @@
 import { ACTION_TIER, type ActionTier } from '../../../shared-contracts/lifecycle/action-tier';
+import type { SoundId } from '../../../shared-contracts/lifecycle/sound';
 import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types';
 import type { MessageDTO } from '../../../shared-contracts/schemas/message.schema';
 import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
@@ -31,14 +32,32 @@ export type MemorySummaryContext = {
   projectId: string;
 };
 
-// The stages that carry dispatch in v1, each mapped to its action context. The other named
-// stages in stages.ts are reference points with no dispatch yet; adding a key here is what
-// wires a stage. dispatchStage only accepts these keys, so a non-wired stage cannot be
-// dispatched by mistake.
+// A finished turn. The completion sound and notification actions read window focus and push
+// through injected ports (never imported, to keep the action decoupled from the senders).
+export type TurnDoneContext = {
+  chatId: string;
+  chatTitle: string;
+  isWindowFocused: () => boolean;
+  showNotification: (opts: { title: string; body?: string }) => void;
+  playSound: (sound: SoundId) => void;
+};
+
+// A failed turn. The error sound plays regardless of focus, so this context is minimal.
+export type TurnErrorContext = {
+  chatId: string;
+  playSound: (sound: SoundId) => void;
+};
+
+// The stages that carry dispatch, each mapped to its action context. The other named stages
+// in stages.ts are reference points with no dispatch yet; adding a key here is what wires a
+// stage. dispatchStage only accepts these keys, so a non-wired stage cannot be dispatched by
+// mistake.
 export type StageContextMap = {
   [LIFECYCLE_STAGE.compaction]: CompactionContext;
   [LIFECYCLE_STAGE.autoTitle]: AutoTitleContext;
   [LIFECYCLE_STAGE.memorySummary]: MemorySummaryContext;
+  [LIFECYCLE_STAGE.turnDone]: TurnDoneContext;
+  [LIFECYCLE_STAGE.turnError]: TurnErrorContext;
 };
 export type DispatchStage = keyof StageContextMap;
 
