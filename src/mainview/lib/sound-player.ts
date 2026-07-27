@@ -12,8 +12,13 @@ function audioContext(): AudioContext {
 }
 
 function unlock() {
-  void audioContext().resume()
+  // Remove first so a thrown or rejected resume cannot leave us re-firing on every pointerdown.
   window.removeEventListener('pointerdown', unlock)
+  try {
+    void audioContext().resume()
+  } catch {
+    // best-effort unlock, a blocked context just means the first cue may be silent
+  }
 }
 
 window.addEventListener('pointerdown', unlock)
@@ -35,12 +40,18 @@ function tone(freq: number, startAt: number, durationS: number, peakGain: number
 }
 
 // Completion: a gentle rising two-note bell. Error: a single lower, longer tone.
+// Audio is best-effort. WKWebView can refuse to build or resume an AudioContext, so any
+// Web Audio failure is swallowed here rather than thrown back at the caller.
 export function playSound(sound: SoundId): void {
-  const now = audioContext().currentTime
-  if (sound === 'completion') {
-    tone(660, now, 0.14, 0.14)
-    tone(880, now + 0.1, 0.18, 0.14)
-  } else {
-    tone(300, now, 0.28, 0.16)
+  try {
+    const now = audioContext().currentTime
+    if (sound === 'completion') {
+      tone(660, now, 0.14, 0.14)
+      tone(880, now + 0.1, 0.18, 0.14)
+    } else {
+      tone(300, now, 0.28, 0.16)
+    }
+  } catch {
+    // best-effort cue, never let an audio error reach the caller
   }
 }

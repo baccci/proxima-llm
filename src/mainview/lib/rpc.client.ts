@@ -41,7 +41,13 @@ export const rpc = Electroview.defineRPC<AppRPC>({
         onControlNavigate(payload)
       },
       playSound: ({ sound }) => {
-        playSound(sound)
+        // A Web Audio failure must never escape into Electrobun's message dispatch.
+        // playSound is best-effort already, this is the boundary net.
+        try {
+          playSound(sound)
+        } catch {
+          // swallow so a missed cue never breaks message handling
+        }
       },
     },
   },
