@@ -26,7 +26,7 @@ still live in SQLite and still render in the UI. They just stop being **resent**
 | [`engine/compaction-prompt.ts`](../../src/bun/engine/compaction-prompt.ts) | `buildCompactionPrompt` — *render the summary prompt* (prior summary + turns as text lines) | pure leaf |
 | [`engine/compaction.service.ts`](../../src/bun/engine/compaction.service.ts) | `compact` + the three entry points — orchestrate: load, select, summarize (LLM), save | IO orchestrator |
 | [`features/compaction/compaction.repository.ts`](../../src/bun/features/compaction/compaction.repository.ts) | `getLatestSnapshot` / `saveSnapshot` — the one owner of the `compactionSnapshots` table | data (repository) |
-| [`chat-stream/chat-stream.service.ts`](../../src/bun/engine/chat-stream/chat-stream.service.ts) | `maybeCompact` — the auto trigger, run before each stream | caller |
+| [`engine/compaction.service.ts`](../../src/bun/engine/compaction.service.ts) | `maybeCompact` — the auto trigger, the `compaction`-stage action that `runTurn` fires through `dispatchStage` before each stream | caller |
 | [`stream/build-prompt.ts`](../../src/bun/engine/stream/build-prompt.ts) | consumes the snapshot: append summary to system, filter history | consumer |
 
 The three pure leaves exist on purpose: the *decisions* (is the chat too big, which messages to summarize,
@@ -35,7 +35,8 @@ test. The service keeps only the IO (DB reads, the LLM call, the DB write). See 
 
 ## The lifecycle of one auto-compaction
 
-Read top to bottom. It runs inside `maybeCompact` (before the model turn) and `compact`:
+Read top to bottom. It runs inside `maybeCompact` (now in `compaction.service.ts`, the `compaction`-stage
+action `runTurn` dispatches before the model turn) and `compact`:
 
 **1. Should we compact?** (`maybeCompact`, `context-window.ts`)
 Estimate the chat's current size, then compare to the model's threshold:
@@ -65,10 +66,12 @@ proceeds with the full history (better a pricey turn than a blocked one).
 
 **3. Summarize.** (`compact`)
 Resolve the provider's **title model**, the cheap model already used for chat titles, so summarization does
-not burn the main model's budget. No title model for the provider, no-op. `buildCompactionPrompt(prevSummary,
-toSummarize)` renders a plain-text prompt (any prior summary, then the turns as `User:` / `Assistant:`
-lines), and `generateText` produces the summary, bounded by `AbortSignal.any([userCancel, timeout])` so a
-slow cheap model cannot stall the stream start. Empty summary, no-op.
+not burn the main model's budget, as the **primary**; the chat's own model is the **fallback** (it just
+streamed a reply, so its endpoints are live). `buildCompactionPrompt(prevSummary, toSummarize)` renders a
+plain-text prompt (any prior summary, then the turns as `User:` / `Assistant:` lines), and `runResilientStep`
+runs `generateText` on the primary, then the fallback if the primary's model is dead, bounded by
+`AbortSignal.any([userCancel, timeout])` so a slow model cannot stall the stream start. A user-cancel or
+timeout aborts without falling back; every attempt failing, or an empty summary, is a no-op.
 
 **4. Save.** (`compact` calls `saveSnapshot`)
 Persist the snapshot: `summaryText`, the `boundary` (as `coveredThroughAt` plus id) and the `displayBoundary`
@@ -193,5 +196,6 @@ surface, not covered here.
 
 - [stream-engine.md](stream-engine.md) — the turn that consumes the snapshot (`buildSystem` /
   `toCoreMessages`); see its "Compaction snapshot splits the prompt" note.
-- [chat-bun.md](chat-bun.md) — `maybeCompact`, the auto trigger that runs before each stream.
+- [chat-bun.md](chat-bun.md) — `runTurn`, which dispatches the `compaction` stage before each stream.
+- [lifecycle.md](lifecycle.md) — the stages and the dispatch seam that invokes `maybeCompact`.
 - [../architecture.md](../architecture.md) — process model, IPC, DB.

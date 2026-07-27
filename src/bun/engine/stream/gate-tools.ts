@@ -6,7 +6,7 @@ import { isAlwaysAllowed } from '../../../shared-contracts/tools/tool-catalog';
 import { ToolDecision } from '../../../shared-contracts/tools/tool-policy';
 import { getPolicy } from '../../features/tool-permission/tool-permission.repository';
 import { BUILTIN_TOOLS } from '../tools/registry';
-import { decideToolGate, GATE_ACTION, GATE_BLOCK_REASON } from './gate-decision';
+import { blockedToolResult, decideToolGate, GATE_ACTION, GATE_BLOCK_REASON } from './gate-decision';
 
 export type ApprovalResult = { decision: ToolDecision; remember: boolean };
 
@@ -43,7 +43,7 @@ export function buildGatedTools(
         });
 
         if (decision.action === GATE_ACTION.block) {
-          return { blocked: true, reason: decision.reason };
+          return blockedToolResult(name, decision.reason);
         }
 
         // policy 'ask' with no per-chat grant: prompt the user, then run or block on the answer.
@@ -63,7 +63,7 @@ export function buildGatedTools(
             setToolGrant(name, userDecision);
           }
           if (userDecision === ToolDecision.enum.deny) {
-            return { blocked: true, reason: GATE_BLOCK_REASON.user };
+            return blockedToolResult(name, GATE_BLOCK_REASON.user);
           }
         }
 

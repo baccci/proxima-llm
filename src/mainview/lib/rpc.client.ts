@@ -5,6 +5,7 @@ import Electrobun, { Electroview } from 'electrobun/view'
 import { onControlNavigate } from '@/features/chat/lib/on-control-navigate'
 import { queryClient } from './query-client'
 import { queryKeys } from './query-keys'
+import { playSound } from './sound-player'
 
 // Abort an RPC request to the bun process that has not answered within this window.
 const RPC_MAX_REQUEST_MS = 60_000
@@ -38,6 +39,15 @@ export const rpc = Electroview.defineRPC<AppRPC>({
       },
       controlNavigate: (payload) => {
         onControlNavigate(payload)
+      },
+      playSound: ({ sound }) => {
+        // A Web Audio failure must never escape into Electrobun's message dispatch.
+        // playSound is best-effort already, this is the boundary net.
+        try {
+          playSound(sound)
+        } catch {
+          // swallow so a missed cue never breaks message handling
+        }
       },
     },
   },

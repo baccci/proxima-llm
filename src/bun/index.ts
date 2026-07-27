@@ -2,7 +2,8 @@ import { dlopen, FFIType } from 'bun:ffi';
 import { ApplicationMenu, BrowserWindow, Updater } from 'electrobun/bun';
 import { join } from 'path';
 import { setSendChatsUpdated, setSendToWebview } from './engine/chat-stream/chat-stream.service';
-import { regenerateProjectSummary } from './engine/memory-summary.service';
+import { dispatchStage, rebuildRegistry } from './engine/lifecycle/dispatch';
+import { LIFECYCLE_STAGE } from './engine/lifecycle/stages';
 import { startControlServer, stopControlServer } from './entry/control-server/server';
 import {
   createRPC,
@@ -12,8 +13,11 @@ import {
   setSendMemoryChanged,
   setSendModelsUpdated,
 } from './entry/rpc';
+import * as hookConfigRepo from './features/hook-config/hook-config.repository';
 import { setMemoryRegenHook } from './features/memory/memory-notify';
 import { syncOpenRouterModels } from './features/model/model-sync.service';
+import { setSendPlaySound } from './features/notifications/sound-push';
+import { setWindowFocused } from './features/notifications/window-focus';
 import * as settingsService from './features/settings/settings.repository';
 import { setupSchema } from './infra/db/migrate';
 import { seedModels } from './infra/db/seed';
@@ -150,12 +154,25 @@ function wireWebviewPush(): void {
   setSendControlNavigate((msg) => {
     mainWindow.webview.rpc?.send.controlNavigate(msg);
   });
+  setSendPlaySound((sound) => {
+    mainWindow.webview.rpc?.send.playSound({ sound });
+  });
 }
 
 wireWebviewPush();
+
+// Track window focus so the completion hooks fire only when Proxima is in the background.
+mainWindow.on('focus', () => setWindowFocused(true));
+mainWindow.on('blur', () => setWindowFocused(false));
+
+// Rehydrate the dispatch registry from the persisted hook config now the DB is up.
+rebuildRegistry(hookConfigRepo.load());
+
 // Project-summary regen coordinates model + project + llm, so the workflow lives
 // in engine/; wire it into the memory feature's change notifier here.
-setMemoryRegenHook(regenerateProjectSummary);
+setMemoryRegenHook((projectId) => {
+  void dispatchStage(LIFECYCLE_STAGE.memorySummary, { projectId });
+});
 
 // Register control server start/stop with rpc.ts so updateSettings can toggle it
 setControlServerFns(startControlServer, stopControlServer);

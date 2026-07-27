@@ -1,4 +1,5 @@
 import React from 'react'
+import { IconBell } from '@/components/icons/icon-bell'
 import { IconBrain } from '@/components/icons/icon-brain'
 import { IconGlobe } from '@/components/icons/icon-globe'
 import { IconKeyRound } from '@/components/icons/icon-key-round'
@@ -14,6 +15,7 @@ import { AdvancedSection } from './advanced-section'
 import { AppearanceSection } from './appearance-section'
 import { ControlServerSection } from './control-server-section'
 import { MemorySection } from './memory-section'
+import { NotificationsSection } from './notifications-section'
 import { ProvidersSection } from './providers-section'
 import { ToolsSection } from './tools-section'
 
@@ -34,6 +36,12 @@ const TABS_ARR: { id: Tab; label: string; icon: React.ReactNode; panel: React.Re
   },
   { id: TABS.MEMORY, label: 'Memory', icon: <IconBrain width={15} />, panel: <MemorySection /> },
   { id: TABS.TOOLS, label: 'Tools', icon: <IconWrench width={15} />, panel: <ToolsSection /> },
+  {
+    id: TABS.NOTIFICATIONS,
+    label: 'Notifications',
+    icon: <IconBell width={15} />,
+    panel: <NotificationsSection />,
+  },
   {
     id: TABS.CONNECT,
     label: 'Connect',

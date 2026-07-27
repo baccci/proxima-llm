@@ -66,15 +66,19 @@ awaited. This is **fire-and-forget**: `launchTurn` returns the stream id and ass
 away, while `runTurn` keeps working in the background. Progress reaches the window later as stream chunks.
 This mirrors the control server's "reply 202 now, stream the rest" shape. Inside `runTurn`, in order:
 
-  - `maybeCompact` — if the chat is too long, summarize the older turns first. Non-fatal: a failure just
-    logs and the turn proceeds with the full history. See [Compaction](#when-it-compacts).
+  - **The `compaction` stage**, fired via `dispatchStage`: if the chat is too long, its action
+    (`maybeCompact`, now in `compaction.service.ts`) summarizes the older turns first. Non-fatal: a
+    failure just logs and the turn proceeds with the full history. See [Compaction](#when-it-compacts)
+    and [lifecycle.md](lifecycle.md).
   - `getLatestSnapshot` — load the current compaction summary, if one exists, to pass to the engine.
   - `runStream(...)` — the one call into the stream engine. It streams the reply, emitting each fragment
     through `onChunk`, and returns the finished `parts`, `usage`, and `stopReason`.
   - `saveAssistantMessage` — write the reply to SQLite. One exception: if the turn was stopped and
     produced nothing (`stopReason && parts.length === 0`), it saves nothing and `saved` stays undefined.
-  - Emit the `done` chunk carrying the saved message, then `maybeAutoTitle` (also non-fatal): if this was
-    the chat's first exchange and it is still called "New Chat", ask a cheap model to name it.
+  - Emit the `done` chunk carrying the saved message, then fire the **`auto-title` stage** via
+    `dispatchStage` (also non-fatal): while the chat is still called "New Chat", its action names it from
+    the first user message with a cheap model. It runs every turn and is idempotent, so a title that
+    failed to generate earlier self-heals on a later turn.
 
 **6. On error, tell the window.** If anything in `runTurn` throws, the `catch` emits an `error` chunk with
 the message. The turn ends without crashing the process.
@@ -163,8 +167,9 @@ details are in [infra-db.md](infra-db.md).
   arrives as chunks.
 - **The cancellation substrate.** `activeStreams` is the one map that makes cancel possible: register in
   `launchTurn`, look up and abort on cancel, delete in `finally`.
-- **Non-fatal side quests.** Compaction and auto-title are each wrapped so a failure only logs and the
-  turn continues, the same spirit as the never-throw logger.
+- **Non-fatal side quests.** Compaction and auto-title run as actions dispatched to the `compaction` and
+  `auto-title` stages; `runActions` isolates each so a failure only logs and the turn continues, the same
+  spirit as the never-throw logger. See [lifecycle.md](lifecycle.md).
 - **Lazy attachment resolution.** The engine gets a `resolveAttachment` function rather than the bytes up
   front, so an attachment is read from disk and base64-encoded only if the turn actually needs it.
 
@@ -192,8 +197,6 @@ details are in [infra-db.md](infra-db.md).
 
 ## Named constants
 
-- `FIRST_EXCHANGE_MESSAGE_COUNT = 2` (`chat-stream.service.ts`) — one user turn plus one assistant reply;
-  the auto-title trigger only fires at exactly this length.
 - `DEFAULT_COMPACTION_RATIO = 0.8` (`context-window.ts`) — compact once the estimate passes 80% of the
   window.
 - `CHARS_PER_TOKEN = 4` (`context-window.ts`) — the fallback token estimate when no provider count exists.
@@ -218,6 +221,7 @@ details are in [infra-db.md](infra-db.md).
 - Above it: [entry-rpc.md](entry-rpc.md) — the RPC door, and the five-channel push table.
 - Below it: [stream-engine.md](stream-engine.md) — the one model call, the tool gate, abort handling.
 - [compaction.md](compaction.md) — how the summary is built, stored, and sent.
+- [lifecycle.md](lifecycle.md) — the stages and the dispatch seam that runs compaction and auto-title.
 - [model.md](model.md) — model lookup and the title model used by auto-title.
 - [attachments.md](attachments.md) — how attachment bytes are stored and resolved.
 - [memory.md](memory.md) — the memory slices whose titles are gathered for the prompt.

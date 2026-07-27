@@ -8,13 +8,32 @@ export const GATE_ACTION = {
   ask: 'ask',
 } as const;
 
-// Reason text returned with a blocked call. It becomes the tool's result, so the
-// model reads why it was denied. 'user' is used by the caller after an ask prompt.
+// Reason text returned with a blocked call. It becomes part of the tool's result,
+// so the model reads why it was denied. 'user' is used by the caller after an ask
+// prompt.
 export const GATE_BLOCK_REASON = {
   policy: 'Denied by policy.',
   chat: 'Denied for this chat.',
   user: 'Denied by user.',
 } as const;
+
+// A blocked call still returns a normal tool result, so this object is exactly
+// what the model reads back. It has to be a plain instruction, not a bare status
+// label: name the tool, say the block was a deliberate decision (not a transient
+// error), and tell the model to stop and ask rather than retry. Without it the
+// model reads a terse "Denied by user." as a recoverable failure and calls the
+// tool again inside the agentic loop (see MAX_STEPS in run.ts).
+export function blockedToolResult(toolName: string, reason: string) {
+  return {
+    blocked: true,
+    reason,
+    message:
+      `The ${toolName} tool did not run. ${reason} This is a deliberate decision, ` +
+      'not a temporary error, so calling it again will be blocked the same way. ' +
+      `Do not retry ${toolName}. Acknowledge that the action was not performed and ` +
+      'ask the user how they would like to proceed.',
+  };
+}
 
 export type GateAction =
   | { action: typeof GATE_ACTION.run }

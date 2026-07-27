@@ -5,6 +5,7 @@ export const TABS = {
   TOOLS: 'tools',
   CONNECT: 'connect',
   MEMORY: 'memory',
+  NOTIFICATIONS: 'notifications',
 } as const
 
 export type Tab = (typeof TABS)[keyof typeof TABS]

@@ -8,10 +8,15 @@ import { resolveTitleModel } from '../features/model/title-model.service';
 import * as projectService from '../features/project/project.repository';
 import * as keychain from '../infra/keychain';
 import { log } from '../infra/logging/logger';
+import { runResilientStep } from './lifecycle/resilient-step';
+import { LIFECYCLE_STAGE } from './lifecycle/stages';
 
-function resolveGenArgs(
-  projectId: string,
-): { provider: ProviderId; modelId: string; apiKey: string } | null {
+function resolveGenArgs(projectId: string): {
+  provider: ProviderId;
+  modelId: string;
+  apiKey: string;
+  fallbackModelId: string | null;
+} | null {
   const defaultModelId = projectService.getDefaultModelId(projectId);
 
   const allModels = listModels();
@@ -40,7 +45,11 @@ function resolveGenArgs(
     if (!apiKey) {
       continue;
     }
-    return { provider, modelId, apiKey };
+    // The project's default model, when it lives on the chosen provider, is a
+    // known-good fallback if the cheap pick has no live endpoints. It is enabled and
+    // on this provider exactly when this provider is the preferred one.
+    const fallbackModelId = provider === preferredProvider ? defaultModelId : null;
+    return { provider, modelId, apiKey, fallbackModelId };
   }
 
   return null;
@@ -68,9 +77,17 @@ export async function regenerateProjectSummary(projectId: string): Promise<void>
   }
 
   try {
-    const summary = await generateMemorySummary(slices, args.provider, args.apiKey, args.modelId);
+    const summary = await runResilientStep({
+      stage: LIFECYCLE_STAGE.memorySummary,
+      primaryModelId: args.modelId,
+      fallbackModelId: args.fallbackModelId,
+      run: (modelId) => generateMemorySummary(slices, args.provider, args.apiKey, modelId),
+    });
     if (genTokens.get(projectId) !== token) {
       return; // superseded by a newer regen
+    }
+    if (summary == null) {
+      return; // every attempt failed; leave the existing summary in place
     }
     projectService.setMemorySummary(projectId, summary);
     emitMemoryChanged(MemoryScope.enum.project, projectId);

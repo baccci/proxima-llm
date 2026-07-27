@@ -337,7 +337,7 @@ selector-less store read is a performance trap on the hot `chat` store, is in
 - **[features/](features/)** — one doc per user-facing feature: chat, projects, settings, sidebar,
   models, focus-mode, devtools.
 - **[reference/](reference/)** — the deep dives this overview points at: the RPC door, the chat-stream
-  layer, the stream engine, the database, models, memory, tools, compaction, attachments, the control
-  server, and the infra singletons.
+  layer, the stream engine, the database, models, memory, tools, compaction, the lifecycle and hook
+  dispatch, attachments, the control server, and the infra singletons.
 - **[glossary/glossary.md](glossary/glossary.md)** — plain definitions of the terms used across these
   docs, each with a real example from this app.

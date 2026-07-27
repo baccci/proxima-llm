@@ -12,10 +12,12 @@ import {
   startChatStream,
 } from '../engine/chat-stream/chat-stream.service';
 import * as compactionService from '../engine/compaction.service';
+import { rebuildRegistry } from '../engine/lifecycle/dispatch';
 import * as attachmentService from '../features/attachment/attachment.repository';
 import * as chatService from '../features/chat/chat.repository';
 import { getLatestSnapshot } from '../features/compaction/compaction.repository';
 import * as devOverridesService from '../features/dev-overrides/dev-overrides.service';
+import * as hookConfigRepo from '../features/hook-config/hook-config.repository';
 import * as logsService from '../features/logs/logs.service';
 import * as memoryService from '../features/memory/memory.repository';
 import * as memoryNotify from '../features/memory/memory-notify';
@@ -170,6 +172,14 @@ export function createRPC() {
 
         setToolPolicy: ({ toolName, policy }) => {
           toolPermissionService.setPolicy(toolName, policy);
+        },
+
+        // Lifecycle hooks
+        listHooks: () => hookConfigRepo.listDetailed(),
+
+        setHook: ({ actionId, enabled }) => {
+          hookConfigRepo.setEnabled(actionId, enabled);
+          rebuildRegistry(hookConfigRepo.load());
         },
 
         syncModels: () => syncOpenRouterModels(pushModelsUpdated, true),

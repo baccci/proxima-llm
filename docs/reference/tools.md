@@ -90,14 +90,14 @@ This is the heart. `buildGatedTools` takes the per-chat context plus four callba
 **Layer 1, the global policy** (`getPolicy`, persisted, set in Settings):
 
 - `alwaysAllow` tool, run immediately, skip everything.
-- `deny`, return `{ blocked: true, reason: 'Denied by policy.' }` (a tool *result*, not a throw, so the
+- `deny`, return `blockedToolResult(name, 'Denied by policy.')` (a tool *result*, not a throw, so the
   model sees the denial and can react).
 - `allow`, run.
 - `ask`, fall through to Layer 2.
 
 **Layer 2, the per-chat grant** (only reached when the global policy is `ask`):
 
-- grant `deny`, `{ blocked: true, reason: 'Denied for this chat.' }`.
+- grant `deny`, `blockedToolResult(name, 'Denied for this chat.')`.
 - grant `allow`, run.
 - no grant yet, emit a `toolApprovalRequest` stream chunk to the renderer, `await` the user's decision,
   optionally remember it for the chat (`setToolGrant`), then run or block per the answer.
@@ -162,8 +162,12 @@ is distinct, so the wrapper asserts both. This is legitimate at this boundary (t
 but a future tool with no `execute` would crash on the `!` rather than be caught.
 
 ### Blocked calls return a result, not an error
-A denied tool returns `{ blocked: true, reason }` as its *output*. That is deliberate: the model reads the
-denial and adapts, instead of the turn throwing. Keep this shape if you add block reasons.
+A denied tool returns `{ blocked: true, reason, message }` as its *output*, built by `blockedToolResult` in
+`gate-decision.ts`. That is deliberate: the model reads the denial and adapts, instead of the turn throwing.
+`reason` is the short label; `message` is the model-facing instruction (it names the tool, says the block
+was a deliberate decision rather than a transient error, and tells the model not to retry but to ask how to
+proceed) so the model stops instead of re-calling the tool inside the agentic loop. `blocked` is read by no
+code, only the model. Route any new block reasons through `blockedToolResult` so they carry the directive.
 
 ### Per-chat grants do not survive a restart
 "Remember for this chat" (`setToolGrant`) is in-memory on the stream. This is intended: the durable setting
@@ -183,9 +187,10 @@ The gate's decision matrix is a pure leaf, `decideToolGate({ alwaysAllowed, poli
 [`engine/stream/gate-decision.ts`](../../src/bun/engine/stream/gate-decision.ts), returning a discriminated
 `GateAction` (`run` / `block(reason)` / `ask`). `buildGatedTools` calls it and just carries out the action
 (block, prompt-then-decide, or run), so the allow/deny/ask logic no longer needs a DB or callbacks to test.
-Covered by [`gate-decision.test.ts`](../../src/bun/engine/stream/gate-decision.test.ts) (6 tests): the six
+Covered by [`gate-decision.test.ts`](../../src/bun/engine/stream/gate-decision.test.ts) (9 tests): the six
 matrix rows plus the two dominance edges (`alwaysAllow` beats a `deny` policy; a global `allow` ignores a
-per-chat `deny` grant).
+per-chat `deny` grant), and three for `blockedToolResult` (it keeps `blocked`/`reason` and builds the
+retry-stopping directive the model reads).
 
 ## Links
 
