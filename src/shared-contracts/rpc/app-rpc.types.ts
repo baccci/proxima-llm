@@ -1,4 +1,8 @@
 import type { DevOverrideKey } from '../dev/dev-override-keys'
+import type { ActionTier } from '../lifecycle/action-tier'
+import type { HookProvenance } from '../lifecycle/provenance'
+import type { SoundId } from '../lifecycle/sound'
+import type { LifecycleStage } from '../lifecycle/stages'
 import type { AttachmentDTO, AttachmentKind } from '../schemas/attachment.schema'
 import type { ChatComposerState, ChatDTO, CreateChatInput } from '../schemas/chat.schema'
 import type {
@@ -135,6 +139,25 @@ export type AppRPC = {
         response: void
       }
 
+      // Lifecycle hooks (opt-in sounds / notifications)
+      listHooks: {
+        // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
+        params: {}
+        response: {
+          stage: LifecycleStage
+          actionId: string
+          label: string
+          description: string
+          tier: ActionTier
+          provenance: HookProvenance
+          enabled: boolean
+        }[]
+      }
+      setHook: {
+        params: { actionId: string; enabled: boolean }
+        response: void
+      }
+
       // Control server
       generatePairingCode: {
         // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
@@ -198,6 +221,7 @@ export type AppRPC = {
         assistantMessageId: string
         focus: boolean
       }
+      playSound: { sound: SoundId }
     }
   }
 }
