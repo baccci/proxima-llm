@@ -39,6 +39,11 @@ export function getToolSummary(
     case 'delete_memory': {
       const scope = inp.scope === 'global' ? 'global' : 'project'
       const title = asString(inp.title) ?? ''
+      // A gate-blocked delete returns { blocked: true } and never ran, so it must
+      // not read as "Deleted". Name the slice that was targeted but not removed.
+      if (out?.blocked) {
+        return { heading: `Blocked: delete ${scope} memory: ${title}` }
+      }
       return { heading: `Deleted ${scope} memory: ${title}` }
     }
     case 'read_project_file': {
