@@ -1,7 +1,7 @@
-# The model catalog (`features/model/` + `infra/db/model-*` + seed)
+# The model catalog (`features/model/` + `infra/db/model-*`)
 
-The model catalog: what models the app knows about, where they come from (shipped in code versus synced
-from OpenRouter), who is allowed to overwrite what, and how a cheap "title model" is chosen. This layer is
+The model catalog: what models the app knows about, where they come from (synced from Anthropic and
+OpenRouter), who is allowed to overwrite what, and how a cheap "title model" is chosen. This layer is
 also the reference example for the repository conventions (see
 [conventions/architecture.md](../conventions/architecture.md)).
 
@@ -12,11 +12,15 @@ To show a model picker, stream a reply, or price a chat, the app needs a list of
 **pricing**, and whether the user **enabled** it. That list is the catalog: the `models` table in SQLite. The UI always reads from this
 cached table so it renders instantly; the network never sits in the render path.
 
-Models enter the catalog from **two sources**, and the source decides who may later overwrite the row:
+Models enter the catalog from **two synced sources**, and the source decides who may later overwrite the row:
 
-- **`builtin`** — the handful of models shipped in code
-  ([`model-seed.ts`](../../src/bun/infra/db/model-seed.ts)), inserted and refreshed on boot.
+- **`anthropic`** — the Anthropic catalog, fetched from `GET /v1/models` and synced in the background.
+  Needs an API key, so no Claude models appear until a key is configured and a sync completes.
 - **`openrouter`** — the full OpenRouter catalog, fetched from their API and synced in the background.
+
+`builtin` survives in the `ModelSource` enum only as a legacy value: the old hardcoded Anthropic seed
+wrote it, and a one-time migration ([`migrate.ts`](../../src/bun/infra/db/migrate.ts)) converts those
+rows to `anthropic`. Nothing writes `builtin` after that.
 
 ## The pieces
 
@@ -24,52 +28,51 @@ Models enter the catalog from **two sources**, and the source decides who may la
 |---|---|
 | [`features/model/model.repository.ts`](../../src/bun/features/model/model.repository.ts) | The aggregate's data layer: the only module that queries `models` (plus its sync marker) and parses rows to DTOs. Owns the sync write-invariants. |
 | [`features/model/model-sync.service.ts`](../../src/bun/features/model/model-sync.service.ts) | Orchestrates the OpenRouter fetch, parse, map, upsert, reconcile. Zero `db` imports. |
-| [`features/model/reconcile-missing-models.ts`](../../src/bun/features/model/reconcile-missing-models.ts) | `planMissingModels` — the pure decision for rows the catalog dropped: disable an enabled one, delete a disabled one. |
+| [`features/model/anthropic-model-sync.service.ts`](../../src/bun/features/model/anthropic-model-sync.service.ts) | The same for Anthropic's `GET /v1/models`: fetch (paginated, keyed), map the capability tree, insert newest-per-family enabled, reconcile. Zero `db` imports. |
+| [`features/model/reconcile-missing-models.ts`](../../src/bun/features/model/reconcile-missing-models.ts) | `planMissingModels` — the pure, source-scoped decision for rows a source dropped: disable an enabled one, delete a disabled one. |
 | [`features/model/title-model.service.ts`](../../src/bun/features/model/title-model.service.ts) | `resolveTitleModel` — pick the cheap model that auto-names chats and writes summaries. |
 | [`features/model/title.ts`](../../src/bun/features/model/title.ts) | `generateChatTitle` — the actual LLM call that turns the first message into a title. |
-| [`infra/db/model-seed.ts`](../../src/bun/infra/db/model-seed.ts) | `MODEL_SEED` — the builtin model definitions. |
-| [`infra/db/seed.ts`](../../src/bun/infra/db/seed.ts) | `seedModels` — insert-on-first-boot / refresh-builtin-on-later-boot. |
-| [`infra/db/model-source.ts`](../../src/bun/infra/db/model-source.ts) | `ModelSource` enum (`builtin` / `openrouter`) — the write-ownership discriminant. |
+| [`infra/db/model-source.ts`](../../src/bun/infra/db/model-source.ts) | `ModelSource` enum (`anthropic` / `openrouter`, plus legacy `builtin`) — the write-ownership discriminant. |
 | [`shared-contracts/schemas/model.schema.ts`](../../src/shared-contracts/schemas/model.schema.ts) | `ModelDTO` / `ModelCapabilities` / `ModelDefinition`. |
 
 ## Source ownership: who may overwrite a row (the crux)
 
-Three writers touch the `models` table, and the **`source` column** keeps them from stepping on each other.
-`source` is DB-only: it is **not** on `ModelDTO`, because the renderer never needs it; it exists purely to
-arbitrate writes.
+The writers that touch the `models` table are the per-source syncs (`upsertSyncedModel` +
+`reconcileMissingModels`, shared by both providers) and the user, and the **`source` column** keeps them from
+stepping on each other. `source` is DB-only: it is **not** on `ModelDTO`, because the renderer never needs it;
+it exists purely to arbitrate writes.
 
 | Writer | Inserts | May overwrite | Never touches |
 |---|---|---|---|
-| **seed** (`seedModels`) | new builtin rows | `capabilities` + `displayName` of existing **builtin** rows | openrouter rows; any `isEnabled` |
-| **sync** (`upsertSyncedModel`) | new openrouter rows (**disabled**) | `displayName` / `capabilities` / `pricing` of existing **openrouter** rows | builtin rows; any `isEnabled` |
-| **sync reconcile** (`reconcileMissingModels`) | — | sets `isEnabled=false` on an **enabled openrouter** row the catalog dropped; deletes a **disabled** dropped one | builtin rows; any row still in the catalog |
+| **sync upsert** (`upsertSyncedModel`) | new rows for its source — OpenRouter **disabled**, Anthropic's newest-per-family **enabled**, the rest disabled | `displayName` / `capabilities` / `pricing` of existing rows **of the same source** | rows of a different source; any `isEnabled` on update |
+| **sync reconcile** (`reconcileMissingModels`) | — | within its own source: sets `isEnabled=false` on an **enabled** dropped row; deletes a **disabled** dropped one | rows of a different source; any row still in the catalog |
 | **user** (`updateModel` RPC) | — | any field of any row (marketplace toggles) | — |
 
 Two invariants fall out of this and matter a lot:
 
-1. **`isEnabled` is the user's, with one deliberate exception.** Neither seed nor `upsertSyncedModel` ever
-   writes `isEnabled` on an existing row, and new synced rows insert **disabled** so the user opts in from the
-   marketplace. The exception is `reconcileMissingModels`: when the catalog drops a model the user had enabled,
-   sync disables it, because a model with no endpoints can no longer be called and would otherwise silently
-   break the title picker (step 4). A future `retired` flag could carry this state without writing `isEnabled`.
-2. **A source only refreshes its own rows.** `seedModels` skips a row whose source is not `builtin`;
-   `upsertSyncedModel` returns early if the existing row's source is not `openrouter`. So a model you enabled
-   can never be silently reshaped by the wrong subsystem.
+1. **`isEnabled` is the user's, written by sync only on insert.** `upsertSyncedModel` never writes `isEnabled`
+   on an existing row. On insert it is the one deliberate write: OpenRouter inserts every row disabled (opt in
+   from the marketplace), while the Anthropic sync inserts the newest model per core family (opus/sonnet/haiku)
+   **enabled** and everything else disabled. The other exception is `reconcileMissingModels`: when a source
+   drops a model the user had enabled, sync disables it, because a model with no endpoints can no longer be
+   called and would otherwise silently break the title picker (step 4). A future `retired` flag could carry
+   this state without writing `isEnabled`.
+2. **A source only refreshes its own rows.** `upsertSyncedModel` returns early when the existing row's source
+   differs from the row it is writing, and both reconcile passes are scoped to a single source. So an Anthropic
+   sync can never reshape an OpenRouter row (or vice versa), and a model you enabled can't be silently reshaped
+   by the wrong subsystem.
 
-## Seeding (`seedModels`)
+## From seed to sync (the migration)
 
-Runs at boot ([`index.ts`](../../src/bun/index.ts) calls `await seedModels()`), before the sync:
+Anthropic used to be three hand-written `source: builtin` rows inserted by a `seedModels` boot step. That seed
+is gone: Anthropic is now a synced source like OpenRouter, and its `GET /v1/models` is the single source of the
+Anthropic catalog. A one-time migration in [`migrate.ts`](../../src/bun/infra/db/migrate.ts) converts existing
+`source: builtin` rows to `source: anthropic`, preserving each row's `isEnabled`, so nothing disappears and the
+sync adopts them. It is an idempotent `UPDATE … WHERE source = 'builtin'`: after the first run no builtin rows
+remain, so it is a cheap no-op on later boots.
 
-- Row not in the table, insert it as `source: builtin`.
-- Row present and `builtin`, refresh `capabilities` + `displayName` only (specs may change between app
-  versions).
-- Row present and **not** builtin, leave it untouched.
-
-`MODEL_SEED` is the three shipped Anthropic models (opus / sonnet / haiku) with hand-written capabilities,
-including each model's reasoning schema declared by hand: opus reasons with five effort tiers
-(`efforts: ['low','medium','high','xhigh','max']`, `defaultEffort: 'medium'`), while sonnet and haiku stay
-non-reasoning (`efforts: []`, `defaultEffort: null`). None are mandatory (`reasoningMandatory: false`). Note
-`pricing: null` for builtins: Anthropic pricing is not tracked here, only capabilities and enablement.
+Consequence: a fresh install shows no Claude models until an Anthropic key is configured and a sync completes
+(you cannot call them without a key anyway).
 
 ## The OpenRouter sync (`syncOpenRouterModels`)
 
@@ -106,7 +109,35 @@ and builtin rows are never touched. **Empty keep-set is a no-op**: a failed or e
 disable the table. A row disabled here becomes a disabled-dropped row and is deleted on a later sync;
 `reconcileMissingModels` returns the disabled ids so the sync `log.warn`s them.
 
-**5. Mark.** `setSyncState(now, SYNC_VERSION)` records the timestamp plus version.
+**5. Mark.** `setSyncState('openrouter_sync', now, SYNC_VERSION)` records the timestamp plus version.
+
+## The Anthropic sync (`syncAnthropicModels`)
+
+Mirrors `syncOpenRouterModels` step for step, on its own marker (`anthropic_sync`) and `SYNC_VERSION`. The
+differences that matter:
+
+- **Precondition: a key.** It reads the Anthropic API key from the keychain and skips quietly when absent
+  (OpenRouter's catalog is unauthenticated and never needs one). So the sync is a no-op until a key exists;
+  saving one kicks a forced sync (see Consumers → Startup / key add below).
+- **No stale-pricing trigger.** Anthropic pricing is intentionally `null`, so a stale-pricing check would force
+  a re-sync forever. The gate is throttle + version + `force` only.
+- **Fetch is paginated and keyed.** `GET /v1/models` with `x-api-key` + `anthropic-version`, following
+  `has_more` / `last_id` (query param `after_id`). Entries are `safeParse`d per item, like OpenRouter's.
+- **Capabilities derive from the API's `capabilities` tree**, read through a defensive `leafSupported` walker so
+  a shape change can't reject an otherwise-valid model: `contextWindow` ← `max_input_tokens`, `maxOutputTokens`
+  ← `max_tokens`, `vision` ← `image_input.supported`, `thinking` ← `thinking.types.adaptive.supported`,
+  `efforts` ← the supported `effort.<level>` leaves (filtered to the `Effort` vocabulary, low→high).
+  `defaultEffort` picks `medium` when supported, else the lowest supported tier, else `null` (the API publishes
+  no default). Fields the tree does not expose (`tools`, `promptCaching`, `pdf`, `webSearch`) take
+  Anthropic-wide defaults (`true`) plus a tiny per-family exception table (`haiku → pdf:false, webSearch:false`),
+  matching the retired seed. `pricing` is `null` (the title-model resolver handles unpriced Anthropic via its
+  `haiku` family hint).
+- **Family is derived by scanning the id's segments** for a known token (opus/sonnet/haiku/fable/mythos), not
+  positionally, so a legacy id like `claude-3-5-sonnet-20241022` still lands under `sonnet`.
+- **Enable-on-insert.** `selectNewestPerFamily` computes, per core family (opus/sonnet/haiku), the id with the
+  latest `created_at`; those insert **enabled** (via `upsertSyncedModel`'s `insertEnabled`), everything else
+  disabled. It only fires on insert of a new id, so a future flagship auto-enables the first time it is seen,
+  and a model you later disable stays disabled through every subsequent sync.
 
 ## The repository (the reference example)
 
@@ -115,17 +146,19 @@ This module was the seam that proved the repository pattern. Two halves:
 - **Reads** (`listModels`, `getModel`) parse each row through `rowToDTO` and `ModelDTO.parse`, so a bad
   provider or malformed capabilities blob fails **loudly here** instead of leaking a wrong type into the UI.
   This is the read-side boundary parse.
-- **Writes** carry their invariants: `upsertSyncedModel` owns insert-disabled + skip-non-openrouter +
-  refresh-metadata-only; `reconcileMissingModels` owns the drop handling (delete disabled, disable enabled)
-  and delegates the decision to the pure `planMissingModels`, which owns the empty-keep-set guard. Callers
-  (`model-sync`) never reassemble these rules from bare `insert` / `update`, which is what keeps `model-sync`
-  pure orchestration with **zero `db` imports**.
+- **Writes** carry their invariants: `upsertSyncedModel` owns insert (disabled by default, or enabled when the
+  caller passes `insertEnabled` for Anthropic's newest-per-family) + skip-if-not-my-source + refresh-metadata-
+  only; `reconcileMissingModels` owns the drop handling (delete disabled, disable enabled) scoped to one source
+  and delegates the decision to the pure `planMissingModels`, which owns the empty-keep-set guard. The sync
+  services never reassemble these rules from bare `insert` / `update`, which is what keeps them pure
+  orchestration with **zero `db` imports**.
 
-The **sync marker** is model's own slice of the shared `settings` key-value table: the `openrouter_sync` key
-stores `{ ts, version }`. `getSyncState` parses the blob with a `z.union` (a legacy bare-number **or** the
-versioned object) and treats any corrupt or unreadable marker as never-synced (`{ ts: null, version: 0 }`)
-so a bad marker cannot crash the startup sync. There is no generic `settings.repository`: each aggregate owns
-its key.
+The **sync markers** are model's own slices of the shared `settings` key-value table: each source keeps its own
+key (`openrouter_sync`, `anthropic_sync`) storing `{ ts, version }`, and `getSyncState(key)` /
+`setSyncState(key, ts, version)` take the caller's key. `getSyncState` parses the blob with a `z.union` (a
+legacy bare-number **or** the versioned object) and treats any corrupt or unreadable marker as never-synced
+(`{ ts: null, version: 0 }`) so a bad marker cannot crash the startup sync. There is no generic
+`settings.repository`: each aggregate owns its keys.
 
 ## Title model resolution (`title-model.service.ts` + `title.ts`)
 
@@ -151,9 +184,11 @@ resurrect the original "title generation silently broke" bug. `title.ts` then do
 - **Streaming** (`chat-stream.service`) calls `getModel(modelId)` to resolve the chat's model plus its
   capabilities.
 - **The marketplace UI** reads `listModels` and writes enablement and title config through `updateModel`
-  plus the settings RPCs; `syncModels` / `getModelSyncInfo` drive the manual re-sync.
-- **Startup** (`index.ts`) seeds, then background-syncs, and wires `pushModelsUpdated` so a finished sync
-  refreshes the renderer.
+  plus the settings RPCs; `syncModels` re-syncs every syncable provider, and `getModelSyncInfo` reports the
+  last-sync timestamp **per provider** (the marketplace shows the active tab's).
+- **Startup** (`index.ts`) runs the migration, then fires both background syncs and wires `pushModelsUpdated`
+  so a finished sync refreshes the renderer. Saving an Anthropic key (`setApiKey` RPC) kicks a forced Anthropic
+  sync so Claude models appear without waiting for the next boot.
 
 ## Concerns / footguns
 
@@ -185,11 +220,15 @@ promote to `shared-contracts` and collapse the three copies.
 
 ## Named constants
 
-- `SYNC_THROTTLE_HOURS = 24` / `SYNC_THROTTLE_MS` — the minimum gap between background syncs.
-- `SYNC_VERSION = 4` — bump to force a re-sync when the mapping or schema changes.
-- `DEFAULT_MAX_OUTPUT_TOKENS = 8192` — the fallback when OpenRouter omits max output.
-- `OPENROUTER_PARAM` / `OPENROUTER_MODALITY` — the token vocabulary read from the catalog.
-- `SYNC_SETTINGS_KEY = 'openrouter_sync'` — model's key in the `settings` table.
+- `SYNC_THROTTLE_HOURS = 24` / `SYNC_THROTTLE_MS` — the minimum gap between background syncs (both services).
+- `SYNC_VERSION` — each sync service has its own (OpenRouter `4`, Anthropic `1`); bump to force a re-sync when
+  that provider's mapping or schema changes.
+- `DEFAULT_MAX_OUTPUT_TOKENS = 8192` — the fallback when a catalog omits max output (both services).
+- `OPENROUTER_PARAM` / `OPENROUTER_MODALITY` — the token vocabulary read from the OpenRouter catalog.
+- `KNOWN_FAMILIES` / `CORE_FAMILIES` / `FAMILY_CAP_OVERRIDES` — the Anthropic family-token scan, the enable-set
+  tiers, and the capability exception table.
+- `OPENROUTER_SYNC_KEY = 'openrouter_sync'` / `ANTHROPIC_SYNC_KEY = 'anthropic_sync'` — each source's marker key
+  in the `settings` table; passed to `getSyncState` / `setSyncState`.
 - `MAX_TITLE_LENGTH = 60` — the hard cap on a generated chat title.
 
 ## Tests
@@ -199,9 +238,15 @@ promote to `shared-contracts` and collapse the three copies.
   `selectTitleModel` (auto picks cheapest non-free, skips free, unpriced to family-hint to first, custom
   pinned id, dead/disabled custom to auto, provider filter to null). Load-bearing: compaction and memory both
   resolve their summary model through this.
-- [`reconcile-missing-models.test.ts`](../../src/bun/features/model/reconcile-missing-models.test.ts) (5) —
+- [`reconcile-missing-models.test.ts`](../../src/bun/features/model/reconcile-missing-models.test.ts) (6) —
   the pure `planMissingModels`: an enabled dropped row is disabled, a disabled dropped row is deleted, a row
-  still in the catalog is untouched, builtin rows are never reconciled, and an empty keep-set is a no-op.
+  still in the catalog is untouched, builtin rows are never reconciled, an empty keep-set is a no-op, and — the
+  source-scoping case — reconciling one source never touches another's rows.
+- [`anthropic-model-sync.service.test.ts`](../../src/bun/features/model/anthropic-model-sync.service.test.ts)
+  (14) — the pure Anthropic helpers: `deriveFamily` (modern, legacy-dated segment scan, unknown fallback),
+  `deriveDefaultEffort` (medium / lowest / null), `mapToRow` capability derivation (efforts, the haiku
+  pdf/webSearch exception, defaults, a missing tree degrading to defaults), and `selectNewestPerFamily`
+  (newest per core family, non-core families excluded, deterministic ties).
 - [`model-sync.service.test.ts`](../../src/bun/features/model/model-sync.service.test.ts) (8) — the pure
   `mapReasoning`: `mandatory` true / false / absent, `supported_efforts` sorted low→high with `minimal` kept
   and `none` / unknown tokens dropped, `default_effort` parsed or null, and the `supported_parameters`
