@@ -12,6 +12,10 @@ type DialogContentProps = {
   children: React.ReactNode
   className?: string
   wide?: boolean
+  // Set when the dialog is opened from inside a Modal. It lifts the backdrop and popup
+  // into the z-popover band so they clear z-modal; otherwise the Modal paints over the
+  // backdrop and the dim is lost. See the z-index scale in global.css.
+  overModal?: boolean
 }
 
 export function DialogContent({
@@ -20,13 +24,20 @@ export function DialogContent({
   children,
   className = '',
   wide,
+  overModal,
 }: DialogContentProps) {
   return (
     <Dialog.Portal>
-      <Dialog.Backdrop className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm z-overlay data-starting-style:opacity-0 data-ending-style:opacity-0 transition-opacity duration-200" />
+      <Dialog.Backdrop
+        className={cn(
+          'fixed inset-0 bg-neutral-950/80 backdrop-blur-sm data-starting-style:opacity-0 data-ending-style:opacity-0 transition-opacity duration-200',
+          overModal ? 'z-popover' : 'z-overlay',
+        )}
+      />
       <Dialog.Popup
         className={cn(
-          'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-modal',
+          'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
+          overModal ? 'z-popover' : 'z-modal',
           'rounded-xl border border-border bg-panel shadow-modal outline-none',
           'data-starting-style:opacity-0 data-starting-style:scale-[0.96]',
           'data-ending-style:opacity-0 data-ending-style:scale-[0.96]',

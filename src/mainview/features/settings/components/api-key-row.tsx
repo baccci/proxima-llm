@@ -103,6 +103,7 @@ export function ApiKeyRow({ provider, placeholder, accent, foreground }: ApiKeyR
 
       <DialogRoot open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent
+          overModal
           title="Remove API key?"
           description="The key will be deleted from your keychain. You can add it again later."
         >
