@@ -1,6 +1,7 @@
 import React from 'react'
 import { useForm } from 'react-hook-form'
 import { Button } from '@/components/button'
+import { DialogContent, DialogRoot } from '@/components/dialog'
 import { IconCheck } from '@/components/icons/icon-check'
 import { IconEye } from '@/components/icons/icon-eye'
 import { IconEyeOff } from '@/components/icons/icon-eye-off'
@@ -31,12 +32,22 @@ export function ApiKeyRow({ provider, placeholder, accent, foreground }: ApiKeyR
     formState: { isDirty },
   } = useForm<KeyFormValues>()
 
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
+
   const typed = watch('key')
   const hasInput = (typed?.length ?? 0) > 0
   const isConfigured = data?.configured ?? false
 
   async function onSubmit({ key }: KeyFormValues) {
     await settings.setApiKey(provider, key)
+    reset()
+  }
+
+  // Deletes the stored key only. The provider's synced models stay in the catalog;
+  // they just can't be called until a key is added back.
+  async function executeRemove() {
+    setConfirmOpen(false)
+    await settings.removeApiKey(provider)
     reset()
   }
 
@@ -48,6 +59,15 @@ export function ApiKeyRow({ provider, placeholder, accent, foreground }: ApiKeyR
           <span className="flex items-center gap-1 text-xs text-success">
             <IconCheck width={12} /> Configured
           </span>
+        )}
+        {isConfigured && (
+          <button
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            className="ml-auto text-xs text-subtle hover:text-danger transition-colors cursor-pointer"
+          >
+            Remove
+          </button>
         )}
       </div>
 
@@ -80,6 +100,22 @@ export function ApiKeyRow({ provider, placeholder, accent, foreground }: ApiKeyR
           Save
         </Button>
       </form>
+
+      <DialogRoot open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent
+          title="Remove API key?"
+          description="The key will be deleted from your keychain. You can add it again later."
+        >
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={executeRemove}>
+              Remove
+            </Button>
+          </div>
+        </DialogContent>
+      </DialogRoot>
     </div>
   )
 }

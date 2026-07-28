@@ -49,7 +49,7 @@ Handlers are grouped by area. Each one is a thin call into a feature or the engi
 | Logs | getLogInfo, openLogsFolder, openLogFile, clearLogs, logClientError | logs service |
 | Attachments | uploadAttachment, getAttachment | attachment repository |
 | Settings | getSettings, updateSettings | settings repository |
-| API keys | setApiKey, hasApiKey | keychain |
+| API keys | setApiKey, hasApiKey, removeApiKey | keychain |
 | Control server | generatePairingCode, listControlTokens, revokeControlToken | control-server/auth |
 | Dev tools | devSetOverride, devForceCompact | dev-overrides (only when `TWEAK=1`) |
 | App | quit | Electrobun |

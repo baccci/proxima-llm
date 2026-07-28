@@ -278,6 +278,12 @@ export function createRPC() {
         hasApiKey: ({ provider }) => ({
           configured: keychain.hasApiKey(ProviderId.parse(provider)),
         }),
+        // Deletes only the stored key. Synced model rows, sync markers, and title pins
+        // are left as-is: an Anthropic catalog goes dead without a key but stays listed,
+        // and OpenRouter's keyless catalog keeps syncing.
+        removeApiKey: ({ provider }) => {
+          keychain.removeApiKey(ProviderId.parse(provider))
+        },
 
         // Control server
         generatePairingCode: () => controlAuth.generatePairingCode(),

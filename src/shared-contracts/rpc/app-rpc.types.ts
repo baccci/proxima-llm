@@ -121,6 +121,7 @@ export type AppRPC = {
       updateSettings: { params: UpdateSettingsInput; response: void }
       setApiKey: { params: { provider: string; key: string }; response: void }
       hasApiKey: { params: { provider: string }; response: { configured: boolean } }
+      removeApiKey: { params: { provider: string }; response: void }
 
       // Tool policies
       listToolPolicies: {

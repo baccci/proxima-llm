@@ -16,6 +16,11 @@ export const settings = {
     queryClient.invalidateQueries({ queryKey: queryKeys.apiKey(provider) })
   },
 
+  removeApiKey: async (provider: ProviderId) => {
+    await req().removeApiKey({ provider })
+    queryClient.invalidateQueries({ queryKey: queryKeys.apiKey(provider) })
+  },
+
   generatePairingCode: () => req().generatePairingCode({}),
 
   revokeControlToken: async (token: string) => {
