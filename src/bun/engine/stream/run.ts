@@ -1,4 +1,5 @@
 import { stepCountIs, streamText } from 'ai'
+import type { Effort } from '../../../shared-contracts/models/effort'
 import { providerSupportsWebSearch } from '../../../shared-contracts/providers/registry'
 import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types'
 import type {
@@ -32,7 +33,7 @@ type StreamOptions = {
   snapshot?: CompactionSnapshot
   thinking: boolean
   webSearch: boolean
-  effort?: string | null
+  effort?: Effort | null
   sliceTitles?: { global: string[]; project: string[] }
   projectFileNames?: string[]
   getToolGrant: (toolName: string) => ToolDecision | undefined

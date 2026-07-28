@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { Effort } from '../models/effort'
 
 // Who authored a message. Compare with MessageRole.enum.user (not a bare string)
 // so a reader knows the value is a role. Persisted as literal text in the messages
@@ -90,7 +91,7 @@ export const SendMessageInput = z.object({
   content: z.string(),
   thinking: z.boolean().optional(),
   webSearch: z.boolean().optional(),
-  effort: z.string().nullish(),
+  effort: Effort.nullish(),
   attachmentIds: z.array(z.string()).optional(),
 })
 
@@ -103,7 +104,7 @@ export const RetryMessageInput = z.object({
   content: z.string().optional(),
   thinking: z.boolean().optional(),
   webSearch: z.boolean().optional(),
-  effort: z.string().nullish(),
+  effort: Effort.nullish(),
 })
 
 export type RetryMessageInput = z.infer<typeof RetryMessageInput>

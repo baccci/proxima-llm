@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto'
+import type { Effort } from '../../../shared-contracts/models/effort'
 import type { AppRPC, StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types'
 import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk'
 import { MemoryScope } from '../../../shared-contracts/schemas/memory-slice.schema'
@@ -74,7 +75,7 @@ type LaunchTurnParams = {
   modelId: string
   thinking: boolean
   webSearch: boolean
-  effort?: string | null
+  effort?: Effort | null
 }
 
 // Resolve the model and its API key up front, or throw. Returns non-null values,
