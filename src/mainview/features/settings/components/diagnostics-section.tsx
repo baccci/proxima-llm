@@ -1,6 +1,8 @@
 import { useMutation } from '@tanstack/react-query'
 import { cn } from '@utils/tailwind-class-merge'
-import type React from 'react'
+import React from 'react'
+import { Button } from '@/components/button'
+import { DialogContent, DialogRoot } from '@/components/dialog'
 import { useLogInfo } from '@/features/settings/hooks/use-log-info'
 import { logs } from '@/features/settings/settings.api'
 
@@ -13,12 +15,13 @@ function formatBytes(bytes: number): string {
 export function DiagnosticsSection() {
   const { data: logInfo } = useLogInfo()
   const clearMutation = useMutation({ mutationFn: () => logs.clear() })
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
 
   const sizeLabel =
     logInfo != null ? `Logs using ${formatBytes(logInfo.sizeBytes)}` : 'Calculating…'
 
-  function handleClear() {
-    if (!window.confirm('Delete all log files? This cannot be undone.')) return
+  function executeClear() {
+    setConfirmOpen(false)
     clearMutation.mutate()
   }
 
@@ -29,10 +32,27 @@ export function DiagnosticsSection() {
       <div className="flex gap-2">
         <DiagButton onClick={() => logs.openFolder()}>Open logs folder</DiagButton>
         <DiagButton onClick={() => logs.openFile()}>Open today's log</DiagButton>
-        <DiagButton onClick={handleClear} disabled={clearMutation.isPending}>
+        <DiagButton onClick={() => setConfirmOpen(true)} disabled={clearMutation.isPending}>
           {clearMutation.isPending ? 'Clearing…' : 'Clear logs'}
         </DiagButton>
       </div>
+
+      <DialogRoot open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent
+          overModal
+          title="Clear logs?"
+          description="All log files will be permanently deleted. This cannot be undone."
+        >
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={executeClear}>
+              Clear logs
+            </Button>
+          </div>
+        </DialogContent>
+      </DialogRoot>
     </div>
   )
 }
