@@ -14,6 +14,8 @@ import {
 } from './model.repository'
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models'
+// This sync's own marker key in the shared settings table.
+const OPENROUTER_SYNC_KEY = 'openrouter_sync'
 const SYNC_THROTTLE_HOURS = 24
 const SYNC_THROTTLE_MS = SYNC_THROTTLE_HOURS * 60 * 60 * 1000
 // Bump when sync logic or schema changes to force a re-sync on next startup.
@@ -148,11 +150,11 @@ function mapToRow(m: OpenRouterModel): SyncedModelRow {
 }
 
 export function getLastSyncTimestamp(): number | null {
-  return getSyncState().ts
+  return getSyncState(OPENROUTER_SYNC_KEY).ts
 }
 
 export async function syncOpenRouterModels(onSynced?: () => void, force = false): Promise<void> {
-  const { ts: lastSync, version: storedVersion } = getSyncState()
+  const { ts: lastSync, version: storedVersion } = getSyncState(OPENROUTER_SYNC_KEY)
   const versionMismatch = storedVersion !== SYNC_VERSION
   const stalePricing = hasStalePricing()
 
@@ -203,14 +205,17 @@ export async function syncOpenRouterModels(onSynced?: () => void, force = false)
     upsertSyncedModel(mapToRow(m))
   }
 
-  const disabledMissing = reconcileMissingModels(allModels.map((m) => m.id))
+  const disabledMissing = reconcileMissingModels(
+    allModels.map((m) => m.id),
+    ModelSource.enum.openrouter,
+  )
   if (disabledMissing.length > 0) {
     log.warn(
       `OpenRouter sync disabled ${disabledMissing.length} enabled model(s) no longer in the catalog: ${disabledMissing.join(', ')}`,
     )
   }
 
-  setSyncState(Date.now(), SYNC_VERSION)
+  setSyncState(OPENROUTER_SYNC_KEY, Date.now(), SYNC_VERSION)
   log.info(`OpenRouter sync complete: ${allModels.length} models synced`)
   onSynced?.()
 }

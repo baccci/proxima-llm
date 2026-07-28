@@ -34,7 +34,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
       light: { accent: '#D97757', foreground: '#ffffff' },
       dark: { accent: '#D97757', foreground: '#141415' },
     },
-    syncable: false,
+    syncable: true,
     supportsWebSearch: true,
   },
   openrouter: {

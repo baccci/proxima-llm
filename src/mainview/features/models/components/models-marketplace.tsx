@@ -195,7 +195,9 @@ export function ModelsMarketplace() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-2xs text-subtle">{lastSyncedLabel(syncInfo?.lastSyncAt)}</span>
+              <span className="text-2xs text-subtle">
+                {lastSyncedLabel(syncInfo?.[currentProvider as ProviderId])}
+              </span>
               <button
                 type="button"
                 onClick={() => resync.mutate()}

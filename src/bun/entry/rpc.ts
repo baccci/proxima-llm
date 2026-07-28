@@ -21,6 +21,10 @@ import * as hookConfigRepo from '../features/hook-config/hook-config.repository'
 import * as logsService from '../features/logs/logs.service'
 import * as memoryService from '../features/memory/memory.repository'
 import * as memoryNotify from '../features/memory/memory-notify'
+import {
+  getAnthropicLastSyncTimestamp,
+  syncAnthropicModels,
+} from '../features/model/anthropic-model-sync.service'
 import * as modelService from '../features/model/model.repository'
 import { getLastSyncTimestamp, syncOpenRouterModels } from '../features/model/model-sync.service'
 import * as projectService from '../features/project/project.repository'
@@ -28,6 +32,7 @@ import * as projectFileService from '../features/project-file/project-file.repos
 import * as settingsService from '../features/settings/settings.repository'
 import * as toolPermissionService from '../features/tool-permission/tool-permission.repository'
 import * as keychain from '../infra/keychain'
+import { log } from '../infra/logging/logger'
 import * as controlAuth from './control-server/auth'
 
 type AppRPCTyped = {
@@ -182,8 +187,22 @@ export function createRPC() {
           rebuildRegistry(hookConfigRepo.load())
         },
 
-        syncModels: () => syncOpenRouterModels(pushModelsUpdated, true),
-        getModelSyncInfo: () => ({ lastSyncAt: getLastSyncTimestamp() }),
+        // Force a re-sync of every syncable provider. Each is guarded so one provider's
+        // fetch failure can't abort the other's sync.
+        syncModels: async () => {
+          await Promise.all([
+            syncOpenRouterModels(pushModelsUpdated, true).catch((err) =>
+              log.error('OpenRouter sync failed (non-fatal)', err),
+            ),
+            syncAnthropicModels(pushModelsUpdated, true).catch((err) =>
+              log.error('Anthropic sync failed (non-fatal)', err),
+            ),
+          ])
+        },
+        getModelSyncInfo: () => ({
+          anthropic: getAnthropicLastSyncTimestamp(),
+          openrouter: getLastSyncTimestamp(),
+        }),
 
         // Logs
         getLogInfo: () => logsService.getLogInfo(),
@@ -245,7 +264,16 @@ export function createRPC() {
         // Webview sends provider as a raw wire string; narrow it to the known
         // provider set before it reaches the keychain.
         setApiKey: ({ provider, key }) => {
-          keychain.setApiKey(ProviderId.parse(provider), key)
+          const parsed = ProviderId.parse(provider)
+          keychain.setApiKey(parsed, key)
+          // A saved Anthropic key unlocks its /v1/models sync (OpenRouter's catalog is
+          // unauthenticated and needs no such kick), so refresh the catalog promptly instead
+          // of waiting for the next boot.
+          if (parsed === ProviderId.enum.anthropic) {
+            syncAnthropicModels(pushModelsUpdated, true).catch((err) =>
+              log.error('Anthropic sync after key save failed (non-fatal)', err),
+            )
+          }
         },
         hasApiKey: ({ provider }) => ({
           configured: keychain.hasApiKey(ProviderId.parse(provider)),

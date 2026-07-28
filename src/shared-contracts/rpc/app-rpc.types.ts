@@ -1,6 +1,7 @@
 import type { DevOverrideKey } from '../dev/dev-override-keys'
 import type { HookDetailRow } from '../lifecycle/hook-catalog'
 import type { SoundId } from '../lifecycle/sound'
+import type { ProviderId } from '../providers/registry'
 import type { AttachmentDTO, AttachmentKind } from '../schemas/attachment.schema'
 import type { ChatComposerState, ChatDTO, CreateChatInput } from '../schemas/chat.schema'
 import type {
@@ -164,8 +165,9 @@ export type AppRPC = {
       // Models sync
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
       syncModels: { params: {}; response: void }
+      // Last-sync timestamp per syncable provider; a provider is absent until it syncs.
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape
-      getModelSyncInfo: { params: {}; response: { lastSyncAt: number | null } }
+      getModelSyncInfo: { params: {}; response: Partial<Record<ProviderId, number | null>> }
 
       // Logs
       // biome-ignore lint/complexity/noBannedTypes: required by electrobun RPC shape

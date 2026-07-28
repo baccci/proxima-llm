@@ -144,4 +144,10 @@ export function setupSchema() {
   // Retired: the custom-model feature is gone and ModelSource replaced source='custom',
   // but the boolean outlived both. Nothing branches on it.
   dropColumnIfPresent('models', 'is_custom')
+
+  // One-time migration: the old hardcoded Anthropic seed wrote source='builtin'. Anthropic
+  // is now a synced source, so adopt those rows into it, preserving each row's isEnabled.
+  // Idempotent — after the first run no builtin rows remain — so a cheap no-op on later
+  // boots. The seed only ever wrote Anthropic-provider rows, so no provider filter is needed.
+  sqlite.exec(`UPDATE models SET source = 'anthropic' WHERE source = 'builtin'`)
 }

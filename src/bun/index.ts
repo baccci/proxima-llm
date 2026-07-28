@@ -15,12 +15,12 @@ import {
 } from './entry/rpc'
 import * as hookConfigRepo from './features/hook-config/hook-config.repository'
 import { setMemoryRegenHook } from './features/memory/memory-notify'
+import { syncAnthropicModels } from './features/model/anthropic-model-sync.service'
 import { syncOpenRouterModels } from './features/model/model-sync.service'
 import { setSendPlaySound } from './features/notifications/sound-push'
 import { setWindowFocused } from './features/notifications/window-focus'
 import * as settingsService from './features/settings/settings.repository'
 import { setupSchema } from './infra/db/migrate'
-import { seedModels } from './infra/db/seed'
 import { log } from './infra/logging/logger'
 
 log.init()
@@ -74,10 +74,13 @@ async function getMainViewUrl(): Promise<string> {
 
 // Boot
 setupSchema()
-await seedModels()
-// Non-blocking background sync: UI renders from DB cache instantly
+// Non-blocking background syncs: the UI renders from the DB cache instantly and refreshes
+// when a sync lands. The Anthropic sync self-skips when no API key is configured.
 syncOpenRouterModels(pushModelsUpdated).catch((err) =>
   log.error('OpenRouter sync failed (non-fatal)', err),
+)
+syncAnthropicModels(pushModelsUpdated).catch((err) =>
+  log.error('Anthropic sync failed (non-fatal)', err),
 )
 
 const rpc = createRPC()
