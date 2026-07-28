@@ -7,12 +7,15 @@ import { useLogInfo } from '@/features/settings/hooks/use-log-info'
 import { logs } from '@/features/settings/settings.api'
 
 function formatBytes(bytes: number): string {
+  // Bytes size
   if (bytes < 1024) {
     return `${bytes} B`
   }
+  // Kilobytes size
   if (bytes < 1024 * 1024) {
     return `${(bytes / 1024).toFixed(1)} KB`
   }
+  // Megabytes size
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
