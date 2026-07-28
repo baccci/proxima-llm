@@ -48,3 +48,21 @@ WKWebView excludes a native `<button>` from the sequential Tab order unless it c
 `tabindex`. `use-webkit-tab-focus.ts` normalizes every plain button to `tabindex="0"` on mount and
 via a MutationObserver for later ones. Base UI controls set their own tabindex, so `:not([tabindex])`
 skips them.
+
+## Native `window.confirm` / `alert` / `prompt` are silent no-ops
+
+**Symptom.** A button guarded by `if (!window.confirm(...)) return` does nothing when clicked: no
+dialog appears and the action never runs. Bit the remove-API-key and clear-logs buttons.
+
+**Cause.** Electrobun's WKWebView ships no JS-dialog UI delegate, so WebKit never shows the panel and
+`window.confirm` returns `false` (and `alert` / `prompt` are inert too). The guard therefore always
+takes the early return.
+
+**Fix.** Use the in-app dialog, not the native one: `DialogRoot` + `DialogContent` from
+`@/components/dialog`, driven by a `React.useState` boolean (the chat-delete pattern). It is a portaled
+React surface, so it works.
+
+**Gotcha inside a Modal.** The Settings screen is itself a `Modal` (`z-modal`, 25). A `DialogContent`
+backdrop sits at `z-overlay` (20), below the Modal, so the Modal paints over the dim and the overlay is
+lost. Pass the `overModal` prop, which lifts backdrop and popup into the `z-popover` band (28). See the
+z-index scale in `global.css`.
