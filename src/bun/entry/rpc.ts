@@ -145,12 +145,14 @@ export function createRPC() {
         listMessages: ({ chatId }) => chatService.listMessages(chatId),
         getCompactionInfo: ({ chatId }) => {
           const snapshot = getLatestSnapshot(chatId)
-          return snapshot
-            ? {
-                coveredThroughAt: snapshot.coveredThroughAt,
-                displayThroughAt: snapshot.displayThroughAt,
-              }
-            : null
+          if (!snapshot) {
+            return null
+          }
+
+          return {
+            coveredThroughAt: snapshot.coveredThroughAt,
+            displayThroughAt: snapshot.displayThroughAt,
+          }
         },
         compactNow: ({ chatId }) => compactionService.compactChatNow(chatId),
 
