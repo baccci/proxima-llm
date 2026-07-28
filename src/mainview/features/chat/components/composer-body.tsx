@@ -7,10 +7,11 @@ import { chat } from '@/features/chat/chat.api'
 import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
 import { ComposerAttachmentRow } from '@/features/chat/components/composer-attachment-row'
 import { ComposerButton } from '@/features/chat/components/composer-button'
-import { attachmentAccept, getCapabilities } from '@/features/chat/helpers/composer-capabilities'
-import { pickInitialEffort, reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
+import { attachmentAccept } from '@/features/chat/helpers/composer-capabilities'
+import type { ComposerFlags, ComposerPatch } from '@/features/chat/helpers/composer-reasoning'
 import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
 import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-textarea'
+import { useComposerControls } from '@/features/chat/hooks/use-composer-controls'
 import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachments'
 import { useStreamingMessage } from '@/features/chat/hooks/use-streaming-message'
 import { sendTurn } from '@/features/chat/lib/send-turn'
@@ -30,6 +31,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false)
   const [browserEnabled, setBrowserEnabled] = React.useState(false)
   const [effortValue, setEffortValue] = React.useState<string | null>(null)
+  const [currentModelId, setCurrentModelId] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const { ref: textareaRef, autoResize, reset: resetTextarea } = useAutoResizeTextarea()
 
@@ -50,34 +52,15 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
     allModels.find((m) => m.isEnabled && configuredProviders.has(m.provider))?.id ??
     allModels.find((m) => m.isEnabled)?.id ??
     null
-  const [currentModelId, setCurrentModelId] = React.useState<string | null>(null)
   const modelId = currentModelId ?? defaultModelId
-  const selectedModel = allModels.find((m) => m.id === modelId)
-  const { canThink, canVision, canPdf, canBrowse } = getCapabilities(selectedModel)
-  // A mandatory model reasons whether or not the local toggle is on. Effort is the user's
-  // explicit pick when set, else the model's starting effort; null whenever reasoning is
-  // off. Derived (not mirrored into state) so it can't drift.
-  const mustThink = canThink && !!selectedModel?.capabilities.reasoningMandatory
-  const thinkingActive = (thinkingEnabled || mustThink) && canThink
-  const effortActive = thinkingActive
-    ? (effortValue ?? (selectedModel ? pickInitialEffort(selectedModel) : null))
-    : null
-  const canSubmit = (text.trim().length > 0 || pending.length > 0) && !isStreaming && !!modelId
 
-  const accept = attachmentAccept({ canVision, canPdf })
+  const flags: ComposerFlags = {
+    thinking: thinkingEnabled,
+    webSearch: browserEnabled,
+    effort: effortValue,
+  }
 
-  function handleModelChange(id: string) {
-    setCurrentModelId(id)
-    const model = allModels.find((m) => m.id === id)
-    if (!model) {
-      return
-    }
-
-    const patch = reconcileComposer(model, {
-      thinking: thinkingEnabled,
-      webSearch: browserEnabled,
-      effort: effortValue,
-    })
+  function applyFlags(patch: ComposerPatch) {
     if (patch.thinking !== undefined) {
       setThinkingEnabled(patch.thinking)
     }
@@ -89,14 +72,22 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
     }
   }
 
-  function handleThinkingChange(v: boolean) {
-    setThinkingEnabled(v)
-    // Clear the explicit pick when reasoning turns off, so re-enabling starts again from
-    // the model's default (effortActive derives that from a null pick).
-    if (!v) {
-      setEffortValue(null)
-    }
-  }
+  const controls = useComposerControls({
+    models: allModels,
+    modelId,
+    flags,
+    applyFlags,
+    changeModel: (id, patch) => {
+      setCurrentModelId(id)
+      applyFlags(patch)
+    },
+  })
+  const { model, canVision, canPdf, canBrowse, thinkingActive, effortActive } = controls
+
+  const webSearchActive = browserEnabled && canBrowse
+  const canSubmit = (text.trim().length > 0 || pending.length > 0) && !isStreaming && !!modelId
+
+  const accept = attachmentAccept({ canVision, canPdf })
 
   async function handleSubmit() {
     const content = text.trim()
@@ -114,7 +105,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
         projectId: projectId ?? undefined,
         composer: {
           thinking: thinkingActive,
-          webSearch: browserEnabled && canBrowse,
+          webSearch: webSearchActive,
           effort: effortActive,
           toolGrants: {},
         },
@@ -127,7 +118,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
         content,
         modelId,
         thinking: thinkingActive,
-        webSearch: browserEnabled && canBrowse,
+        webSearch: webSearchActive,
         effort: effortActive,
         pending,
         flush,
@@ -162,7 +153,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
-      addFiles(e.target.files, selectedModel)
+      addFiles(e.target.files, model)
       e.target.value = ''
     }
   }
@@ -188,14 +179,14 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
 
         <div className="flex items-center gap-1 px-3 pb-2.5 pt-1">
           <ComposerAddMenu
-            model={selectedModel}
+            model={model}
             thinking={thinkingActive}
-            webSearch={browserEnabled && canBrowse}
+            webSearch={webSearchActive}
             effort={effortActive}
             disabled={isStreaming}
-            onThinkingChange={handleThinkingChange}
-            onWebSearchChange={setBrowserEnabled}
-            onEffortChange={setEffortValue}
+            onThinkingChange={controls.onThinkingChange}
+            onWebSearchChange={controls.onWebSearchChange}
+            onEffortChange={controls.onEffortChange}
             onAttachClick={() => fileInputRef.current?.click()}
           />
 
@@ -210,7 +201,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
 
           <ModelSwitcher
             modelId={modelId}
-            onChange={handleModelChange}
+            onChange={controls.onModelChange}
             disabled={isStreaming}
             effort={effortActive}
           />

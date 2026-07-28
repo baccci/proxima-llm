@@ -1,5 +1,4 @@
 import type { ChatDTO } from '@shared/schemas/chat.schema'
-import type { ModelDTO } from '@shared/schemas/model.schema'
 import React from 'react'
 import { IconArrowUp } from '@/components/icons/icon-arrow-up'
 import { IconStop } from '@/components/icons/icon-stop'
@@ -9,11 +8,12 @@ import { chat } from '@/features/chat/chat.api'
 import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
 import { ComposerAttachmentRow } from '@/features/chat/components/composer-attachment-row'
 import { ComposerButton } from '@/features/chat/components/composer-button'
-import { attachmentAccept, getCapabilities } from '@/features/chat/helpers/composer-capabilities'
-import { pickInitialEffort, reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
+import { attachmentAccept } from '@/features/chat/helpers/composer-capabilities'
+import type { ComposerFlags } from '@/features/chat/helpers/composer-reasoning'
 import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
 import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-textarea'
 import { useCompactNow } from '@/features/chat/hooks/use-compact-now'
+import { useComposerControls } from '@/features/chat/hooks/use-composer-controls'
 import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachments'
 import { useStreamingMessage } from '@/features/chat/hooks/use-streaming-message'
 import { sendTurn } from '@/features/chat/lib/send-turn'
@@ -44,10 +44,9 @@ export function MessageInput({
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const chatId = chatItem.id
-  const currentModelId = chatItem.modelId
-  const thinkingEnabled = chatItem.composer.thinking
-  const browserEnabled = chatItem.composer.webSearch
-  const effortValue = chatItem.composer.effort
+  // A local const (not chatItem.modelId inline) so the canSubmit null-guard narrowing
+  // survives the setText/resetTextarea calls before sendTurn reads it as a plain string.
+  const modelId = chatItem.modelId
   const { data: settings } = useSettings()
   const { data: allModels = [] } = useModels()
   const failStreaming = useChatStore((s) => s.failStreaming)
@@ -57,27 +56,32 @@ export function MessageInput({
   const { ref: textareaRef, autoResize, reset: resetTextarea } = useAutoResizeTextarea()
   const { isCompacting, note: compactNote, compact } = useCompactNow(chatId)
 
-  const selectedModel: ModelDTO | undefined = allModels.find((m) => m.id === currentModelId)
+  const flags: ComposerFlags = {
+    thinking: chatItem.composer.thinking,
+    webSearch: chatItem.composer.webSearch,
+    effort: chatItem.composer.effort,
+  }
+  const controls = useComposerControls({
+    models: allModels,
+    modelId,
+    flags,
+    applyFlags: (patch) => chat.update({ id: chatId, composer: patch }),
+    changeModel: (id, patch) => {
+      const hasPatch = Object.keys(patch).length > 0
+      chat.update({ id: chatId, modelId: id, ...(hasPatch ? { composer: patch } : {}) })
+    },
+  })
+  const { model, canVision, canPdf, canBrowse, thinkingActive, effortActive } = controls
 
-  // What the selected model can do drives which composer controls are enabled.
-  const { canThink, canVision, canPdf, canBrowse } = getCapabilities(selectedModel)
-  // Mirror the welcome composer: a mandatory model is treated as reasoning-on, and the
-  // effort shown/sent is gated by thinking so a stale label can't persist (Bug 2).
-  const mustThink = canThink && !!selectedModel?.capabilities.reasoningMandatory
-  const thinkingActive = (thinkingEnabled || mustThink) && canThink
-  const effortActive = thinkingActive
-    ? (effortValue ?? (selectedModel ? pickInitialEffort(selectedModel) : null))
-    : null
-
+  const webSearchActive = flags.webSearch && canBrowse
   const isStreaming = !!streaming && !streaming.done
-  const canSubmit =
-    (text.trim().length > 0 || pending.length > 0) && !isStreaming && !!currentModelId
+  const canSubmit = (text.trim().length > 0 || pending.length > 0) && !isStreaming && !!modelId
 
   const accept = attachmentAccept({ canVision, canPdf })
 
   const placeholder = isStreaming
     ? 'Waiting for response…'
-    : `Reply to ${selectedModel?.displayName ?? 'AI'}…`
+    : `Reply to ${model?.displayName ?? 'AI'}…`
   const sendHint = settings?.sendOnEnter
     ? 'Enter to send · Shift+Enter for newline'
     : '⌘+Enter to send · Enter for newline'
@@ -95,9 +99,9 @@ export function MessageInput({
       await sendTurn({
         chatId,
         content,
-        modelId: currentModelId,
+        modelId,
         thinking: thinkingActive,
-        webSearch: browserEnabled && canBrowse,
+        webSearch: webSearchActive,
         effort: effortActive,
         pending,
         flush,
@@ -125,39 +129,11 @@ export function MessageInput({
     finishStreaming()
   }
 
-  function handleThinkingChange(v: boolean) {
-    // Enable: seed the model's starting effort. Disable: clear it (Bug 2, at the source).
-    const nextEffort = v && selectedModel ? pickInitialEffort(selectedModel) : null
-    chat.update({ id: chatId, composer: { thinking: v, effort: nextEffort } })
-  }
-
-  function handleModelChange(id: string) {
-    const model = allModels.find((m) => m.id === id)
-
-    // Unknown model id: switch without reconciling composer flags.
-    if (!model) {
-      chat.update({ id: chatId, modelId: id })
-      return
-    }
-
-    const composerPatch = reconcileComposer(model, {
-      thinking: thinkingEnabled,
-      webSearch: browserEnabled,
-      effort: effortValue,
-    })
-    const hasPatch = Object.keys(composerPatch).length > 0
-    chat.update({
-      id: chatId,
-      modelId: id,
-      ...(hasPatch ? { composer: composerPatch } : {}),
-    })
-  }
-
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files) {
       return
     }
-    addFiles(e.target.files, selectedModel)
+    addFiles(e.target.files, model)
     e.target.value = ''
   }
 
@@ -182,14 +158,14 @@ export function MessageInput({
 
         <div className="flex items-center gap-1 px-3 pb-2.5 pt-1">
           <ComposerAddMenu
-            model={selectedModel}
+            model={model}
             thinking={thinkingActive}
-            webSearch={browserEnabled && canBrowse}
+            webSearch={webSearchActive}
             effort={effortActive}
             disabled={isStreaming}
-            onThinkingChange={handleThinkingChange}
-            onWebSearchChange={(v) => chat.update({ id: chatId, composer: { webSearch: v } })}
-            onEffortChange={(v) => chat.update({ id: chatId, composer: { effort: v } })}
+            onThinkingChange={controls.onThinkingChange}
+            onWebSearchChange={controls.onWebSearchChange}
+            onEffortChange={controls.onEffortChange}
             onAttachClick={() => fileInputRef.current?.click()}
           />
 
@@ -203,8 +179,8 @@ export function MessageInput({
           />
 
           <ModelSwitcher
-            modelId={currentModelId}
-            onChange={handleModelChange}
+            modelId={modelId}
+            onChange={controls.onModelChange}
             disabled={isStreaming}
             usedTokens={contextUsed}
             cachedFraction={contextCached}

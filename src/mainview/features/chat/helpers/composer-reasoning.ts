@@ -14,6 +14,11 @@ export type ComposerPatch = {
   effort?: string | null
 }
 
+export type ComposerReasoning = {
+  thinkingActive: boolean
+  effortActive: string | null
+}
+
 // The effort a model starts at when reasoning turns on: its declared default, else the
 // middle of its ordered levels. A model with no effort granularity (efforts: []) has no
 // starting effort, so this is null and no slider is shown.
@@ -26,6 +31,34 @@ export function pickInitialEffort(model: ModelDTO): Effort | null {
     return null
   }
   return efforts[Math.floor((efforts.length - 1) / 2)]
+}
+
+// The reasoning state the composer actually shows and sends, read from the model and the
+// current flags. A mandatory-reasoning model counts as on even when the local toggle is
+// off. Effort is the user's explicit pick when set, else the model's starting effort, and
+// null whenever reasoning is off. Derived here, never mirrored into state, so a stale value
+// cannot persist.
+export function deriveComposerReasoning(
+  model: ModelDTO | undefined,
+  flags: ComposerFlags,
+): ComposerReasoning {
+  const canThink = model ? supportsThinking(model) : false
+  const mustThink = canThink && !!model?.capabilities.reasoningMandatory
+  const thinkingActive = (flags.thinking || mustThink) && canThink
+
+  if (!thinkingActive) {
+    return { thinkingActive: false, effortActive: null }
+  }
+
+  const effortActive = flags.effort ?? (model ? pickInitialEffort(model) : null)
+  return { thinkingActive, effortActive }
+}
+
+// The flag change when the user toggles the Think switch: on seeds the model's starting
+// effort, off clears the explicit pick so re-enabling starts from the default again.
+export function pickThinkingPatch(enabled: boolean, model: ModelDTO | undefined): ComposerPatch {
+  const effort = enabled && model ? pickInitialEffort(model) : null
+  return { thinking: enabled, effort }
 }
 
 // When switching models, bring the composer flags into what the new model allows. Returns
