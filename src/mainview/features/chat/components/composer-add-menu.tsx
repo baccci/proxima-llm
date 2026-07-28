@@ -63,7 +63,7 @@ export function ComposerAddMenu({
       </DropdownTrigger>
 
       <DropdownPortal>
-        <DropdownContent side="top" align="start" className="min-w-64">
+        <DropdownContent side="top" align="start" className="min-w-58">
           {canAttach && (
             <DropdownItem icon={<IconPaperclip width={14} />} onClick={onAttachClick}>
               Attach files…
@@ -102,8 +102,8 @@ export function ComposerAddMenu({
           {showSlider && (
             <>
               <DropdownSeparator />
-              <div className="px-2.5 py-1.5">
-                <div className="mb-2 flex items-center justify-between">
+              <div className="px-2.5 py-3">
+                <div className="mb-4 flex items-center justify-between">
                   <span className="text-sm text-foreground">Effort</span>
                   <span className="text-sm text-subtle">{capitalize(sliderValue)}</span>
                 </div>

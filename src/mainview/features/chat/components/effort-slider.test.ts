@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Effort } from '@shared/models/effort'
-import { effortForClick, effortForKey } from './effort-slider'
+import { effortForKey, effortForPosition } from './effort-slider'
 
 const LEVELS: Effort[] = ['low', 'medium', 'high']
 
@@ -39,18 +39,30 @@ describe('effortForKey', () => {
   })
 })
 
-describe('effortForClick', () => {
-  test('returns the level at the clicked stop', () => {
-    expect(effortForClick(LEVELS, 0)).toBe('low')
-    expect(effortForClick(LEVELS, 2)).toBe('high')
+describe('effortForPosition', () => {
+  test('maps the track ends to the first and last level', () => {
+    expect(effortForPosition(LEVELS, 0)).toBe('low')
+    expect(effortForPosition(LEVELS, 1)).toBe('high')
   })
 
-  test('an out-of-range index is a no-op', () => {
-    expect(effortForClick(LEVELS, -1)).toBeNull()
-    expect(effortForClick(LEVELS, 3)).toBeNull()
+  test('snaps to the nearest stop', () => {
+    // Stops for 3 levels sit at 0, 0.5, 1; boundaries at 0.25 / 0.75.
+    expect(effortForPosition(LEVELS, 0.1)).toBe('low')
+    expect(effortForPosition(LEVELS, 0.4)).toBe('medium')
+    expect(effortForPosition(LEVELS, 0.6)).toBe('medium')
+    expect(effortForPosition(LEVELS, 0.9)).toBe('high')
   })
 
-  test('disabled blocks the click', () => {
-    expect(effortForClick(LEVELS, 1, true)).toBeNull()
+  test('clamps a fraction outside 0..1', () => {
+    expect(effortForPosition(LEVELS, -0.5)).toBe('low')
+    expect(effortForPosition(LEVELS, 1.5)).toBe('high')
+  })
+
+  test('disabled blocks the drag', () => {
+    expect(effortForPosition(LEVELS, 0.5, true)).toBeNull()
+  })
+
+  test('an empty scale is a no-op', () => {
+    expect(effortForPosition([], 0.5)).toBeNull()
   })
 })
