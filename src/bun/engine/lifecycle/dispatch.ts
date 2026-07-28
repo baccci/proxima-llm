@@ -1,8 +1,8 @@
-import { log } from '../../infra/logging/logger';
-import type { ActionRegistry, AnyAction, DispatchStage, StageContextMap } from './action';
-import { CATALOG } from './catalog';
-import { DEFAULT_HOOK_CONFIG, type HookConfigEntry } from './hook-config';
-import { LIFECYCLE_STAGE } from './stages';
+import { log } from '../../infra/logging/logger'
+import type { ActionRegistry, AnyAction, DispatchStage, StageContextMap } from './action'
+import { CATALOG } from './catalog'
+import { DEFAULT_HOOK_CONFIG, type HookConfigEntry } from './hook-config'
+import { LIFECYCLE_STAGE } from './stages'
 
 // Run a stage's actions in order with per-action error isolation: a thrown action is logged
 // and the next still runs, so one failing action never sinks the others or the turn. Awaited
@@ -11,9 +11,9 @@ import { LIFECYCLE_STAGE } from './stages';
 export async function runActions(actions: AnyAction[], ctx: unknown, stage: string): Promise<void> {
   for (const action of actions) {
     try {
-      await action.run(ctx);
+      await action.run(ctx)
     } catch (err) {
-      log.error(`Lifecycle action '${action.id}' failed on stage '${stage}' (non-fatal)`, err);
+      log.error(`Lifecycle action '${action.id}' failed on stage '${stage}' (non-fatal)`, err)
     }
   }
 }
@@ -33,31 +33,31 @@ export function buildRegistry(
     [LIFECYCLE_STAGE.turnDone]: [],
     [LIFECYCLE_STAGE.turnError]: [],
     [LIFECYCLE_STAGE.approvalNeeded]: [],
-  };
+  }
   for (const entry of config) {
     if (!entry.enabled) {
-      continue;
+      continue
     }
-    const action = catalog.get(entry.actionId);
+    const action = catalog.get(entry.actionId)
     if (!action) {
       log.warn(
         `Hook config names unknown action '${entry.actionId}' on stage '${entry.stage}', skipping`,
-      );
-      continue;
+      )
+      continue
     }
-    registry[action.stage].push(action);
+    registry[action.stage].push(action)
   }
-  return registry;
+  return registry
 }
 
 // The process-wide registry. Seeded from the built-in defaults so pre-boot dispatch is safe;
 // rebuilt from the persisted config once the DB is ready and after every setHook write.
-let registry = buildRegistry(DEFAULT_HOOK_CONFIG, CATALOG);
+let registry = buildRegistry(DEFAULT_HOOK_CONFIG, CATALOG)
 
 // Rebuild the process registry from a fresh config. The DB is kept out of this module's import
 // graph: the caller (boot, the setHook handler) loads the config and passes it in.
 export function rebuildRegistry(config: HookConfigEntry[]): void {
-  registry = buildRegistry(config, CATALOG);
+  registry = buildRegistry(config, CATALOG)
 }
 
 // Fire every enabled action bound to a stage, with the stage's typed context. The stage key
@@ -67,5 +67,5 @@ export function dispatchStage<S extends DispatchStage>(
   stage: S,
   ctx: StageContextMap[S],
 ): Promise<void> {
-  return runActions(registry[stage], ctx, stage);
+  return runActions(registry[stage], ctx, stage)
 }

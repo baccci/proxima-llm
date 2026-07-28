@@ -2,13 +2,13 @@ import {
   type MessageDTO,
   MessageRole,
   PartKind,
-} from '../../../shared-contracts/schemas/message.schema';
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema';
+} from '../../../shared-contracts/schemas/message.schema'
+import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema'
 
-const DEFAULT_CONTEXT_WINDOW = 200_000;
-export const DEFAULT_COMPACTION_RATIO = 0.8;
+const DEFAULT_CONTEXT_WINDOW = 200_000
+export const DEFAULT_COMPACTION_RATIO = 0.8
 // Rough fallback when no provider token count is available: ~4 chars per token.
-const CHARS_PER_TOKEN = 4;
+const CHARS_PER_TOKEN = 4
 
 // Estimate how many tokens the chat currently occupies. Prefer the last
 // assistant turn's provider-reported input count (authoritative); fall back to a
@@ -17,20 +17,20 @@ const CHARS_PER_TOKEN = 4;
 export function estimateContextTokens(history: MessageDTO[]): number {
   const lastAssistant = [...history]
     .reverse()
-    .find((m) => m.role === MessageRole.enum.assistant && m.usage != null);
+    .find((m) => m.role === MessageRole.enum.assistant && m.usage != null)
   if (lastAssistant?.usage?.inputTokens != null) {
-    return lastAssistant.usage.inputTokens;
+    return lastAssistant.usage.inputTokens
   }
 
   const chars = history.reduce((acc, m) => {
     for (const p of m.parts) {
       if (p.type === PartKind.enum.text || p.type === PartKind.enum.reasoning) {
-        acc += p.text.length;
+        acc += p.text.length
       }
     }
-    return acc;
-  }, 0);
-  return Math.ceil(chars / CHARS_PER_TOKEN);
+    return acc
+  }, 0)
+  return Math.ceil(chars / CHARS_PER_TOKEN)
 }
 
 // Whether the estimated context has crossed the compaction threshold for this
@@ -40,6 +40,6 @@ export function exceedsCompactionThreshold(
   model: ModelDTO,
   ratio: number = DEFAULT_COMPACTION_RATIO,
 ): boolean {
-  const window = model.capabilities.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
-  return tokens > window * ratio;
+  const window = model.capabilities.contextWindow ?? DEFAULT_CONTEXT_WINDOW
+  return tokens > window * ratio
 }

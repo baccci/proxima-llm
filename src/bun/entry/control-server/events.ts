@@ -1,7 +1,7 @@
-import type { ServerWebSocket, WebSocketHandler } from 'bun';
+import type { ServerWebSocket, WebSocketHandler } from 'bun'
 
 export interface WsData {
-  authenticated: boolean;
+  authenticated: boolean
 }
 
 // The stages a control client hears about over WS /events: a request was accepted,
@@ -12,23 +12,23 @@ export const LIFECYCLE_KIND = {
   started: 'started',
   done: 'done',
   error: 'error',
-} as const;
-export type LifecycleKind = (typeof LIFECYCLE_KIND)[keyof typeof LIFECYCLE_KIND];
+} as const
+export type LifecycleKind = (typeof LIFECYCLE_KIND)[keyof typeof LIFECYCLE_KIND]
 
 export interface LifecycleEvent {
-  event: LifecycleKind;
-  chatId: string;
-  streamId: string;
+  event: LifecycleKind
+  chatId: string
+  streamId: string
 }
 
 // All connected, authenticated WS clients.
-const wsClients = new Set<ServerWebSocket<WsData>>();
+const wsClients = new Set<ServerWebSocket<WsData>>()
 
 // Push a lifecycle event to every connected control client.
 export function broadcast(payload: LifecycleEvent): void {
-  const msg = JSON.stringify(payload);
+  const msg = JSON.stringify(payload)
   for (const ws of wsClients) {
-    ws.send(msg);
+    ws.send(msg)
   }
 }
 
@@ -36,17 +36,17 @@ export function broadcast(payload: LifecycleEvent): void {
 // track the open set; inbound messages are ignored.
 export const wsHandlers: WebSocketHandler<WsData> = {
   open(ws) {
-    wsClients.add(ws);
+    wsClients.add(ws)
   },
   close(ws) {
-    wsClients.delete(ws);
+    wsClients.delete(ws)
   },
   message() {
     // Clients are listeners only; ignore inbound messages.
   },
-};
+}
 
 // Drop every tracked client. Called when the server stops.
 export function clearWsClients(): void {
-  wsClients.clear();
+  wsClients.clear()
 }

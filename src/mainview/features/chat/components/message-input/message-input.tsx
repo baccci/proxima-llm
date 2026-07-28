@@ -10,7 +10,7 @@ import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
 import { ComposerAttachmentRow } from '@/features/chat/components/composer-attachment-row'
 import { ComposerButton } from '@/features/chat/components/composer-button'
 import { attachmentAccept, getCapabilities } from '@/features/chat/helpers/composer-capabilities'
-import { reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
+import { pickInitialEffort, reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
 import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
 import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-textarea'
 import { useCompactNow } from '@/features/chat/hooks/use-compact-now'
@@ -61,6 +61,13 @@ export function MessageInput({
 
   // What the selected model can do drives which composer controls are enabled.
   const { canThink, canVision, canPdf, canBrowse } = getCapabilities(selectedModel)
+  // Mirror the welcome composer: a mandatory model is treated as reasoning-on, and the
+  // effort shown/sent is gated by thinking so a stale label can't persist (Bug 2).
+  const mustThink = canThink && !!selectedModel?.capabilities.reasoningMandatory
+  const thinkingActive = (thinkingEnabled || mustThink) && canThink
+  const effortActive = thinkingActive
+    ? (effortValue ?? (selectedModel ? pickInitialEffort(selectedModel) : null))
+    : null
 
   const isStreaming = !!streaming && !streaming.done
   const canSubmit =
@@ -89,9 +96,9 @@ export function MessageInput({
         chatId,
         content,
         modelId: currentModelId,
-        thinking: thinkingEnabled && canThink,
+        thinking: thinkingActive,
         webSearch: browserEnabled && canBrowse,
-        effort: effortValue,
+        effort: effortActive,
         pending,
         flush,
         clear,
@@ -116,6 +123,12 @@ export function MessageInput({
       chat.cancelStream(streaming.streamId)
     }
     finishStreaming()
+  }
+
+  function handleThinkingChange(v: boolean) {
+    // Enable: seed the model's starting effort. Disable: clear it (Bug 2, at the source).
+    const nextEffort = v && selectedModel ? pickInitialEffort(selectedModel) : null
+    chat.update({ id: chatId, composer: { thinking: v, effort: nextEffort } })
   }
 
   function handleModelChange(id: string) {
@@ -170,11 +183,11 @@ export function MessageInput({
         <div className="flex items-center gap-1 px-3 pb-2.5 pt-1">
           <ComposerAddMenu
             model={selectedModel}
-            thinking={thinkingEnabled && canThink}
+            thinking={thinkingActive}
             webSearch={browserEnabled && canBrowse}
-            effort={effortValue}
+            effort={effortActive}
             disabled={isStreaming}
-            onThinkingChange={(v) => chat.update({ id: chatId, composer: { thinking: v } })}
+            onThinkingChange={handleThinkingChange}
             onWebSearchChange={(v) => chat.update({ id: chatId, composer: { webSearch: v } })}
             onEffortChange={(v) => chat.update({ id: chatId, composer: { effort: v } })}
             onAttachClick={() => fileInputRef.current?.click()}
@@ -195,7 +208,7 @@ export function MessageInput({
             disabled={isStreaming}
             usedTokens={contextUsed}
             cachedFraction={contextCached}
-            effort={effortValue}
+            effort={effortActive}
           />
 
           {contextFraction != null && contextFraction >= COMPACT_HINT_THRESHOLD && (

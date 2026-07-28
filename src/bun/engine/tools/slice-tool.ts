@@ -1,8 +1,8 @@
-import { tool } from 'ai';
-import { z } from 'zod';
-import { CAPABILITY_SLICES } from './slices';
+import { tool } from 'ai'
+import { z } from 'zod'
+import { CAPABILITY_SLICES } from './slices'
 
-const capabilityKeys = Object.keys(CAPABILITY_SLICES) as [string, ...string[]];
+const capabilityKeys = Object.keys(CAPABILITY_SLICES) as [string, ...string[]]
 
 export const sliceTool = tool({
   description:
@@ -11,6 +11,6 @@ export const sliceTool = tool({
     capability: z.enum(capabilityKeys).describe('The feature to get detail about'),
   }),
   execute: async ({ capability }) => {
-    return CAPABILITY_SLICES[capability] ?? 'Unknown capability key.';
+    return CAPABILITY_SLICES[capability] ?? 'Unknown capability key.'
   },
-});
+})

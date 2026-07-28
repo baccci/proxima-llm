@@ -4,7 +4,9 @@
     "includes": ["**", "!dist", "!native", "!build", "!**/*.dylib", "!bun.lock", "!.claude"]
   },
   "css": {
-    "parser": { "tailwindDirectives": true }
+    "parser": {
+      "tailwindDirectives": true
+    }
   },
   "formatter": {
     "enabled": true,
@@ -39,7 +41,9 @@
         "noNonNullAssertion": "off",
         "useFilenamingConvention": {
           "level": "error",
-          "options": { "filenameCases": ["kebab-case"] }
+          "options": {
+            "filenameCases": ["kebab-case"]
+          }
         },
         "useNodejsImportProtocol": "off"
       },
@@ -51,16 +55,14 @@
   },
   "overrides": [
     {
-      "includes": ["src/bun/**"],
-      "javascript": { "formatter": { "semicolons": "always" } }
-    },
-    {
       // The RPC schema uses `response: void` for fire-and-forget calls so the bun
       // handlers (which return void) type-check. `void` is correct here, not confusing.
       "includes": ["src/shared-contracts/rpc/**"],
       "linter": {
         "rules": {
-          "suspicious": { "noConfusingVoidType": "off" }
+          "suspicious": {
+            "noConfusingVoidType": "off"
+          }
         }
       }
     }

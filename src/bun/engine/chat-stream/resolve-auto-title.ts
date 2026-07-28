@@ -1,9 +1,9 @@
-import { type ChatDTO, DEFAULT_CHAT_TITLE } from '../../../shared-contracts/schemas/chat.schema';
+import { type ChatDTO, DEFAULT_CHAT_TITLE } from '../../../shared-contracts/schemas/chat.schema'
 import {
   type MessageDTO,
   MessageRole,
   PartKind,
-} from '../../../shared-contracts/schemas/message.schema';
+} from '../../../shared-contracts/schemas/message.schema'
 
 // Decide whether a chat should be auto-titled this turn, and from what text. Returns
 // the first user message's text while the chat is still unnamed, else null. Pure: the
@@ -13,12 +13,12 @@ import {
 // earlier self-heal on a later turn.
 export function resolveAutoTitle(chat: ChatDTO | undefined, history: MessageDTO[]): string | null {
   if (chat?.title !== DEFAULT_CHAT_TITLE) {
-    return null;
+    return null
   }
 
-  const firstUser = history.find((m) => m.role === MessageRole.enum.user);
+  const firstUser = history.find((m) => m.role === MessageRole.enum.user)
   if (!firstUser) {
-    return null;
+    return null
   }
 
   const text = firstUser.parts
@@ -28,7 +28,7 @@ export function resolveAutoTitle(chat: ChatDTO | undefined, history: MessageDTO[
     )
     .map((p) => p.text)
     .join(' ')
-    .trim();
+    .trim()
 
-  return text || null;
+  return text || null
 }

@@ -1,23 +1,19 @@
-import { effortLevelsForModel } from '@shared/models/effort'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import {
   DropdownContent,
   DropdownItem,
   DropdownPortal,
-  DropdownRadioGroup,
-  DropdownRadioItem,
   DropdownRoot,
   DropdownSeparator,
-  DropdownSubmenuRoot,
-  DropdownSubmenuTrigger,
   DropdownSwitchItem,
   DropdownTrigger,
 } from '@/components/dropdown'
 import { IconBrain } from '@/components/icons/icon-brain'
-import { IconChevronRight } from '@/components/icons/icon-chevron-right'
 import { IconGlobe } from '@/components/icons/icon-globe'
 import { IconPaperclip } from '@/components/icons/icon-paperclip'
 import { IconPlus } from '@/components/icons/icon-plus'
+import { TooltipWrapper } from '@/components/tooltip'
+import { EffortSlider } from '@/features/chat/components/effort-slider'
 import { getCapabilities } from '@/features/chat/helpers/composer-capabilities'
 import { capitalize } from '@/utils/capitalize'
 
@@ -46,8 +42,16 @@ export function ComposerAddMenu({
 }: ComposerAddMenuProps) {
   const { canThink, canVision, canPdf, canBrowse } = getCapabilities(model)
   const canAttach = canVision || canPdf
-  const levels = model ? effortLevelsForModel(model) : []
-  const hasEffortOptions = levels.length > 0
+
+  const efforts = model?.capabilities.efforts ?? []
+  const mandatory = model?.capabilities.reasoningMandatory ?? false
+  // A mandatory model reasons whether or not the local flag is on, so treat it as on.
+  const thinkingOn = thinking || mandatory
+  const showSlider = canThink && thinkingOn && efforts.length >= 2
+  // Effort is concrete while thinking is on (the composer sets it); fall back to the middle
+  // stop only as a display safety net so the slider always has a valid thumb.
+  const selectedEffort = efforts.find((e) => e === effort) ?? null
+  const sliderValue = selectedEffort ?? efforts[Math.floor((efforts.length - 1) / 2)]
 
   return (
     <DropdownRoot>
@@ -59,7 +63,7 @@ export function ComposerAddMenu({
       </DropdownTrigger>
 
       <DropdownPortal>
-        <DropdownContent side="top" align="start">
+        <DropdownContent side="top" align="start" className="min-w-58">
           {canAttach && (
             <DropdownItem icon={<IconPaperclip width={14} />} onClick={onAttachClick}>
               Attach files…
@@ -78,43 +82,34 @@ export function ComposerAddMenu({
             </DropdownSwitchItem>
           )}
 
-          {canThink && (
-            <DropdownSwitchItem
-              checked={thinking}
-              onCheckedChange={onThinkingChange}
-              icon={<IconBrain width={14} />}
-            >
-              Think
-            </DropdownSwitchItem>
-          )}
-
-          {canThink && hasEffortOptions && (
-            <DropdownSubmenuRoot>
-              <DropdownSubmenuTrigger
-                disabled={!thinking}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-foreground cursor-pointer select-none hover:bg-surface-hover data-highlighted:bg-surface-hover transition-colors outline-none data-disabled:opacity-40 data-disabled:pointer-events-none"
+          {canThink &&
+            (mandatory ? (
+              <TooltipWrapper content="Required by this model" side="top">
+                <DropdownSwitchItem checked disabled icon={<IconBrain width={14} />}>
+                  Think
+                </DropdownSwitchItem>
+              </TooltipWrapper>
+            ) : (
+              <DropdownSwitchItem
+                checked={thinking}
+                onCheckedChange={onThinkingChange}
+                icon={<IconBrain width={14} />}
               >
-                <span className="flex h-4 w-4 shrink-0" />
-                <span className="flex-1">
-                  Effort
-                  {effort && <span className="ml-1 text-subtle">· {capitalize(effort)}</span>}
-                </span>
-                <IconChevronRight width={12} className="text-subtle" />
-              </DropdownSubmenuTrigger>
+                Think
+              </DropdownSwitchItem>
+            ))}
 
-              <DropdownPortal>
-                <DropdownContent side="right" align="start">
-                  <DropdownRadioGroup value={effort} onValueChange={onEffortChange}>
-                    <DropdownRadioItem value={null}>Default</DropdownRadioItem>
-                    {levels.map((level) => (
-                      <DropdownRadioItem key={level} value={level}>
-                        {capitalize(level)}
-                      </DropdownRadioItem>
-                    ))}
-                  </DropdownRadioGroup>
-                </DropdownContent>
-              </DropdownPortal>
-            </DropdownSubmenuRoot>
+          {showSlider && (
+            <>
+              <DropdownSeparator />
+              <div className="px-2.5 py-3">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-sm text-foreground">Effort</span>
+                  <span className="text-sm text-subtle">{capitalize(sliderValue)}</span>
+                </div>
+                <EffortSlider levels={efforts} value={sliderValue} onChange={onEffortChange} />
+              </div>
+            </>
           )}
         </DropdownContent>
       </DropdownPortal>

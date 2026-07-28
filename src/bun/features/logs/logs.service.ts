@@ -1,40 +1,40 @@
-import { Utils } from 'electrobun/bun';
-import { readdirSync, statSync, unlinkSync } from 'fs';
-import { join } from 'path';
-import { log } from '../../infra/logging/logger';
+import { Utils } from 'electrobun/bun'
+import { readdirSync, statSync, unlinkSync } from 'fs'
+import { join } from 'path'
+import { log } from '../../infra/logging/logger'
 
 export function getLogInfo(): { dir: string; sizeBytes: number; fileCount: number } {
-  const dir = log.dir();
+  const dir = log.dir()
   try {
-    const files = readdirSync(dir).filter((f) => f.endsWith('.log'));
+    const files = readdirSync(dir).filter((f) => f.endsWith('.log'))
     const sizeBytes = files.reduce((sum, file) => {
       try {
-        return sum + statSync(join(dir, file)).size;
+        return sum + statSync(join(dir, file)).size
       } catch {
-        return sum;
+        return sum
       }
-    }, 0);
-    return { dir, sizeBytes, fileCount: files.length };
+    }, 0)
+    return { dir, sizeBytes, fileCount: files.length }
   } catch {
-    return { dir, sizeBytes: 0, fileCount: 0 };
+    return { dir, sizeBytes: 0, fileCount: 0 }
   }
 }
 
 export function openLogsFolder(): void {
-  Utils.openPath(log.dir());
+  Utils.openPath(log.dir())
 }
 
 export function openLogFile(): void {
-  Utils.openPath(log.currentFile());
+  Utils.openPath(log.currentFile())
 }
 
 export function clearLogs(): void {
-  const dir = log.dir();
+  const dir = log.dir()
   try {
-    const files = readdirSync(dir).filter((f) => f.endsWith('.log'));
+    const files = readdirSync(dir).filter((f) => f.endsWith('.log'))
     for (const file of files) {
       try {
-        unlinkSync(join(dir, file));
+        unlinkSync(join(dir, file))
       } catch {
         // ignore per-file errors
       }
@@ -45,9 +45,9 @@ export function clearLogs(): void {
 }
 
 export function logClientError(input: {
-  msg: string;
-  stack?: string;
-  context?: Record<string, unknown>;
+  msg: string
+  stack?: string
+  context?: Record<string, unknown>
 }): void {
-  log.rendererError(input.msg, input.stack, input.context);
+  log.rendererError(input.msg, input.stack, input.context)
 }
