@@ -8,7 +8,7 @@ import { ComposerAddMenu } from '@/features/chat/components/composer-add-menu'
 import { ComposerAttachmentRow } from '@/features/chat/components/composer-attachment-row'
 import { ComposerButton } from '@/features/chat/components/composer-button'
 import { attachmentAccept, getCapabilities } from '@/features/chat/helpers/composer-capabilities'
-import { reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
+import { pickInitialEffort, reconcileComposer } from '@/features/chat/helpers/reconcile-composer'
 import { shouldSendOnEnter } from '@/features/chat/helpers/send-key'
 import { useAutoResizeTextarea } from '@/features/chat/hooks/use-auto-resize-textarea'
 import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachments'
@@ -54,6 +54,14 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   const modelId = currentModelId ?? defaultModelId
   const selectedModel = allModels.find((m) => m.id === modelId)
   const { canThink, canVision, canPdf, canBrowse } = getCapabilities(selectedModel)
+  // A mandatory model reasons whether or not the local toggle is on. Effort is the user's
+  // explicit pick when set, else the model's starting effort; null whenever reasoning is
+  // off. Derived (not mirrored into state) so it can't drift.
+  const mustThink = canThink && !!selectedModel?.capabilities.reasoningMandatory
+  const thinkingActive = (thinkingEnabled || mustThink) && canThink
+  const effortActive = thinkingActive
+    ? (effortValue ?? (selectedModel ? pickInitialEffort(selectedModel) : null))
+    : null
   const canSubmit = (text.trim().length > 0 || pending.length > 0) && !isStreaming && !!modelId
 
   const accept = attachmentAccept({ canVision, canPdf })
@@ -70,13 +78,22 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
       webSearch: browserEnabled,
       effort: effortValue,
     })
-    if (patch.thinking === false) {
-      setThinkingEnabled(false)
+    if (patch.thinking !== undefined) {
+      setThinkingEnabled(patch.thinking)
     }
-    if (patch.webSearch === false) {
-      setBrowserEnabled(false)
+    if (patch.webSearch !== undefined) {
+      setBrowserEnabled(patch.webSearch)
     }
-    if (patch.effort === null) {
+    if (patch.effort !== undefined) {
+      setEffortValue(patch.effort)
+    }
+  }
+
+  function handleThinkingChange(v: boolean) {
+    setThinkingEnabled(v)
+    // Clear the explicit pick when reasoning turns off, so re-enabling starts again from
+    // the model's default (effortActive derives that from a null pick).
+    if (!v) {
       setEffortValue(null)
     }
   }
@@ -96,9 +113,9 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
         modelId,
         projectId: projectId ?? undefined,
         composer: {
-          thinking: thinkingEnabled && canThink,
+          thinking: thinkingActive,
           webSearch: browserEnabled && canBrowse,
-          effort: effortValue,
+          effort: effortActive,
           toolGrants: {},
         },
       })
@@ -109,9 +126,9 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
         chatId: created.id,
         content,
         modelId,
-        thinking: thinkingEnabled && canThink,
+        thinking: thinkingActive,
         webSearch: browserEnabled && canBrowse,
-        effort: effortValue,
+        effort: effortActive,
         pending,
         flush,
         clear,
@@ -172,11 +189,11 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
         <div className="flex items-center gap-1 px-3 pb-2.5 pt-1">
           <ComposerAddMenu
             model={selectedModel}
-            thinking={thinkingEnabled && canThink}
+            thinking={thinkingActive}
             webSearch={browserEnabled && canBrowse}
-            effort={effortValue}
+            effort={effortActive}
             disabled={isStreaming}
-            onThinkingChange={setThinkingEnabled}
+            onThinkingChange={handleThinkingChange}
             onWebSearchChange={setBrowserEnabled}
             onEffortChange={setEffortValue}
             onAttachClick={() => fileInputRef.current?.click()}
@@ -195,7 +212,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
             modelId={modelId}
             onChange={handleModelChange}
             disabled={isStreaming}
-            effort={effortValue}
+            effort={effortActive}
           />
 
           <div className="flex-1" />
