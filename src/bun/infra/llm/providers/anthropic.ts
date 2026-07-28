@@ -18,13 +18,9 @@ export class AnthropicAdapter implements ProviderAdapter {
     }
 
     if (model.capabilities.thinking) {
-      if (req.thinking) {
-        opts.thinking = { type: 'adaptive' }
-        if (req.effort) {
-          opts.output_config = { effort: req.effort }
-        }
-      } else {
-        opts.thinking = { type: 'disabled' }
+      opts.thinking = req.thinking ? { type: 'adaptive' } : { type: 'disabled' }
+      if (req.thinking && req.effort) {
+        opts.output_config = { effort: req.effort }
       }
     }
 

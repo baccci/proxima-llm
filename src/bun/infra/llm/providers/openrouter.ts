@@ -16,11 +16,8 @@ export class OpenRouterAdapter implements ProviderAdapter {
     if (model.capabilities.thinking) {
       // Mandatory-reasoning models 400 on enabled:false. The UI already prevents the
       // off state, but guard here too so a stale client can't send the bad request.
-      if (req.thinking || model.capabilities.reasoningMandatory) {
-        opts.reasoning = { enabled: true, ...(req.effort ? { effort: req.effort } : {}) }
-      } else {
-        opts.reasoning = { enabled: false }
-      }
+      const enabled = req.thinking || !!model.capabilities.reasoningMandatory
+      opts.reasoning = { enabled, ...(enabled && req.effort ? { effort: req.effort } : {}) }
     }
 
     if (req.webSearch) {

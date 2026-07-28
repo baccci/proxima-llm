@@ -1,3 +1,4 @@
+import type { Effort } from '@shared/models/effort'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import { getCapabilities } from '@/features/chat/helpers/composer-capabilities'
 import {
@@ -26,10 +27,10 @@ export type ComposerControls = {
   canPdf: boolean
   canBrowse: boolean
   thinkingActive: boolean
-  effortActive: string | null
+  effortActive: Effort | null
   onThinkingChange: (enabled: boolean) => void
   onWebSearchChange: (enabled: boolean) => void
-  onEffortChange: (effort: string | null) => void
+  onEffortChange: (effort: Effort | null) => void
   onModelChange: (id: string) => void
 }
 
@@ -51,7 +52,7 @@ export function useComposerControls(config: UseComposerControlsConfig): Composer
     applyFlags({ webSearch: enabled })
   }
 
-  function onEffortChange(effort: string | null) {
+  function onEffortChange(effort: Effort | null) {
     applyFlags({ effort })
   }
 

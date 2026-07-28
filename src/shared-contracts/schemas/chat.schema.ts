@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { Effort } from '../models/effort'
 import { ToolDecision } from '../tools/tool-policy'
 
 // Default title for a chat with no user-set name. Also the sentinel the auto-title
@@ -9,7 +10,7 @@ export const ChatComposerState = z
   .object({
     thinking: z.boolean().default(false),
     webSearch: z.boolean().default(false),
-    effort: z.string().nullable().default(null),
+    effort: Effort.nullable().default(null),
     toolGrants: z.record(z.string(), ToolDecision).default({}),
   })
   .default({})

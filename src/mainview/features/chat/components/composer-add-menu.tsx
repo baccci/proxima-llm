@@ -1,3 +1,4 @@
+import type { Effort } from '@shared/models/effort'
 import type { ModelDTO } from '@shared/schemas/model.schema'
 import {
   DropdownContent,
@@ -21,11 +22,11 @@ type ComposerAddMenuProps = {
   model: ModelDTO | undefined
   thinking: boolean
   webSearch: boolean
-  effort: string | null
+  effort: Effort | null
   disabled?: boolean
   onThinkingChange: (v: boolean) => void
   onWebSearchChange: (v: boolean) => void
-  onEffortChange: (v: string | null) => void
+  onEffortChange: (v: Effort | null) => void
   onAttachClick: () => void
 }
 

@@ -1,3 +1,4 @@
+import type { Effort } from '@shared/models/effort'
 import { PROVIDER_IDS } from '@shared/providers/registry'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
@@ -30,7 +31,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   const [text, setText] = React.useState('')
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false)
   const [browserEnabled, setBrowserEnabled] = React.useState(false)
-  const [effortValue, setEffortValue] = React.useState<string | null>(null)
+  const [effortValue, setEffortValue] = React.useState<Effort | null>(null)
   const [currentModelId, setCurrentModelId] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const { ref: textareaRef, autoResize, reset: resetTextarea } = useAutoResizeTextarea()

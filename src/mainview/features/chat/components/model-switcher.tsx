@@ -1,3 +1,4 @@
+import type { Effort } from '@shared/models/effort'
 import { capitalize } from '@utils/capitalize'
 import { formatTokens } from '@utils/format-tokens'
 import React from 'react'
@@ -28,7 +29,7 @@ type ModelSwitcherProps = {
   disabled?: boolean
   usedTokens?: number
   cachedFraction?: number
-  effort?: string | null
+  effort?: Effort | null
 }
 
 export function ModelSwitcher({

@@ -5,18 +5,18 @@ import { supportsThinking, supportsWebSearch } from '@/entities/model/capabiliti
 export type ComposerFlags = {
   thinking: boolean
   webSearch: boolean
-  effort: string | null
+  effort: Effort | null
 }
 
 export type ComposerPatch = {
   thinking?: boolean
   webSearch?: boolean
-  effort?: string | null
+  effort?: Effort | null
 }
 
 export type ComposerReasoning = {
   thinkingActive: boolean
-  effortActive: string | null
+  effortActive: Effort | null
 }
 
 // The effort a model starts at when reasoning turns on: its declared default, else the

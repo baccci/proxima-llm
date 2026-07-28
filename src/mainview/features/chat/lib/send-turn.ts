@@ -1,3 +1,4 @@
+import type { Effort } from '@shared/models/effort'
 import { chat } from '@/features/chat/chat.api'
 import type { PendingAttachment } from '@/features/chat/hooks/use-pending-attachments'
 
@@ -7,7 +8,7 @@ type SendTurnArgs = {
   modelId: string
   thinking: boolean
   webSearch: boolean
-  effort: string | null
+  effort: Effort | null
   pending: PendingAttachment[]
   flush: (chatId: string) => Promise<string[]>
   clear: () => void
