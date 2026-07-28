@@ -251,17 +251,22 @@ export function createRPC() {
         updateSettings: (input) => {
           const prev = settingsService.getSettings()
           settingsService.updateSettings(input)
-          if (
+
+          // Flipping the control-server toggle starts or stops the network server live.
+          const controlServerToggled =
             input.controlServerEnabled !== undefined &&
             input.controlServerEnabled !== prev.controlServerEnabled
-          ) {
-            const s = settingsService.getSettings()
-            if (s.controlServerEnabled) {
-              _startServer?.(s.controlServerPort)
-            } else {
-              _stopServer?.()
-            }
+          if (!controlServerToggled) {
+            return
           }
+
+          const next = settingsService.getSettings()
+          if (next.controlServerEnabled) {
+            _startServer?.(next.controlServerPort)
+            return
+          }
+
+          _stopServer?.()
         },
         // Webview sends provider as a raw wire string; narrow it to the known
         // provider set before it reaches the keychain.
