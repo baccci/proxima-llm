@@ -13,7 +13,6 @@ export function Sidebar() {
   const chatsQuery = useChats(null)
   const { data: pinned = [] } = usePinnedChats(null)
   const selectChat = useChatStore((s) => s.selectChat)
-  const openAllChats = useChatStore((s) => s.openAllChats)
 
   // Only page 0 (capped) shows in the sidebar; the full list lives in the All-chats view.
   const loaded = flattenChatPages(chatsQuery.data)
@@ -52,18 +51,7 @@ export function Sidebar() {
       <SidebarPinnedChats chats={pinned} />
 
       {/* Scrollable chat list, takes remaining height */}
-      <SidebarChatList chats={recents} />
-
-      {/* Sits outside the scroll area so it never scrolls away. Shown only when there is
-          more than the capped page 0 to see. */}
-      {showSeeAll && (
-        <button
-          onClick={() => openAllChats(null)}
-          className="shrink-0 flex items-center w-[calc(100%-1rem)] mx-2 mb-1 px-2 h-8 rounded-lg text-sm text-subtle hover:bg-surface-hover hover:text-foreground transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          See all chats
-        </button>
-      )}
+      <SidebarChatList chats={recents} showSeeAll={showSeeAll} />
 
       <SidebarFooter />
     </aside>

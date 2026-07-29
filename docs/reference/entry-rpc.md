@@ -43,7 +43,7 @@ Handlers are grouped by area. Each one is a thin call into a feature or the engi
 | Projects | listProjects, createProject, updateProject, deleteProject | project repository |
 | Memory | listMemorySlices, upsertMemorySlice, deleteMemorySlice, getMemorySummary | memory repository, memory-notify |
 | Project files | listProjectFiles, addProjectFile, readProjectFile, deleteProjectFile | project-file repository |
-| Chats | listChats, createChat, updateChat, deleteChat | chat repository |
+| Chats | listChats, listPinnedChats, getChat, createChat, updateChat, deleteChat | chat repository |
 | Messages | listMessages, sendMessage, retryFromMessage, cancelStream, resolveToolApproval, setActiveChat, getCompactionInfo, compactNow | chat-stream service, compaction |
 | Tool policies | listToolPolicies, setToolPolicy | tool-permission repository |
 | Logs | getLogInfo, openLogsFolder, openLogFile, clearLogs, logClientError | logs service |

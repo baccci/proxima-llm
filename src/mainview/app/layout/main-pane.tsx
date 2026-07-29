@@ -1,4 +1,4 @@
-import { AllChatsView } from '@/features/chat/components/all-chats-view'
+import { AllChatsView } from '@/features/chat/components/chat-list/all-chats-view'
 import { ChatView } from '@/features/chat/components/chat-view'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { FocusModeOverlay } from '@/features/focus-mode/components/focus-mode-overlay'
