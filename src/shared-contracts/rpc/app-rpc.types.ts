@@ -3,7 +3,13 @@ import type { HookDetailRow } from '../lifecycle/hook-catalog'
 import type { SoundId } from '../lifecycle/sound'
 import type { ProviderId } from '../providers/registry'
 import type { AttachmentDTO, AttachmentKind } from '../schemas/attachment.schema'
-import type { ChatComposerState, ChatDTO, CreateChatInput } from '../schemas/chat.schema'
+import type {
+  ChatComposerState,
+  ChatCursor,
+  ChatDTO,
+  ChatPage,
+  CreateChatInput,
+} from '../schemas/chat.schema'
 import type {
   DeleteMemorySliceInput,
   ListMemorySlicesInput,
@@ -54,7 +60,12 @@ export type AppRPC = {
       deleteProjectFile: { params: { id: string }; response: void }
 
       // Chats
-      listChats: { params: { projectId: string | null }; response: ChatDTO[] }
+      listChats: {
+        params: { projectId: string | null; cursor: ChatCursor | null; limit: number }
+        response: ChatPage
+      }
+      listPinnedChats: { params: { projectId: string | null }; response: ChatDTO[] }
+      getChat: { params: { id: string }; response: ChatDTO | null }
       createChat: { params: CreateChatInput; response: ChatDTO }
       updateChat: {
         params: {

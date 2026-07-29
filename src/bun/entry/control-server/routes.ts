@@ -159,7 +159,9 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     // --- GET /chats ---
     if (pathname === '/chats' && req.method === 'GET') {
-      return json(chatService.listChats(null))
+      // The remote client wants every chat in one response, so this uses the
+      // unpaginated listAllChats rather than the UI's keyset-paged listChats.
+      return json(chatService.listAllChats(null))
     }
 
     // --- GET /models ---

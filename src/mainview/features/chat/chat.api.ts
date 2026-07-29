@@ -1,5 +1,10 @@
 import { AttachmentKind } from '@shared/schemas/attachment.schema'
-import type { ChatComposerState, ChatDTO, CreateChatInput } from '@shared/schemas/chat.schema'
+import type {
+  ChatComposerState,
+  ChatDTO,
+  ChatPage,
+  CreateChatInput,
+} from '@shared/schemas/chat.schema'
 import {
   type MessageDTO,
   type MessagePart,
@@ -8,6 +13,7 @@ import {
   type RetryMessageInput,
   type SendMessageInput,
 } from '@shared/schemas/message.schema'
+import type { InfiniteData } from '@tanstack/react-query'
 import { queryClient } from '@/lib/query-client'
 import { queryKeys } from '@/lib/query-keys'
 import { rpcRequest as req } from '@/lib/rpc.client'
@@ -22,13 +28,52 @@ type UpdateChatInput = {
   composer?: Partial<ChatComposerState>
 }
 
-export const chat = {
-  list: (projectId: string | null = null) =>
-    queryClient.fetchQuery({
-      queryKey: queryKeys.chats(projectId),
-      queryFn: () => req().listChats({ projectId }),
-    }),
+// The fields a non-moving edit can change on a cached chat (pinned is excluded: a pin
+// toggle reorders across lists, so it re-fetches instead of patching in place).
+type ChatFieldPatch = Pick<UpdateChatInput, 'id' | 'title' | 'modelId' | 'composer'>
 
+function patchOneChat(c: ChatDTO, patch: ChatFieldPatch): ChatDTO {
+  if (c.id !== patch.id) {
+    return c
+  }
+  return {
+    ...c,
+    ...(patch.modelId !== undefined ? { modelId: patch.modelId } : {}),
+    ...(patch.title !== undefined ? { title: patch.title } : {}),
+    ...(patch.composer !== undefined ? { composer: { ...c.composer, ...patch.composer } } : {}),
+  }
+}
+
+function isInfiniteChatData(v: unknown): v is InfiniteData<ChatPage> {
+  return typeof v === 'object' && v !== null && 'pages' in v
+}
+
+function isChatDTO(v: unknown): v is ChatDTO {
+  return typeof v === 'object' && v !== null && 'id' in v
+}
+
+// Optimistically merge a non-moving edit into every cached chat shape under ['chats']:
+// the paginated pages, the pinned arrays, and the single-chat detail. Each cache holds
+// a different shape, so the updater branches on which one it got.
+function patchChatInPages(patch: ChatFieldPatch): void {
+  queryClient.setQueriesData<unknown>({ queryKey: queryKeys.chatsAll() }, (old: unknown) => {
+    if (isInfiniteChatData(old)) {
+      return {
+        ...old,
+        pages: old.pages.map((p) => ({ ...p, items: p.items.map((c) => patchOneChat(c, patch)) })),
+      }
+    }
+    if (Array.isArray(old)) {
+      return old.map((c) => patchOneChat(c, patch))
+    }
+    if (isChatDTO(old)) {
+      return patchOneChat(old, patch)
+    }
+    return old
+  })
+}
+
+export const chat = {
   create: async (input: CreateChatInput = {}) => {
     const created = await req().createChat(input)
     queryClient.invalidateQueries({ queryKey: queryKeys.chats(created.projectId ?? null) })
@@ -37,30 +82,24 @@ export const chat = {
   },
 
   update: async (input: UpdateChatInput) => {
-    // Optimistically merge the patch into every cached chat list.
-    const snapshots = queryClient.getQueriesData<ChatDTO[]>({ queryKey: queryKeys.chatsAll() })
-    queryClient.setQueriesData<ChatDTO[]>({ queryKey: queryKeys.chatsAll() }, (old) =>
-      old?.map((c) => {
-        if (c.id !== input.id) {
-          return c
-        }
-        return {
-          ...c,
-          ...(input.modelId !== undefined ? { modelId: input.modelId } : {}),
-          ...(input.title !== undefined ? { title: input.title } : {}),
-          ...(input.pinned !== undefined ? { pinned: input.pinned } : {}),
-          ...(input.composer !== undefined
-            ? { composer: { ...c.composer, ...input.composer } }
-            : {}),
-        }
-      }),
-    )
+    // A pin toggle moves the chat between the unpinned pages and the pinned list and
+    // reorders it, so faking that optimistically is fiddly and error-prone. The local
+    // SQLite round-trip is imperceptible, so just await and re-fetch.
+    if (input.pinned !== undefined) {
+      const updated = await req().updateChat(input)
+      queryClient.invalidateQueries({ queryKey: queryKeys.chatsAll() })
+      return updated
+    }
+
+    // Rename / model / composer don't move the row, so patch in place for zero flicker,
+    // then reconcile with a background re-fetch (rolling back if the write fails).
+    const snapshots = queryClient.getQueriesData({ queryKey: queryKeys.chatsAll() })
+    patchChatInPages(input)
     try {
       const updated = await req().updateChat(input)
       queryClient.invalidateQueries({ queryKey: queryKeys.chatsAll() })
       return updated
     } catch (err) {
-      // Rollback to pre-mutation snapshots
       for (const [key, data] of snapshots) {
         queryClient.setQueryData(key, data)
       }

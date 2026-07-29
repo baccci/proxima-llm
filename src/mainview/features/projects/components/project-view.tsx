@@ -7,6 +7,8 @@ import { DialogContent, DialogRoot } from '@/components/dialog'
 import { IconPencil } from '@/components/icons/icon-pencil'
 import { Input } from '@/components/input'
 import { ComposerBody } from '@/features/chat/components/composer-body'
+import { SIDEBAR_CHAT_LIMIT } from '@/features/chat/constants'
+import { flattenChatPages } from '@/features/chat/helpers/flatten-chat-pages'
 import { useChats } from '@/features/chat/hooks/use-chats'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useProjects } from '@/features/projects/hooks/use-projects'
@@ -121,9 +123,12 @@ function EditProjectForm({ project, onClose }: EditProjectFormProps) {
 
 export function ProjectView({ projectId }: ProjectViewProps) {
   const { data: projects = [] } = useProjects()
-  const { data: chats = [] } = useChats(projectId)
+  const chatsQuery = useChats(projectId)
   const sidebarOpen = useChatStore((s) => s.sidebarOpen)
   const selectChat = useChatStore((s) => s.selectChat)
+
+  // Capped preview; the full project chat list lives in the All-chats view (commit 2).
+  const chats = flattenChatPages(chatsQuery.data).slice(0, SIDEBAR_CHAT_LIMIT)
 
   const project = projects.find((p) => p.id === projectId)
 

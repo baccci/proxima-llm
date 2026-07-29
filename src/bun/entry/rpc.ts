@@ -134,7 +134,11 @@ export function createRPC() {
         },
 
         // Chats
-        listChats: ({ projectId }) => chatService.listChats(projectId),
+        listChats: ({ projectId, cursor, limit }) =>
+          chatService.listChats({ projectId, cursor, limit }),
+        listPinnedChats: ({ projectId }) => chatService.listPinnedChats({ projectId }),
+        // Repo returns undefined for a missing chat; the wire contract is null.
+        getChat: ({ id }) => chatService.getChat(id) ?? null,
         createChat: (input) => chatService.createChat(input),
         updateChat: ({ id, ...patch }) => chatService.updateChat(id, patch),
         deleteChat: ({ id }) => {
