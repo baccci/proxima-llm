@@ -1,9 +1,11 @@
 import { randomUUID } from 'crypto'
-import { asc, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, lt, or } from 'drizzle-orm'
 import { AttachmentKind } from '../../../shared-contracts/schemas/attachment.schema'
 import {
   ChatComposerState,
+  type ChatCursor,
   ChatDTO,
+  type ChatPage,
   type CreateChatInput,
   DEFAULT_CHAT_TITLE,
 } from '../../../shared-contracts/schemas/chat.schema'
@@ -57,17 +59,76 @@ export function getChat(id: string): ChatDTO | undefined {
   return row ? chatRowToDTO(row) : undefined
 }
 
-export function listChats(projectId: string | null): ChatDTO[] {
-  return (
-    db
-      .select()
-      .from(chats)
-      // A null projectId means "all chats" (no filter), a real id scopes to that project.
-      .where(projectId !== null ? eq(chats.projectId, projectId) : undefined)
-      .orderBy(desc(chats.lastMessageAt))
-      .all()
-      .map(chatRowToDTO)
-  )
+type ListChatsParams = {
+  projectId: string | null
+  cursor: ChatCursor | null
+  limit: number
+}
+
+// One keyset page of unpinned chats, newest first. Pinned chats are served
+// separately by listPinnedChats, so a page is never short a filtered-out row.
+export function listChats({ projectId, cursor, limit }: ListChatsParams): ChatPage {
+  // Rows strictly after the cursor in (lastMessageAt DESC, id DESC): either an
+  // older timestamp, or the same timestamp with a smaller id (the tiebreaker).
+  const afterCursor = cursor
+    ? or(
+        lt(chats.lastMessageAt, new Date(cursor.lastMessageAt)),
+        and(eq(chats.lastMessageAt, new Date(cursor.lastMessageAt)), lt(chats.id, cursor.id)),
+      )
+    : undefined
+
+  const rows = db
+    .select()
+    .from(chats)
+    .where(
+      and(
+        eq(chats.pinned, false),
+        // A null projectId means "all chats" (no filter), a real id scopes to that project.
+        projectId !== null ? eq(chats.projectId, projectId) : undefined,
+        afterCursor,
+      ),
+    )
+    .orderBy(desc(chats.lastMessageAt), desc(chats.id))
+    // One extra row tells us whether a further page exists without a second query.
+    .limit(limit + 1)
+    .all()
+
+  const hasMore = rows.length > limit
+  const kept = hasMore ? rows.slice(0, limit) : rows
+  const last = kept.at(-1)
+
+  // Build the cursor from the last kept RAW row so lastMessageAt stays a number
+  // (Date.getTime()), matching the keyset predicate above rather than the DTO string.
+  const nextCursor: ChatCursor | null =
+    hasMore && last ? { lastMessageAt: last.lastMessageAt.getTime(), id: last.id } : null
+
+  return { items: kept.map(chatRowToDTO), nextCursor }
+}
+
+// All pinned chats for a project (or every project when null), newest first.
+// Unpaginated: the pinned set is small and always shown in full.
+export function listPinnedChats({ projectId }: { projectId: string | null }): ChatDTO[] {
+  return db
+    .select()
+    .from(chats)
+    .where(
+      and(eq(chats.pinned, true), projectId !== null ? eq(chats.projectId, projectId) : undefined),
+    )
+    .orderBy(desc(chats.lastMessageAt), desc(chats.id))
+    .all()
+    .map(chatRowToDTO)
+}
+
+// Every chat (pinned included), newest first, in one shot. Only the control
+// server's remote client uses this; the app UI uses the paginated listChats.
+export function listAllChats(projectId: string | null): ChatDTO[] {
+  return db
+    .select()
+    .from(chats)
+    .where(projectId !== null ? eq(chats.projectId, projectId) : undefined)
+    .orderBy(desc(chats.lastMessageAt))
+    .all()
+    .map(chatRowToDTO)
 }
 
 export function createChat(input: CreateChatInput): ChatDTO {

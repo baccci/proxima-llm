@@ -4,7 +4,7 @@ import React from 'react'
 import { IconMaximize } from '@/components/icons/icon-maximize'
 import { chatTitle } from '@/features/chat/entities/chat-title'
 import { getContextUsage } from '@/features/chat/entities/context-usage'
-import { useChats } from '@/features/chat/hooks/use-chats'
+import { useChat } from '@/features/chat/hooks/use-chats'
 import { useCompaction } from '@/features/chat/hooks/use-compaction'
 import { useMessages } from '@/features/chat/hooks/use-messages'
 import { useChatStore } from '@/features/chat/store/chat.store'
@@ -22,13 +22,12 @@ export function ChatView() {
   const sidebarOpen = useChatStore((s) => s.sidebarOpen)
   const setFocusModeOpen = useChatStore((s) => s.setFocusModeOpen)
   const setFocusModeExchangeIndex = useChatStore((s) => s.setFocusModeExchangeIndex)
-  const { data: allChats = [] } = useChats(null)
+  const { data: chat } = useChat(selectedChatId)
   const { data: projects = [] } = useProjects()
   const { data: messages = [] } = useMessages(selectedChatId)
   const { data: compaction } = useCompaction(selectedChatId)
   const { data: allModels = [] } = useModels()
 
-  const chat = allChats.find((c) => c.id === selectedChatId)
   const project = projects.find((p) => p.id === chat?.projectId)
   const model = allModels.find((m) => m.id === chat?.modelId)
 

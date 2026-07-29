@@ -1,6 +1,6 @@
 import React from 'react'
 import { getContextUsage } from '@/features/chat/entities/context-usage'
-import { useChats } from '@/features/chat/hooks/use-chats'
+import { useChat } from '@/features/chat/hooks/use-chats'
 import { useMessages } from '@/features/chat/hooks/use-messages'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useModels } from '@/features/models/hooks/use-models'
@@ -19,10 +19,9 @@ export function CompactionSection() {
   const setTokensOverride = useSetForcedTokens()
   const forceCompact = useForceCompact()
 
-  const { data: chats = [] } = useChats(null)
+  const { data: chat } = useChat(selectedChatId)
   const { data: messages = [] } = useMessages(selectedChatId)
   const { data: models = [] } = useModels()
-  const chat = chats.find((c) => c.id === selectedChatId)
   const model = models.find((m) => m.id === chat?.modelId)
   const realUsed = getContextUsage(messages, model)?.used ?? null
 

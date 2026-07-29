@@ -31,6 +31,23 @@ export const ChatDTO = z.object({
 
 export type ChatDTO = z.infer<typeof ChatDTO>
 
+// Keyset cursor for the recency-ordered chat list. lastMessageAt is ms since epoch
+// (the raw column value), not the DTO's ISO string, so it compares as a plain number.
+export const ChatCursor = z.object({
+  lastMessageAt: z.number(),
+  id: z.string(),
+})
+
+export type ChatCursor = z.infer<typeof ChatCursor>
+
+// One page of the paginated chat list. nextCursor is null on the last page.
+export const ChatPage = z.object({
+  items: z.array(ChatDTO),
+  nextCursor: ChatCursor.nullable(),
+})
+
+export type ChatPage = z.infer<typeof ChatPage>
+
 export const CreateChatInput = z.object({
   projectId: z.string().nullable().optional(),
   title: z.string().optional(),

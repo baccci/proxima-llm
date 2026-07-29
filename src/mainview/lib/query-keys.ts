@@ -5,6 +5,12 @@ export const queryKeys = {
   models: () => ['models'] as const,
   projects: () => ['projects'] as const,
   chats: (projectId: string | null) => ['chats', projectId] as const,
+  // Pinned list, nested under the project's chats so a broad ['chats'] invalidation
+  // sweeps it alongside the paginated list.
+  chatsPinned: (projectId: string | null) => ['chats', projectId, 'pinned'] as const,
+  // A single chat, also nested under ['chats'] so the same broad invalidation keeps it
+  // fresh (e.g. when an auto-title lands) without a separate invalidation path.
+  chat: (id: string | null) => ['chats', 'detail', id] as const,
   // Prefix key matching every chat list regardless of project, for broad invalidation.
   chatsAll: () => ['chats'] as const,
   messages: (chatId: string) => ['messages', chatId] as const,

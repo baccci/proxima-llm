@@ -1,3 +1,4 @@
+import { AllChatsView } from '@/features/chat/components/chat-list/all-chats-view'
 import { ChatView } from '@/features/chat/components/chat-view'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { FocusModeOverlay } from '@/features/focus-mode/components/focus-mode-overlay'
@@ -7,19 +8,29 @@ import { SettingsDialog } from '@/features/settings/components/settings-dialog'
 
 export function MainPane() {
   const focusModeOpen = useChatStore((s) => s.focusModeOpen)
-  const selectedProjectId = useChatStore((s) => s.selectedProjectId)
-  const selectedChatId = useChatStore((s) => s.selectedChatId)
 
   return (
     <>
-      {selectedProjectId && !selectedChatId ? (
-        <ProjectView projectId={selectedProjectId} />
-      ) : (
-        <ChatView />
-      )}
+      <MainContent />
       <SettingsDialog />
       <ModelsMarketplace />
       {focusModeOpen && <FocusModeOverlay />}
     </>
   )
+}
+
+// The single main-content surface. The All-chats view takes precedence, then a project
+// (when no chat is open under it), otherwise the chat view.
+function MainContent() {
+  const viewingAllChats = useChatStore((s) => s.viewingAllChats)
+  const selectedProjectId = useChatStore((s) => s.selectedProjectId)
+  const selectedChatId = useChatStore((s) => s.selectedChatId)
+
+  if (viewingAllChats) {
+    return <AllChatsView scope={viewingAllChats.projectId} />
+  }
+  if (selectedProjectId && !selectedChatId) {
+    return <ProjectView projectId={selectedProjectId} />
+  }
+  return <ChatView />
 }

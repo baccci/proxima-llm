@@ -2,9 +2,9 @@ import type { ChatDTO } from '@shared/schemas/chat.schema'
 import { cn } from '@utils/tailwind-class-merge'
 import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from '@/components/collapsible'
 import { IconChevronRight } from '@/components/icons/icon-chevron-right'
+import { ChatRow } from '@/features/chat/components/chat-row'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useSidebarStore } from '@/features/sidebar/store/sidebar.store'
-import { ChatRow } from './chat-row'
 
 type SidebarPinnedChatsProps = {
   chats: ChatDTO[]
