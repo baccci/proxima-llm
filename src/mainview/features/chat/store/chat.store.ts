@@ -91,9 +91,14 @@ type ChatUIState = {
   focusModeExchangeIndex: number
   focusModeShowPrompt: boolean
   pendingIncoming: PendingIncoming | null
+  // The full-page All-chats view, scoped global (projectId null) or to a project.
+  // Null means the view is closed. Selecting a chat or project clears it.
+  viewingAllChats: { projectId: string | null } | null
 
   selectChat: (id: string | null) => void
   selectProject: (id: string) => void
+  openAllChats: (projectId: string | null) => void
+  closeAllChats: () => void
   setThinkingExpanded: (messageId: string, expanded: boolean) => void
   startStreaming: (streamId: string, assistantMessageId: string) => void
   appendTextDelta: (delta: string) => void
@@ -127,10 +132,20 @@ export const useChatStore = create<ChatUIState>((set) => ({
   focusModeExchangeIndex: 0,
   focusModeShowPrompt: false,
   pendingIncoming: null,
+  viewingAllChats: null,
 
-  selectChat: (id) => set({ selectedChatId: id, streaming: null, pendingIncoming: null }),
+  selectChat: (id) =>
+    set({ selectedChatId: id, streaming: null, pendingIncoming: null, viewingAllChats: null }),
   selectProject: (id) =>
-    set({ selectedProjectId: id, selectedChatId: null, streaming: null, pendingIncoming: null }),
+    set({
+      selectedProjectId: id,
+      selectedChatId: null,
+      streaming: null,
+      pendingIncoming: null,
+      viewingAllChats: null,
+    }),
+  openAllChats: (projectId) => set({ viewingAllChats: { projectId } }),
+  closeAllChats: () => set({ viewingAllChats: null }),
 
   setThinkingExpanded: (messageId, expanded) =>
     set((s) => ({ thinkingExpanded: { ...s.thinkingExpanded, [messageId]: expanded } })),

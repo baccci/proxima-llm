@@ -126,9 +126,12 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   const chatsQuery = useChats(projectId)
   const sidebarOpen = useChatStore((s) => s.sidebarOpen)
   const selectChat = useChatStore((s) => s.selectChat)
+  const openAllChats = useChatStore((s) => s.openAllChats)
 
-  // Capped preview; the full project chat list lives in the All-chats view (commit 2).
-  const chats = flattenChatPages(chatsQuery.data).slice(0, SIDEBAR_CHAT_LIMIT)
+  // Capped preview; the full project chat list (with its pinned) lives in the All-chats view.
+  const loaded = flattenChatPages(chatsQuery.data)
+  const chats = loaded.slice(0, SIDEBAR_CHAT_LIMIT)
+  const showSeeAll = chatsQuery.hasNextPage || loaded.length > SIDEBAR_CHAT_LIMIT
 
   const project = projects.find((p) => p.id === projectId)
 
@@ -186,6 +189,14 @@ export function ProjectView({ projectId }: ProjectViewProps) {
                     </li>
                   ))}
                 </ul>
+                {showSeeAll && (
+                  <button
+                    onClick={() => openAllChats(projectId)}
+                    className="shrink-0 self-start px-1 py-0.5 rounded text-sm text-subtle hover:text-foreground transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    See all
+                  </button>
+                )}
               </section>
             )}
           </div>

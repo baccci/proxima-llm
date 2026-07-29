@@ -1,8 +1,8 @@
 import type { ChatDTO } from '@shared/schemas/chat.schema'
 import { ScrollArea } from '@/components/scroll-area'
+import { ChatRow } from '@/features/chat/components/chat-row'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { groupChatsByDate } from '@/features/sidebar/entities/helpers'
-import { ChatRow } from './chat-row'
 
 type SidebarChatListProps = {
   chats: ChatDTO[]
