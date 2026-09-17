@@ -1,9 +1,9 @@
+import { flattenChatPages } from '@utils/flatten-chat-pages'
 import { IconPlus } from '@/components/icons/icon-plus'
 import { IconSearch } from '@/components/icons/icon-search'
 import { modal } from '@/components/modal'
 import { chat } from '@/features/chat/chat.api'
-import { SEARCH_MODAL_ID, SIDEBAR_CHAT_LIMIT } from '@/features/chat/constants'
-import { flattenChatPages } from '@/features/chat/helpers/flatten-chat-pages'
+import { CHAT_LIST_PREVIEW_LIMIT, SEARCH_MODAL_ID } from '@/features/chat/constants'
 import { useChats, usePinnedChats } from '@/features/chat/hooks/use-chats'
 import { SidebarChatList } from '@/features/sidebar/components/sidebar-chat-list'
 import { SidebarFooter } from '@/features/sidebar/components/sidebar-footer'
@@ -18,8 +18,8 @@ export function Sidebar() {
 
   // Only page 0 (capped) shows in the sidebar; the full list lives in the All-chats view.
   const loaded = flattenChatPages(chatsQuery.data)
-  const recents = loaded.slice(0, SIDEBAR_CHAT_LIMIT)
-  const showSeeAll = chatsQuery.hasNextPage || loaded.length > SIDEBAR_CHAT_LIMIT
+  const recents = loaded.slice(0, CHAT_LIST_PREVIEW_LIMIT)
+  const showSeeAll = chatsQuery.hasNextPage || loaded.length > CHAT_LIST_PREVIEW_LIMIT
 
   async function handleNewChat() {
     const created = await chat.create({})
