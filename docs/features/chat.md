@@ -23,7 +23,8 @@ settings feature (`useSettings`, `useApiKeyStatuses`). Consumed by sidebar, proj
 
 The full feature shape. The one hot store is `chat.store`; `lib/` holds the streaming glue (the
 bun-to-store bridge) that is neither a pure helper nor a hook. `focus-mode` is a separate feature that
-reuses this one's `chat.store` and `useMessages`, so its docs live in [focus-mode.md](focus-mode.md).
+reuses this one's streaming message and `useMessages`, so its docs live in
+[focus-mode.md](focus-mode.md).
 
 | Path | Responsibility |
 |---|---|
@@ -35,9 +36,9 @@ reuses this one's `chat.store` and `useMessages`, so its docs live in [focus-mod
 | `components/message-input/` (`message-input.tsx` plus `constants.ts`) | The in-chat composer: a server-backed `ChatDTO`, the model pinned via `chat.update`, the context ring plus manual compaction. |
 | `components/composer-body.tsx` plus `welcome-composer.tsx` | The new-chat composer: local draft state, default-model computation, `chat.create` then send. `WelcomeComposer` is its empty-state wrapper. |
 | `components/{composer-add-menu,composer-attachment-row,composer-button,model-switcher}.tsx` | The shared composer periphery: the "+" menu (attach / think / browse / effort), the pending-attachment chip row, the shared send/stop button, the model dropdown. |
-| `store/chat.store.ts` | The hot Zustand store: the live `streaming` message (mutated on every token), chat and project selection, and UI flags (sidebar, settings, focus-mode, pending-incoming). |
+| `store/chat.store.ts` | The hot Zustand store, and only what streams: the live `streaming` message (mutated on every token), `compactingChatId`, and `thinkingExpanded`. What the shell is showing lives in the root `navigation.store`. |
 | `hooks/*` | Query reads (`useChats`, `useMessages`, `useCompaction`), stream and action hooks (`useStreamingMessage`, `useMessageActions`, `useCompactNow`, `usePendingAttachments`), and two named DOM hooks (`useAutoResizeTextarea`, `useAutoScroll`). |
-| `lib/*` | The streaming glue: `attach-stream` (subscribe to a bun stream, drive the store), `send-turn` (the shared submit tail), `on-control-navigate` plus `active-chat-reporter` (control-server integration), `copy-message`, `tool-summary`. |
+| `lib/*` | The streaming glue: `attach-stream` (subscribe to a bun stream, drive the store), `send-turn` (the shared submit tail), `on-control-navigate` plus `active-chat-reporter` (control-server integration), `reset-stream-on-navigation` (drop the live stream when the open chat changes), `copy-message`, `tool-summary`. |
 | `entities/` · `helpers/` | `entities/`: `chat-title` (the Untitled fallback), `context-usage` (token-window math). `helpers/`: `message-parts` (part extractors), `composer-capabilities`, `reconcile-composer`, `send-key`. |
 | `chat.api.ts` · `attachment.api.ts` | Chat CRUD plus the optimistic user message and cache invalidations; the `useAttachment` query. |
 
