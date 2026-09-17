@@ -16,9 +16,31 @@ subsystems together, it belongs in `lib/`. If it is a pure, stateless function o
 it belongs in `utils/`.
 
 **Location encodes scope.** Anything at the root level (`components/`, `hooks/`, `lib/`,
-`utils/`, `entities/`) is shared, and any feature or `app/` may import it. Anything under
-`features/<x>/` is scoped to feature x, and only x and `app/` may import it. A feature reaching
-into a sibling feature is a smell: lift the shared piece up to the root instead.
+`utils/`, `entities/`, `store/`) is shared, and any feature or `app/` may import it. Anything
+under `features/<x>/` is scoped to feature x, and only x and `app/` may import it. A feature
+reaching into a sibling feature is usually a smell: lift the shared piece up to the root
+instead. The exceptions are the three named below, and nothing else.
+
+**Not every `features/` directory is a peer.** The rule above reads every one of them as an
+independent vertical slice. Three of ours are not, and forcing the rule onto them makes the
+code worse:
+
+- **A view onto another feature.** `sidebar` and `focus-mode` are ways of looking at chats,
+  not rival domains. `sidebar` rendering chat's `ChatRow`, and `focus-mode` rendering its
+  `MessagePartRenderer` and `ThinkingBlock`, is honest coupling. Duplicating those renderers
+  would be worse, and hoisting them into root `components/` would dress chat-specific
+  rendering up as generic UI. Leave them.
+- **`devtools` is deliberately omniscient.** A debug panel inspects the app by design, so it
+  reads whatever it needs to. Reshaping `getContextUsage` or `useMessages` into "shared"
+  modules to serve a debug tool would corrupt the architecture to satisfy a grep. Leave it.
+- **An entry point into a sibling view.** The chat header opens focus mode, so it calls that
+  feature's `open(atExchange)`. Calling a sibling's entry point, one action that opens it or
+  one component to render, is fine. Reaching past it into the sibling's internals, or
+  rebuilding by hand the sequence of writes that entry point performs, is not.
+
+Against a genuine peer the rule stands. `chat` and `projects` are separate domains, and a
+direct import between them means the shared piece belongs at the root: that is why
+`useProjects` lives in root `hooks/` and not in `features/projects/`.
 
 ## `shared-contracts/` is bun and renderer only
 
