@@ -54,8 +54,9 @@ TypeScript even though SQLite stores text. The `source` column reaches its enum 
 ## Migrations (`migrate.ts`)
 
 `setupSchema()` runs on every boot and is **idempotent**: `CREATE TABLE IF NOT EXISTS` for all nine tables
-plus the indexes, then a list of hand-rolled column migrations. There is **no version table and no
-migration files**. Instead each change is expressed as an idempotent step:
+plus the indexes, then a list of hand-rolled column migrations, and finally the full-text search index
+(its own section below). There is **no version table and no migration files**. Instead each change is
+expressed as an idempotent step:
 
 - `addColumnIfMissing(table, column, type)` — reads `PRAGMA table_info`, adds the column only if absent
   (SQLite has no `ADD COLUMN IF NOT EXISTS`). Returns whether it just added it, so a caller can run a
@@ -63,12 +64,50 @@ migration files**. Instead each change is expressed as an idempotent step:
   `UPDATE models SET source = 'openrouter' WHERE provider = 'openrouter'`).
 - `dropColumnIfPresent(table, column)` — the mirror, for retired columns (for example the dead `is_custom`
   boolean that outlived the custom-model feature).
+- `createTableIfMissing(name, ddl)` — creates a table only if `sqlite_master` lacks it, and **returns
+  whether this call is the one that made it**. That return is what lets the search index below run its
+  backfill exactly once, on the boot that introduces the table.
 
 **Why hand-rolled instead of drizzle-kit migrations?** For a single-file local desktop DB with one writer,
 a versioned migration toolchain is overkill; an idempotent `setupSchema()` that any older DB can run to
 catch up is simpler to reason about and has no migration-state to corrupt. The tradeoff is the
 two-definitions sync burden above, and that migrations are append-only prose you read top-to-bottom rather
 than discrete files.
+
+## The full-text search index (`setupSearchIndex()` in `migrate.ts`)
+
+Chat search is backed by **SQLite's FTS5** full-text extension, built by `setupSearchIndex()` at the very
+end of `setupSchema()` (it reads `chats` and `messages`, so every table and back-added column above must
+already exist). SQLite ships FTS5 in the `bun:sqlite` build, so there is no dependency to add.
+
+Two virtual tables, because the two kinds of hit need different things:
+
+| Table | Indexed | Carried unindexed | Why |
+|---|---|---|---|
+| `chats_fts` | `title` | `chat_id` | a title hit has no message to land on |
+| `messages_fts` | `body` | `message_id`, `chat_id` | a content hit points at the message to scroll to |
+
+Both tokenize with `unicode61 remove_diacritics 2`, so `cafe` finds `café`.
+
+**Only `text` parts are indexed.** `reasoning` is the model's scratch work and would drown real hits, and
+tool call payloads are structure, not prose. The extraction runs in pure SQL, pulling `$.text` out of the
+`parts` JSON with `json_each`, so it works inside a trigger with no application code involved.
+
+**Content is stored in the index, not `content=''`.** The external-content form would save the disk space,
+but `snippet()` needs the text to build an excerpt. Duplicating message text on disk is the price of
+showing the user why a result matched.
+
+**Six triggers keep it in sync**, insert / update / delete on each of `chats` and `messages`. Triggers
+rather than repository code, so a write that bypasses the app layer (a future sync process) still leaves
+the index correct. Foreign-key cascade deletes *do* fire the child table's triggers, so deleting a chat
+removes its messages and their index rows with no manual cleanup in `deleteChat`.
+
+**The index is derived data.** It can be dropped and rebuilt from `chats` and `messages` at any time,
+which is why a one-time backfill (guarded by `createTableIfMissing`'s return) is enough to bring a
+database that predates the feature up to date. It also means the index is not something to sync or
+migrate: a future cloud database would replicate rows and rebuild its own index.
+
+The queries that read these tables live in `chat.repository.ts` (`searchChats`), not here.
 
 ## The settings KV substrate (`settings-store.ts`)
 
@@ -103,6 +142,10 @@ the `openrouter` source.
 
 - **The schema lives in two files (`schema.ts` and `migrate.ts`) and they must agree.** The single most
   likely db bug: change one, forget the other. Covered above.
+- **The FTS tables are the deliberate exception to that rule.** `chats_fts` and `messages_fts` exist only
+  in `migrate.ts`. drizzle has no way to model an FTS5 virtual table, so they are absent from `schema.ts`
+  on purpose and `searchChats` reaches them through the raw `sqlite` handle instead of `db`. Do not
+  "fix" the asymmetry by adding them to `schema.ts`.
 - **Migrations are idempotent prose, not versioned.** Safe to re-run, but there is no rollback and no
   record of "which migrations ran" beyond the current column set. Reading `setupSchema()` top-to-bottom is
   the migration history.
@@ -117,12 +160,18 @@ the `openrouter` source.
 - `dbPath = userData/proxima.db` — the one database file.
 - `MODEL_SEED` — the built-in models shipped in code.
 - `ModelSource` — `builtin` | `openrouter`, the row-ownership tag.
+- `chats_fts` / `messages_fts` — the two FTS5 virtual tables behind chat search, derived data rebuildable
+  from `chats` and `messages`.
 - The `settings` KV keys are owned by their modules (`tool_policies`, app-settings, the sync marker), not
   named here.
 
 ## Tests
 
-None, and little here is unit-testable in isolation: everything touches the live SQLite file or is DDL.
+Almost none, and little here is unit-testable in isolation: everything touches the live SQLite file or is
+DDL. The exception is the search index, which `chat.repository.test.ts` exercises for real: it points
+`client.ts` at an in-memory database, runs `setupSchema()`, and lets the triggers index the rows it seeds,
+so the `searchChats` tests cover the DDL and the triggers as a side effect rather than a hand-populated
+index.
 `addColumnIfMissing` / `dropColumnIfPresent` are the only branching logic, but they read `PRAGMA table_info`
 off the real connection, so they are integration surface, not pure units. The seed's source-ownership
 decision (`existing.source !== builtin` skips) is the one bit of pure branching worth a test, but it is
