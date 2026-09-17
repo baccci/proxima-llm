@@ -10,13 +10,13 @@ import { IconPlus } from '@/components/icons/icon-plus'
 import { Input } from '@/components/input'
 import { resolveIconColor } from '@/entities/project/icon'
 import { resolvePalette } from '@/entities/project/palette'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { ProjectAppearancePicker } from '@/features/projects/components/project-appearance-picker'
 import { getProjectIcon } from '@/features/projects/lib/project-icon'
 import { projects as projectsApi } from '@/features/projects/projects.api'
 import { useSidebarStore } from '@/features/sidebar/store/sidebar.store'
 import { useIsDark } from '@/hooks/use-is-dark'
 import { useProjects } from '@/hooks/use-projects'
+import { useNavigationStore } from '@/store/navigation.store'
 
 type CreateProjectFields = {
   name: string
@@ -51,7 +51,7 @@ function CreateProjectForm({ onClose }: CreateProjectFormProps) {
   const [icon, setIcon] = React.useState<string | null>(null)
   const [palette, setPalette] = React.useState<string | null>(null)
   const [iconColor, setIconColor] = React.useState<string | null>(null)
-  const selectProject = useChatStore((s) => s.selectProject)
+  const selectProject = useNavigationStore((s) => s.selectProject)
 
   const {
     register,
@@ -109,7 +109,7 @@ function CreateProjectForm({ onClose }: CreateProjectFormProps) {
 }
 
 function ProjectPill({ project }: { project: ProjectDTO }) {
-  const selectProject = useChatStore((s) => s.selectProject)
+  const selectProject = useNavigationStore((s) => s.selectProject)
   const isDark = useIsDark()
   const colors = resolvePalette(project.palette, isDark)
   const iconColor = resolveIconColor(project.iconColor, colors)

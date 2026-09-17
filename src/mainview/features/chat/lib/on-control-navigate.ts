@@ -3,6 +3,7 @@ import { chat } from '@/features/chat/chat.api'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { queryClient } from '@/lib/query-client'
 import { queryKeys } from '@/lib/query-keys'
+import { useNavigationStore } from '@/store/navigation.store'
 import { attachToStream } from './attach-stream'
 
 type Payload = AppRPC['webview']['messages']['controlNavigate']
@@ -12,7 +13,7 @@ const NEWEST = Number.MAX_SAFE_INTEGER
 
 export function jumpInto(p: JumpTarget): void {
   const s = useChatStore.getState()
-  s.selectChat(p.chatId)
+  useNavigationStore.getState().selectChat(p.chatId)
   attachToStream(p.streamId, p.assistantMessageId, p.chatId)
   // Ensure a completed stream renders fully if we missed the done chunk.
   chat.invalidateMessages(p.chatId)
@@ -24,7 +25,7 @@ export function onControlNavigate(payload: Payload): void {
   const s = useChatStore.getState()
 
   if (!s.focusModeOpen) {
-    s.selectChat(payload.chatId)
+    useNavigationStore.getState().selectChat(payload.chatId)
     attachToStream(payload.streamId, payload.assistantMessageId, payload.chatId)
     if (payload.focus) {
       s.setFocusModeOpen(true)
@@ -33,7 +34,7 @@ export function onControlNavigate(payload: Payload): void {
     return
   }
 
-  const sameChat = payload.chatId === s.selectedChatId
+  const sameChat = payload.chatId === useNavigationStore.getState().selectedChatId
   const cachedSettings = queryClient.getQueryData(queryKeys.settings()) as
     | { focusFollowsIncoming?: boolean }
     | undefined

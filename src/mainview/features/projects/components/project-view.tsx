@@ -10,10 +10,10 @@ import { ComposerBody } from '@/features/chat/components/composer-body'
 import { SIDEBAR_CHAT_LIMIT } from '@/features/chat/constants'
 import { flattenChatPages } from '@/features/chat/helpers/flatten-chat-pages'
 import { useChats } from '@/features/chat/hooks/use-chats'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { projects as projectsApi } from '@/features/projects/projects.api'
 import { useProjects } from '@/hooks/use-projects'
 import { useLayoutStore } from '@/store/layout.store'
+import { useNavigationStore } from '@/store/navigation.store'
 import { FilesCard } from './files-card'
 import { MemoriesCard } from './memories-card'
 import { ProjectAppearancePicker } from './project-appearance-picker'
@@ -126,8 +126,8 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   const { data: projects = [] } = useProjects()
   const chatsQuery = useChats(projectId)
   const sidebarOpen = useLayoutStore((s) => s.sidebarOpen)
-  const selectChat = useChatStore((s) => s.selectChat)
-  const openAllChats = useChatStore((s) => s.openAllChats)
+  const selectChat = useNavigationStore((s) => s.selectChat)
+  const openAllChats = useNavigationStore((s) => s.openAllChats)
 
   // Capped preview; the full project chat list (with its pinned) lives in the All-chats view.
   const loaded = flattenChatPages(chatsQuery.data)

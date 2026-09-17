@@ -8,6 +8,7 @@ import { IconChevronDown } from '@/components/icons/icon-chevron-down'
 import { useMessageVirtualizer } from '@/features/chat/hooks/use-message-virtualizer'
 import { type StreamingMessage, useChatStore } from '@/features/chat/store/chat.store'
 import { rpcRequest } from '@/lib/rpc.client'
+import { useNavigationStore } from '@/store/navigation.store'
 import { MessageBubble } from './message-bubble'
 import { MessagePartRenderer } from './message-part-renderer'
 import { SourcesBlock } from './sources-block'
@@ -29,7 +30,7 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: MessageL
 
   // Set when a search hit is opened, so the list lands on that message and marks it.
   // Scoped to this chat, since the store keeps it until the next navigation.
-  const pendingScroll = useChatStore((s) => s.pendingScroll)
+  const pendingScroll = useNavigationStore((s) => s.pendingScroll)
   const landOnMessageId = pendingScroll?.chatId === chatItem.id ? pendingScroll.messageId : null
 
   const { scrollRef, virtualizer, showScrollToBottom, handleScroll, scrollToBottom } =

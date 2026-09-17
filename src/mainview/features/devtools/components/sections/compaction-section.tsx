@@ -2,15 +2,15 @@ import React from 'react'
 import { getContextUsage } from '@/features/chat/entities/context-usage'
 import { useChat } from '@/features/chat/hooks/use-chats'
 import { useMessages } from '@/features/chat/hooks/use-messages'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { useModels } from '@/hooks/use-models'
+import { useNavigationStore } from '@/store/navigation.store'
 import { errorMessage } from '@/utils/error-message'
 import { useForceCompact, useSetCompactionRatio, useSetForcedTokens } from '../../devtools.api'
 import { useDevtoolsStore } from '../../store/devtools.store'
 import { DevSection } from '../dev-section'
 
 export function CompactionSection() {
-  const selectedChatId = useChatStore((s) => s.selectedChatId)
+  const selectedChatId = useNavigationStore((s) => s.selectedChatId)
   const compactionRatio = useDevtoolsStore((s) => s.compactionRatio)
   const setCompactionRatio = useDevtoolsStore((s) => s.setCompactionRatio)
   const forcedTokens = useDevtoolsStore((s) => s.forcedTokens)

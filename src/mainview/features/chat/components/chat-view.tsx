@@ -13,13 +13,14 @@ import { groupIntoExchanges } from '@/features/focus-mode/entities/group-into-ex
 import { useModels } from '@/hooks/use-models'
 import { useProjects } from '@/hooks/use-projects'
 import { useLayoutStore } from '@/store/layout.store'
+import { useNavigationStore } from '@/store/navigation.store'
 import { ChatActionsMenu } from './chat-actions-menu'
 import { MessageInput } from './message-input/message-input'
 import { MessageList } from './message-list'
 import { WelcomeComposer } from './welcome-composer'
 
 export function ChatView() {
-  const selectedChatId = useChatStore((s) => s.selectedChatId)
+  const selectedChatId = useNavigationStore((s) => s.selectedChatId)
   const sidebarOpen = useLayoutStore((s) => s.sidebarOpen)
   const setFocusModeOpen = useChatStore((s) => s.setFocusModeOpen)
   const setFocusModeExchangeIndex = useChatStore((s) => s.setFocusModeExchangeIndex)

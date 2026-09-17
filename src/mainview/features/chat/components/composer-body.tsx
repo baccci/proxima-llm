@@ -19,6 +19,7 @@ import { sendTurn } from '@/features/chat/lib/send-turn'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { useApiKeyStatuses, useSettings } from '@/features/settings/hooks/use-settings'
 import { useModels } from '@/hooks/use-models'
+import { useNavigationStore } from '@/store/navigation.store'
 import { errorMessage } from '@/utils/error-message'
 import { ModelSwitcher } from './model-switcher'
 
@@ -39,7 +40,7 @@ export function ComposerBody({ projectId, className }: ComposerBodyProps) {
   const { data: settings } = useSettings()
   const { data: allModels = [] } = useModels()
   const keyStatuses = useApiKeyStatuses()
-  const selectChat = useChatStore((s) => s.selectChat)
+  const selectChat = useNavigationStore((s) => s.selectChat)
   const failStreaming = useChatStore((s) => s.failStreaming)
   const finishStreaming = useChatStore((s) => s.finishStreaming)
   const { streaming, send } = useStreamingMessage(null)
