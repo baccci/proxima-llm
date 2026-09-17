@@ -9,6 +9,7 @@ import { useFitTypography } from '../hooks/use-fit-typography'
 import { useFocusModeExchanges } from '../hooks/use-focus-mode-exchanges'
 import { useFocusModeFullscreen } from '../hooks/use-focus-mode-fullscreen'
 import { useFocusModeKeyboard } from '../hooks/use-focus-mode-keyboard'
+import { useFocusModeStore } from '../store/focus-mode.store'
 import { FocusModeContent } from './focus-mode-content'
 import { FocusModeNav } from './focus-mode-nav'
 
@@ -87,14 +88,14 @@ function ReadingSurface({
  * directly onto OS fullscreen.
  */
 export function FocusModeOverlay() {
-  const exchangeIndex = useChatStore((s) => s.focusModeExchangeIndex)
-  const showPrompt = useChatStore((s) => s.focusModeShowPrompt)
+  const exchangeIndex = useFocusModeStore((s) => s.exchangeIndex)
+  const showPrompt = useFocusModeStore((s) => s.showPrompt)
+  const setExchangeIndex = useFocusModeStore((s) => s.setExchangeIndex)
+  const setShowPrompt = useFocusModeStore((s) => s.setShowPrompt)
+  const pendingIncoming = useFocusModeStore((s) => s.pendingIncoming)
+  const setPendingIncoming = useFocusModeStore((s) => s.setPendingIncoming)
+  const close = useFocusModeStore((s) => s.close)
   const streaming = useChatStore((s) => s.streaming)
-  const setFocusModeOpen = useChatStore((s) => s.setFocusModeOpen)
-  const setExchangeIndex = useChatStore((s) => s.setFocusModeExchangeIndex)
-  const setShowPrompt = useChatStore((s) => s.setFocusModeShowPrompt)
-  const pendingIncoming = useChatStore((s) => s.pendingIncoming)
-  const setPendingIncoming = useChatStore((s) => s.setPendingIncoming)
 
   const overlayRef = React.useRef<HTMLDivElement>(null)
   const exchanges = useFocusModeExchanges()
@@ -112,7 +113,6 @@ export function FocusModeOverlay() {
   const goToPrev = () => goTo(safeIndex - 1)
   const goToNext = () => goTo(safeIndex + 1)
   const togglePrompt = () => setShowPrompt(!showPrompt)
-  const close = () => setFocusModeOpen(false)
 
   const handleJumpIncoming = pendingIncoming ? () => jumpInto(pendingIncoming) : undefined
 

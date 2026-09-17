@@ -28,12 +28,6 @@ export type StreamingMessage = {
   error: string | null
 }
 
-type PendingIncoming = {
-  chatId: string
-  streamId: string
-  assistantMessageId: string
-}
-
 // An empty streaming message. startStreaming seeds a live one; failStreaming
 // seeds a done-with-error one on top of the same scaffold.
 function blankStreaming(id: string, streamId: string): StreamingMessage {
@@ -83,10 +77,6 @@ type ChatUIState = {
   // Chat id currently running a manual (non-stream) compaction, so the message
   // list can show the "Compacting…" label outside the stream pipeline.
   compactingChatId: string | null
-  focusModeOpen: boolean
-  focusModeExchangeIndex: number
-  focusModeShowPrompt: boolean
-  pendingIncoming: PendingIncoming | null
   resetForChatChange: () => void
   setThinkingExpanded: (messageId: string, expanded: boolean) => void
   startStreaming: (streamId: string, assistantMessageId: string) => void
@@ -101,24 +91,16 @@ type ChatUIState = {
   finishStreaming: () => void
   setStreamingError: (error: string) => void
   failStreaming: (error: string) => void
-  setFocusModeOpen: (open: boolean) => void
-  setFocusModeExchangeIndex: (i: number) => void
-  setFocusModeShowPrompt: (show: boolean) => void
-  setPendingIncoming: (p: PendingIncoming | null) => void
 }
 
 export const useChatStore = create<ChatUIState>((set) => ({
   thinkingExpanded: {},
   streaming: null,
   compactingChatId: null,
-  focusModeOpen: false,
-  focusModeExchangeIndex: 0,
-  focusModeShowPrompt: false,
-  pendingIncoming: null,
 
-  // Called when navigation opens a different chat: the live stream and any banner
-  // about an incoming one belong to the chat being left.
-  resetForChatChange: () => set({ streaming: null, pendingIncoming: null }),
+  // Called when navigation opens a different chat: the live stream belongs to the
+  // chat being left.
+  resetForChatChange: () => set({ streaming: null }),
 
   setThinkingExpanded: (messageId, expanded) =>
     set((s) => ({ thinkingExpanded: { ...s.thinkingExpanded, [messageId]: expanded } })),
@@ -239,11 +221,6 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   failStreaming: (error) =>
     set({ streaming: { ...blankStreaming(crypto.randomUUID(), ''), done: true, error } }),
-
-  setFocusModeOpen: (open) => set({ focusModeOpen: open }),
-  setFocusModeExchangeIndex: (i) => set({ focusModeExchangeIndex: i }),
-  setFocusModeShowPrompt: (show) => set({ focusModeShowPrompt: show }),
-  setPendingIncoming: (p) => set({ pendingIncoming: p }),
 }))
 
 export function streamingToParts(msg: StreamingMessage): MessagePart[] {

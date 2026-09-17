@@ -1,6 +1,6 @@
 import type { AppRPC } from '@shared/rpc/app-rpc.types'
 import { chat } from '@/features/chat/chat.api'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { useFocusModeStore } from '@/features/focus-mode/store/focus-mode.store'
 import { queryClient } from '@/lib/query-client'
 import { queryKeys } from '@/lib/query-keys'
 import { useNavigationStore } from '@/store/navigation.store'
@@ -12,24 +12,21 @@ type JumpTarget = Pick<Payload, 'chatId' | 'streamId' | 'assistantMessageId'>
 const NEWEST = Number.MAX_SAFE_INTEGER
 
 export function jumpInto(p: JumpTarget): void {
-  const s = useChatStore.getState()
   useNavigationStore.getState().selectChat(p.chatId)
   attachToStream(p.streamId, p.assistantMessageId, p.chatId)
   // Ensure a completed stream renders fully if we missed the done chunk.
   chat.invalidateMessages(p.chatId)
-  s.setFocusModeOpen(true)
-  s.setFocusModeExchangeIndex(NEWEST)
+  useFocusModeStore.getState().open(NEWEST)
 }
 
 export function onControlNavigate(payload: Payload): void {
-  const s = useChatStore.getState()
+  const focusMode = useFocusModeStore.getState()
 
-  if (!s.focusModeOpen) {
+  if (!focusMode.isOpen) {
     useNavigationStore.getState().selectChat(payload.chatId)
     attachToStream(payload.streamId, payload.assistantMessageId, payload.chatId)
     if (payload.focus) {
-      s.setFocusModeOpen(true)
-      s.setFocusModeExchangeIndex(NEWEST)
+      focusMode.open(NEWEST)
     }
     return
   }
@@ -45,5 +42,5 @@ export function onControlNavigate(payload: Payload): void {
     return
   }
 
-  s.setPendingIncoming(payload)
+  focusMode.setPendingIncoming(payload)
 }

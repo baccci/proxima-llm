@@ -7,9 +7,9 @@ import { getContextUsage } from '@/features/chat/entities/context-usage'
 import { useChat } from '@/features/chat/hooks/use-chats'
 import { useCompaction } from '@/features/chat/hooks/use-compaction'
 import { useMessages } from '@/features/chat/hooks/use-messages'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { useDevtoolsStore } from '@/features/devtools/store/devtools.store'
 import { groupIntoExchanges } from '@/features/focus-mode/entities/group-into-exchanges'
+import { useFocusModeStore } from '@/features/focus-mode/store/focus-mode.store'
 import { useModels } from '@/hooks/use-models'
 import { useProjects } from '@/hooks/use-projects'
 import { useLayoutStore } from '@/store/layout.store'
@@ -22,8 +22,7 @@ import { WelcomeComposer } from './welcome-composer'
 export function ChatView() {
   const selectedChatId = useNavigationStore((s) => s.selectedChatId)
   const sidebarOpen = useLayoutStore((s) => s.sidebarOpen)
-  const setFocusModeOpen = useChatStore((s) => s.setFocusModeOpen)
-  const setFocusModeExchangeIndex = useChatStore((s) => s.setFocusModeExchangeIndex)
+  const openFocusMode = useFocusModeStore((s) => s.open)
   const { data: chat } = useChat(selectedChatId)
   const { data: projects = [] } = useProjects()
   const { data: messages = [] } = useMessages(selectedChatId)
@@ -57,9 +56,8 @@ export function ChatView() {
   }, [messages, model, forcedTokens])
 
   const handleEnterFocusMode = React.useCallback(() => {
-    setFocusModeExchangeIndex(Math.max(0, exchanges.length - 1))
-    setFocusModeOpen(true)
-  }, [exchanges.length, setFocusModeExchangeIndex, setFocusModeOpen])
+    openFocusMode(Math.max(0, exchanges.length - 1))
+  }, [exchanges.length, openFocusMode])
 
   if (!selectedChatId || !chat) {
     return <WelcomeComposer />
