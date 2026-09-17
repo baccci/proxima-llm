@@ -74,7 +74,7 @@ functions. So `rpc.ts` never imports upward; it waits to be handed what it needs
 dependencies from the outside, instead of letting it fetch them, is called **dependency injection**.
 
 One thing to know when reading the file: this push wiring is spread across three modules, so `rpc.ts` shows
-only part of it. There are five push channels in total.
+only part of it. There are six push channels in total.
 
 | Push channel | Slot lives in | Filled by |
 |---|---|---|
@@ -83,6 +83,7 @@ only part of it. There are five push channels in total.
 | memoryChanged | memory-notify.ts (rpc re-exports the setter) | wireWebviewPush, in index.ts |
 | streamChunk | chat-stream.service.ts | index.ts directly |
 | chatsUpdated | chat-stream.service.ts | index.ts directly |
+| playSound | sound-push.ts | wireWebviewPush, in index.ts |
 
 The control server's start and stop pair is wired the same way, through `setControlServerFns`. That lets
 the `updateSettings` handler turn the server on or off live when you flip its setting, without `rpc.ts`
