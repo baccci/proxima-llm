@@ -1,4 +1,5 @@
 import { type MessagePart, PartKind } from '@shared/schemas/message.schema'
+import { isSilentTool } from '@shared/tools/tool-catalog'
 
 // Rough per-message height (px) used only to seed the virtualizer before a row is
 // really measured. It never needs to be exact: a closer guess just means a smaller
@@ -16,6 +17,22 @@ const REASONING_HEIGHT = 28
 const IMAGE_HEIGHT = 220
 // A single file chip row.
 const FILE_HEIGHT = 52
+// Chrome a fenced code block adds around its lines: the language header, the padding
+// inside the card, and its border.
+const CODE_BLOCK_CHROME_HEIGHT = 48
+// A collapsed tool-call card, which is a single header row inside a bordered box.
+const TOOL_CALL_HEIGHT = 40
+// One entry in the sources strip under a message that cited the web.
+const SOURCE_HEIGHT = 10
+
+// Opening or closing fence of a code block. Pairs of these bracket one block.
+const CODE_FENCE_PATTERN = /^```/gm
+
+// Fences come in pairs, so two of them bracket one block. An unclosed fence rounds
+// down, which only costs us a slightly short estimate.
+function codeBlockCount(value: string): number {
+  return Math.floor((value.match(CODE_FENCE_PATTERN)?.length ?? 0) / 2)
+}
 
 function textLines(value: string): number {
   let lines = 0
@@ -33,6 +50,7 @@ export function estimateMessageHeight(parts: MessagePart[]): number {
   for (const part of parts) {
     if (part.type === PartKind.enum.text) {
       height += textLines(part.text) * PX_PER_LINE
+      height += codeBlockCount(part.text) * CODE_BLOCK_CHROME_HEIGHT
       continue
     }
 
@@ -48,6 +66,20 @@ export function estimateMessageHeight(parts: MessagePart[]): number {
 
     if (part.type === PartKind.enum.file) {
       height += FILE_HEIGHT
+      continue
+    }
+
+    // Silent tools render nothing, so counting them would push every row below this
+    // message too far down. See message-part-renderer.
+    if (part.type === PartKind.enum['tool-call'] || part.type === PartKind.enum['tool-result']) {
+      if (!isSilentTool(part.toolName)) {
+        height += TOOL_CALL_HEIGHT
+      }
+      continue
+    }
+
+    if (part.type === PartKind.enum.source) {
+      height += SOURCE_HEIGHT
     }
   }
 
