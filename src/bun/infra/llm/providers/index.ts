@@ -1,6 +1,6 @@
+import type { ProviderId } from '@shared/providers/registry'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 import type { LanguageModel } from 'ai'
-import type { ProviderId } from '../../../../shared-contracts/providers/registry'
-import type { ModelDTO } from '../../../../shared-contracts/schemas/model.schema'
 import type { ProviderAdapter } from './adapter'
 import { AnthropicAdapter } from './anthropic'
 import { OpenRouterAdapter } from './openrouter'

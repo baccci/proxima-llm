@@ -1,10 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { type ChatDTO, DEFAULT_CHAT_TITLE } from '../../../shared-contracts/schemas/chat.schema'
-import {
-  type MessageDTO,
-  MessageRole,
-  PartKind,
-} from '../../../shared-contracts/schemas/message.schema'
+import { type ChatDTO, DEFAULT_CHAT_TITLE } from '@shared/schemas/chat.schema'
+import { type MessageDTO, MessageRole, PartKind } from '@shared/schemas/message.schema'
 import { resolveAutoTitle } from './resolve-auto-title'
 
 // Minimal fixtures: resolveAutoTitle only reads chat.title and message role/parts.

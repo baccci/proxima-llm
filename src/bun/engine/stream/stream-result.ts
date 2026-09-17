@@ -1,5 +1,5 @@
+import { StopReason, type TokenUsage } from '@shared/schemas/message.schema'
 import type { LanguageModelUsage, ProviderMetadata } from 'ai'
-import { StopReason, type TokenUsage } from '../../../shared-contracts/schemas/message.schema'
 
 // The DOMException.name the idle guard aborts with. run.ts constructs it, this
 // module reads it back to tell an idle timeout apart from a user cancel.

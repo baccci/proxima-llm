@@ -1,9 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import {
-  type MessageDTO,
-  MessageRole,
-  PartKind,
-} from '../../shared-contracts/schemas/message.schema'
+import { type MessageDTO, MessageRole, PartKind } from '@shared/schemas/message.schema'
 import { buildCompactionPrompt } from './compaction-prompt'
 
 function msg(role: MessageRole, parts: MessageDTO['parts']): MessageDTO {

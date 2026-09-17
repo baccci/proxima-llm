@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { ModelDTO } from '../../../../shared-contracts/schemas/model.schema'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 import type { ComposerRequest } from './adapter'
 import { AnthropicAdapter } from './anthropic'
 

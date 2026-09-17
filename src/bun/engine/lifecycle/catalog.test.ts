@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test'
-import { HOOK_ACTION_ID } from '../../../shared-contracts/lifecycle/hook-catalog'
+import { HOOK_ACTION_ID } from '@shared/lifecycle/hook-catalog'
 import type { ApprovalNeededContext, TurnDoneContext, TurnErrorContext } from './action'
 import { CATALOG } from './catalog'
 

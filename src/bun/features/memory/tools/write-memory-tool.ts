@@ -1,6 +1,6 @@
+import { MemoryScope, MemorySource } from '@shared/schemas/memory-slice.schema'
 import { tool } from 'ai'
 import { z } from 'zod'
-import { MemoryScope, MemorySource } from '../../../../shared-contracts/schemas/memory-slice.schema'
 import * as memoryService from '../memory.repository'
 import { notifyMemoryChanged } from '../memory-notify'
 

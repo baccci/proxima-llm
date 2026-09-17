@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { ProviderId } from '../../../shared-contracts/providers/registry'
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema'
-import type { ProviderTitleConfig } from '../../../shared-contracts/schemas/settings.schema'
+import { ProviderId } from '@shared/providers/registry'
+import type { ModelDTO } from '@shared/schemas/model.schema'
+import type { ProviderTitleConfig } from '@shared/schemas/settings.schema'
 import { selectTitleModel } from './select-title-model'
 
 function model(over: Partial<ModelDTO> = {}): ModelDTO {

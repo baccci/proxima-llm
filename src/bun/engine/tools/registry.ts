@@ -1,5 +1,5 @@
+import type { ToolName } from '@shared/tools/tool-catalog'
 import type { Tool } from 'ai'
-import type { ToolName } from '../../../shared-contracts/tools/tool-catalog'
 import { deleteMemoryTool } from '../../features/memory/tools/delete-memory-tool'
 import { readMemoryTool } from '../../features/memory/tools/read-memory-tool'
 import { writeMemoryTool } from '../../features/memory/tools/write-memory-tool'

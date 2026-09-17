@@ -2,7 +2,7 @@ import {
   DEFAULT_SETTINGS,
   SettingsDTO,
   type UpdateSettingsInput,
-} from '../../../shared-contracts/schemas/settings.schema'
+} from '@shared/schemas/settings.schema'
 import { readSettingsBlob, writeSettingsBlob } from '../../infra/db/settings-store'
 
 // This module owns the 'app' slice of the shared settings table.

@@ -1,13 +1,13 @@
+import {
+  AttachmentDTO,
+  AttachmentKind,
+  type SaveAttachmentInput,
+} from '@shared/schemas/attachment.schema'
 import { createHash, randomUUID } from 'crypto'
 import { and, eq } from 'drizzle-orm'
 import { Utils } from 'electrobun/bun'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { extname, join } from 'path'
-import {
-  AttachmentDTO,
-  AttachmentKind,
-  type SaveAttachmentInput,
-} from '../../../shared-contracts/schemas/attachment.schema'
 import { db } from '../../infra/db/client'
 import { attachments } from '../../infra/db/schema'
 

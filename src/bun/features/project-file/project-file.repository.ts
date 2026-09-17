@@ -1,9 +1,9 @@
+import { ProjectFileDTO } from '@shared/schemas/project-file.schema'
 import { createHash, randomUUID } from 'crypto'
 import { and, eq } from 'drizzle-orm'
 import { Utils } from 'electrobun/bun'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { extname, join } from 'path'
-import { ProjectFileDTO } from '../../../shared-contracts/schemas/project-file.schema'
 import { db } from '../../infra/db/client'
 import { projectFiles } from '../../infra/db/schema'
 

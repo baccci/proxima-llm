@@ -1,4 +1,4 @@
-import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk'
+import { STREAM_CHUNK_KIND } from '@shared/rpc/stream-chunk'
 import { startChatStream } from '../../engine/chat-stream/chat-stream.service'
 import { broadcast, LIFECYCLE_KIND } from './events'
 

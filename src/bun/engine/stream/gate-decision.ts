@@ -1,4 +1,4 @@
-import { ToolDecision, ToolPolicy } from '../../../shared-contracts/tools/tool-policy'
+import { ToolDecision, ToolPolicy } from '@shared/tools/tool-policy'
 
 // The three outcomes of the pure gate decision. 'run' and 'block' are final;
 // 'ask' means the caller must prompt the user and re-decide on their answer.

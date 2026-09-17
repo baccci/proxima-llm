@@ -1,10 +1,10 @@
-import { randomUUID } from 'crypto'
-import { eq } from 'drizzle-orm'
 import {
   type CreateProjectInput,
   ProjectDTO,
   type UpdateProjectInput,
-} from '../../../shared-contracts/schemas/project.schema'
+} from '@shared/schemas/project.schema'
+import { randomUUID } from 'crypto'
+import { eq } from 'drizzle-orm'
 import { db } from '../../infra/db/client'
 import { projects } from '../../infra/db/schema'
 

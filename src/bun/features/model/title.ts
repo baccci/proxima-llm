@@ -1,5 +1,5 @@
+import type { ProviderId } from '@shared/providers/registry'
 import { generateText } from 'ai'
-import type { ProviderId } from '../../../shared-contracts/providers/registry'
 import { getAdapter } from '../../infra/llm/providers/index'
 
 const MAX_TITLE_LENGTH = 60

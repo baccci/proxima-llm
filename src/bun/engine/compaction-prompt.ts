@@ -1,8 +1,4 @@
-import {
-  type MessageDTO,
-  MessageRole,
-  PartKind,
-} from '../../shared-contracts/schemas/message.schema'
+import { type MessageDTO, MessageRole, PartKind } from '@shared/schemas/message.schema'
 
 // Render the summary prompt a compaction run sends to the cheap model: any prior
 // summary first, then the turns to summarize as plain User/Assistant text lines.

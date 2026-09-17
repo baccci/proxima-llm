@@ -1,7 +1,7 @@
+import type { ChatComposerState } from '@shared/schemas/chat.schema'
+import type { MessagePart, TokenUsage } from '@shared/schemas/message.schema'
+import type { ModelCapabilities } from '@shared/schemas/model.schema'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import type { ChatComposerState } from '../../../shared-contracts/schemas/chat.schema'
-import type { MessagePart, TokenUsage } from '../../../shared-contracts/schemas/message.schema'
-import type { ModelCapabilities } from '../../../shared-contracts/schemas/model.schema'
 import { ModelSource } from './model-source'
 
 export const models = sqliteTable('models', {

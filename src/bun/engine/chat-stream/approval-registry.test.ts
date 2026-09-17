@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ToolDecision } from '../../../shared-contracts/tools/tool-policy'
+import { ToolDecision } from '@shared/tools/tool-policy'
 import { awaitApproval, resolveApproval, settlePendingApprovals } from './approval-registry'
 
 // The registry keeps one module-level Map shared across the whole file, so each

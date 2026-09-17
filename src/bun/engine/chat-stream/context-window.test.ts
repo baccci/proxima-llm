@@ -4,8 +4,8 @@ import {
   type MessagePart,
   MessageRole,
   PartKind,
-} from '../../../shared-contracts/schemas/message.schema'
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema'
+} from '@shared/schemas/message.schema'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 import {
   DEFAULT_COMPACTION_RATIO,
   estimateContextTokens,

@@ -1,4 +1,4 @@
-import { MemoryScope } from '../../../shared-contracts/schemas/memory-slice.schema'
+import { MemoryScope } from '@shared/schemas/memory-slice.schema'
 
 type Push = (scope: MemoryScope, projectId: string | null) => void
 type RegenHook = (projectId: string) => void

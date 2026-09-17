@@ -1,4 +1,4 @@
-import { type MessagePart, PartKind } from '../../../shared-contracts/schemas/message.schema'
+import { type MessagePart, PartKind } from '@shared/schemas/message.schema'
 
 export type StreamAccumulator = {
   addText: (text: string) => void

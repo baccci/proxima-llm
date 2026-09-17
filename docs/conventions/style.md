@@ -60,6 +60,20 @@ styling belongs right next to the markup it dresses. Hoisting them into a named 
 just adds a hop for whoever is reading. Use `cn()` (`@utils/tailwind-class-merge`) when a
 class needs to be conditional.
 
+**A named constant lives with the code it governs, not in a central config file.** The tuning
+values we have, `MAX_STEPS` in `run.ts`, `MAX_MB` in `attachment.repository`,
+`LOG_RETENTION_DAYS` in `logger`, each have exactly one consumer, and each sits a few lines
+above the code that enforces it. Changing the limit and changing the enforcement is then one
+edit in one file, so the two cannot drift. Collecting them into a shared `config.ts` buys a
+list you can skim and costs cohesion on every read, and a module every layer imports but no
+layer owns is the junk-drawer shape that produces stores like the old `chat.store`. If the
+question is really "what can I tune here", grep answers it without moving any code.
+
+Two things do move. A constant that gains a second consumer in another module gets hoisted to
+the nearest home both already share, the way `NEWEST_EXCHANGE` sits with the `open()` action
+it is an argument to. A constant that turns out to be a user preference in disguise belongs in
+the settings schema, not in a constants file.
+
 ## Control flow
 
 **Prefer early returns over `if/else`.** Handle the edge cases up top with guard clauses,

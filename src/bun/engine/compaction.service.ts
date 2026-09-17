@@ -1,12 +1,8 @@
+import { DevOverrideKey } from '@shared/dev/dev-override-keys'
+import { COMPACT_NOOP_REASON, COMPACT_STATUS, type CompactResult } from '@shared/rpc/compact-result'
+import { STREAM_CHUNK_KIND } from '@shared/rpc/stream-chunk'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 import { generateText } from 'ai'
-import { DevOverrideKey } from '../../shared-contracts/dev/dev-override-keys'
-import {
-  COMPACT_NOOP_REASON,
-  COMPACT_STATUS,
-  type CompactResult,
-} from '../../shared-contracts/rpc/compact-result'
-import { STREAM_CHUNK_KIND } from '../../shared-contracts/rpc/stream-chunk'
-import type { ModelDTO } from '../../shared-contracts/schemas/model.schema'
 import * as chatService from '../features/chat/chat.repository'
 import { getLatestSnapshot, saveSnapshot } from '../features/compaction/compaction.repository'
 import * as devOverrides from '../features/dev-overrides/dev-overrides.service'

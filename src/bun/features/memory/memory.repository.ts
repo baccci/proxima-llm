@@ -1,11 +1,11 @@
-import { randomUUID } from 'crypto'
-import { and, eq, isNull, type SQL } from 'drizzle-orm'
 import {
   MemoryScope,
   MemorySliceDTO,
   MemorySource,
   type UpsertMemorySliceInput,
-} from '../../../shared-contracts/schemas/memory-slice.schema'
+} from '@shared/schemas/memory-slice.schema'
+import { randomUUID } from 'crypto'
+import { and, eq, isNull, type SQL } from 'drizzle-orm'
 import { db } from '../../infra/db/client'
 import { memorySlices } from '../../infra/db/schema'
 

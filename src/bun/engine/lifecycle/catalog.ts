@@ -1,5 +1,5 @@
-import { HOOK_ACTION_ID } from '../../../shared-contracts/lifecycle/hook-catalog'
-import { SOUND_ID } from '../../../shared-contracts/lifecycle/sound'
+import { HOOK_ACTION_ID } from '@shared/lifecycle/hook-catalog'
+import { SOUND_ID } from '@shared/lifecycle/sound'
 import { runAutoTitle } from '../chat-stream/auto-title'
 import * as compactionService from '../compaction.service'
 import { regenerateProjectSummary } from '../memory-summary.service'

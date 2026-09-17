@@ -1,5 +1,5 @@
-import type { ProviderId } from '../../shared-contracts/providers/registry'
-import { MemoryScope } from '../../shared-contracts/schemas/memory-slice.schema'
+import type { ProviderId } from '@shared/providers/registry'
+import { MemoryScope } from '@shared/schemas/memory-slice.schema'
 import { listSlices } from '../features/memory/memory.repository'
 import { emitMemoryChanged } from '../features/memory/memory-notify'
 import { generateMemorySummary } from '../features/memory/memory-summary-llm'

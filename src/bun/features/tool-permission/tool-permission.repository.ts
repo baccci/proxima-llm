@@ -1,10 +1,6 @@
+import { defaultPolicyFor, isAlwaysAllowed, TOOL_CATALOG } from '@shared/tools/tool-catalog'
+import { ToolPolicy } from '@shared/tools/tool-policy'
 import { z } from 'zod'
-import {
-  defaultPolicyFor,
-  isAlwaysAllowed,
-  TOOL_CATALOG,
-} from '../../../shared-contracts/tools/tool-catalog'
-import { ToolPolicy } from '../../../shared-contracts/tools/tool-policy'
 import { readSettingsBlob, writeSettingsBlob } from '../../infra/db/settings-store'
 
 // This module owns the tool_policies slice of the shared settings table.

@@ -1,4 +1,4 @@
-import type { MessageDTO } from '../../shared-contracts/schemas/message.schema'
+import type { MessageDTO } from '@shared/schemas/message.schema'
 
 // Which stored messages a compaction run folds into the summary, plus the boundary
 // markers it saves. Pure (no DB or model calls), so the slice math stays testable in

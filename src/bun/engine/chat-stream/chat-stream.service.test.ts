@@ -1,10 +1,7 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
-import { ProviderId } from '../../../shared-contracts/providers/registry'
-import type {
-  RetryMessageInput,
-  SendMessageInput,
-} from '../../../shared-contracts/schemas/message.schema'
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema'
+import { ProviderId } from '@shared/providers/registry'
+import type { RetryMessageInput, SendMessageInput } from '@shared/schemas/message.schema'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 
 // launchTurn resolves the model and its key BEFORE it registers the stream in
 // activeStreams. This test pins that ordering: a preflight failure has to throw

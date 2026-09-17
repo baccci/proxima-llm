@@ -1,6 +1,6 @@
+import type { StreamChunk } from '@shared/rpc/app-rpc.types'
+import { STREAM_CHUNK_KIND } from '@shared/rpc/stream-chunk'
 import type { TextStreamPart, ToolSet } from 'ai'
-import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types'
-import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk'
 import { toError } from '../../utils/to-error'
 import type { StreamAccumulator } from './stream-accumulator'
 

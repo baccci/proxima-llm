@@ -1,6 +1,6 @@
 import { anthropic as anthropicProvider, createAnthropic } from '@ai-sdk/anthropic'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 import type { LanguageModel, Tool } from 'ai'
-import type { ModelDTO } from '../../../../shared-contracts/schemas/model.schema'
 import type { ComposerRequest, ProviderAdapter } from './adapter'
 
 export class AnthropicAdapter implements ProviderAdapter {

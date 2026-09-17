@@ -1,5 +1,5 @@
 import { dlopen, FFIType, type Pointer, ptr, toBuffer } from 'bun:ffi'
-import type { ProviderId } from '../../shared-contracts/providers/registry'
+import type { ProviderId } from '@shared/providers/registry'
 import { log } from './logging/logger'
 
 const SERVICE = 'com.proxima.apikeys'

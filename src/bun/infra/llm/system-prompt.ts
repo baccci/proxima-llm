@@ -1,4 +1,4 @@
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 
 export const MEMORY_GUIDANCE = `# Memory
 Saved notes persist across every future conversation, not just this one. Treat memory as long-term storage for a few high-value facts — not a scratchpad.

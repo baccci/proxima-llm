@@ -1,16 +1,16 @@
-import { stepCountIs, streamText } from 'ai'
-import type { Effort } from '../../../shared-contracts/models/effort'
-import { providerSupportsWebSearch } from '../../../shared-contracts/providers/registry'
-import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types'
+import type { Effort } from '@shared/models/effort'
+import { providerSupportsWebSearch } from '@shared/providers/registry'
+import type { StreamChunk } from '@shared/rpc/app-rpc.types'
 import type {
   MessageDTO,
   MessagePart,
   StopReason,
   TokenUsage,
-} from '../../../shared-contracts/schemas/message.schema'
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema'
-import type { ProjectDTO } from '../../../shared-contracts/schemas/project.schema'
-import type { ToolDecision } from '../../../shared-contracts/tools/tool-policy'
+} from '@shared/schemas/message.schema'
+import type { ModelDTO } from '@shared/schemas/model.schema'
+import type { ProjectDTO } from '@shared/schemas/project.schema'
+import type { ToolDecision } from '@shared/tools/tool-policy'
+import { stepCountIs, streamText } from 'ai'
 import type { CompactionSnapshot } from '../../features/compaction/compaction.repository'
 import { buildModel, getAdapter } from '../../infra/llm/providers/index'
 import { buildSystem, type ResolveAttachment, toCoreMessages } from './build-prompt'

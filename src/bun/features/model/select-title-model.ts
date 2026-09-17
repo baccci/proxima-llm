@@ -1,11 +1,8 @@
-import type { AnthropicFamily } from '../../../shared-contracts/models/families'
-import { isFreeModel } from '../../../shared-contracts/models/pricing'
-import type { ProviderId } from '../../../shared-contracts/providers/registry'
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema'
-import {
-  type ProviderTitleConfig,
-  TitleMode,
-} from '../../../shared-contracts/schemas/settings.schema'
+import type { AnthropicFamily } from '@shared/models/families'
+import { isFreeModel } from '@shared/models/pricing'
+import type { ProviderId } from '@shared/providers/registry'
+import type { ModelDTO } from '@shared/schemas/model.schema'
+import { type ProviderTitleConfig, TitleMode } from '@shared/schemas/settings.schema'
 
 // Cheap fallback family per provider when no pricing data is available to rank by.
 const CHEAP_FAMILY_HINT: Partial<Record<ProviderId, AnthropicFamily>> = {

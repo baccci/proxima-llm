@@ -1,4 +1,4 @@
-import type { SoundId } from '../../../shared-contracts/lifecycle/sound'
+import type { SoundId } from '@shared/lifecycle/sound'
 
 // The bun → renderer push for a synthesized sound. The sender is injected once in index.ts
 // (wireWebviewPush), same shape as the other webview senders; the turn passes pushPlaySound into

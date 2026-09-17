@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { type MessageDTO, MessageRole } from '../../shared-contracts/schemas/message.schema'
+import { type MessageDTO, MessageRole } from '@shared/schemas/message.schema'
 import { selectCompaction } from './compaction-selection'
 
 function msg(id: string, createdAt: string): MessageDTO {

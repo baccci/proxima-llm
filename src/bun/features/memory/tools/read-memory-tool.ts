@@ -1,6 +1,6 @@
+import { MemoryScope } from '@shared/schemas/memory-slice.schema'
 import { tool } from 'ai'
 import { z } from 'zod'
-import { MemoryScope } from '../../../../shared-contracts/schemas/memory-slice.schema'
 import * as memoryService from '../memory.repository'
 
 export function readMemoryTool(ctx: { projectId?: string }) {

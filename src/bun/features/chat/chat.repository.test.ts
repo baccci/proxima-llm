@@ -1,16 +1,12 @@
 import { Database } from 'bun:sqlite'
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import { drizzle } from 'drizzle-orm/bun-sqlite'
 import {
   SearchHitKind,
   SNIPPET_MARK_CLOSE,
   SNIPPET_MARK_OPEN,
-} from '../../../shared-contracts/schemas/chat-search.schema'
-import {
-  type MessagePart,
-  MessageRole,
-  PartKind,
-} from '../../../shared-contracts/schemas/message.schema'
+} from '@shared/schemas/chat-search.schema'
+import { type MessagePart, MessageRole, PartKind } from '@shared/schemas/message.schema'
+import { drizzle } from 'drizzle-orm/bun-sqlite'
 import * as schema from '../../infra/db/schema'
 
 // Isolated in-memory DB for the repo under test. Mocking infra/db/client swaps the

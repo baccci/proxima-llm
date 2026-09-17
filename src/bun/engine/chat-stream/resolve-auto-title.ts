@@ -1,9 +1,5 @@
-import { type ChatDTO, DEFAULT_CHAT_TITLE } from '../../../shared-contracts/schemas/chat.schema'
-import {
-  type MessageDTO,
-  MessageRole,
-  PartKind,
-} from '../../../shared-contracts/schemas/message.schema'
+import { type ChatDTO, DEFAULT_CHAT_TITLE } from '@shared/schemas/chat.schema'
+import { type MessageDTO, MessageRole, PartKind } from '@shared/schemas/message.schema'
 
 // Decide whether a chat should be auto-titled this turn, and from what text. Returns
 // the first user message's text while the chat is still unnamed, else null. Pure: the

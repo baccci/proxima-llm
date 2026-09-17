@@ -1,11 +1,11 @@
+import { ProviderId } from '@shared/providers/registry'
+import type { AppRPC } from '@shared/rpc/app-rpc.types'
+import { SaveAttachmentInput } from '@shared/schemas/attachment.schema'
+import { SearchChatsInput } from '@shared/schemas/chat-search.schema'
+import type { MemoryScope } from '@shared/schemas/memory-slice.schema'
+import { RetryMessageInput, SendMessageInput } from '@shared/schemas/message.schema'
+import { AddProjectFileInput } from '@shared/schemas/project-file.schema'
 import { BrowserView, type RPCSchema, Utils } from 'electrobun/bun'
-import { ProviderId } from '../../shared-contracts/providers/registry'
-import type { AppRPC } from '../../shared-contracts/rpc/app-rpc.types'
-import { SaveAttachmentInput } from '../../shared-contracts/schemas/attachment.schema'
-import { SearchChatsInput } from '../../shared-contracts/schemas/chat-search.schema'
-import type { MemoryScope } from '../../shared-contracts/schemas/memory-slice.schema'
-import { RetryMessageInput, SendMessageInput } from '../../shared-contracts/schemas/message.schema'
-import { AddProjectFileInput } from '../../shared-contracts/schemas/project-file.schema'
 import { resolveApproval } from '../engine/chat-stream/approval-registry'
 import {
   cancelStream,

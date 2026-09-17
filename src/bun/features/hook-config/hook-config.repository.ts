@@ -1,10 +1,10 @@
-import { z } from 'zod'
 import {
   HOOK_CATALOG,
   HOOK_META,
   type HookConfigEntry,
   type HookDetailRow,
-} from '../../../shared-contracts/lifecycle/hook-catalog'
+} from '@shared/lifecycle/hook-catalog'
+import { z } from 'zod'
 import { readSettingsBlob, writeSettingsBlob } from '../../infra/db/settings-store'
 
 // This module owns the hook_config slice of the shared settings table. Only the deviations from

@@ -1,6 +1,6 @@
+import { type ModelDefinition, ModelDTO } from '@shared/schemas/model.schema'
 import { and, count, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
-import { type ModelDefinition, ModelDTO } from '../../../shared-contracts/schemas/model.schema'
 import { db } from '../../infra/db/client'
 import { ModelSource } from '../../infra/db/model-source'
 import { models, settings } from '../../infra/db/schema'

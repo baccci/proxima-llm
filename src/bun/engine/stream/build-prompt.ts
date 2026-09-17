@@ -1,12 +1,8 @@
+import type { AttachmentKind } from '@shared/schemas/attachment.schema'
+import { type MessageDTO, MessageRole, PartKind } from '@shared/schemas/message.schema'
+import type { ModelDTO } from '@shared/schemas/model.schema'
+import type { ProjectDTO } from '@shared/schemas/project.schema'
 import type { ModelMessage } from 'ai'
-import type { AttachmentKind } from '../../../shared-contracts/schemas/attachment.schema'
-import {
-  type MessageDTO,
-  MessageRole,
-  PartKind,
-} from '../../../shared-contracts/schemas/message.schema'
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema'
-import type { ProjectDTO } from '../../../shared-contracts/schemas/project.schema'
 import type { CompactionSnapshot } from '../../features/compaction/compaction.repository'
 import { buildBaseSystemPrompt, MEMORY_GUIDANCE } from '../../infra/llm/system-prompt'
 

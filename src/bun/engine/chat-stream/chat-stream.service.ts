@@ -1,16 +1,16 @@
-import { randomUUID } from 'crypto'
-import type { Effort } from '../../../shared-contracts/models/effort'
-import type { AppRPC, StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types'
-import { STREAM_CHUNK_KIND } from '../../../shared-contracts/rpc/stream-chunk'
-import { MemoryScope } from '../../../shared-contracts/schemas/memory-slice.schema'
+import type { Effort } from '@shared/models/effort'
+import type { AppRPC, StreamChunk } from '@shared/rpc/app-rpc.types'
+import { STREAM_CHUNK_KIND } from '@shared/rpc/stream-chunk'
+import { MemoryScope } from '@shared/schemas/memory-slice.schema'
 import type {
   MessageDTO,
   RetryMessageInput,
   SendMessageInput,
-} from '../../../shared-contracts/schemas/message.schema'
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema'
-import type { ProjectDTO } from '../../../shared-contracts/schemas/project.schema'
-import type { ToolDecision } from '../../../shared-contracts/tools/tool-policy'
+} from '@shared/schemas/message.schema'
+import type { ModelDTO } from '@shared/schemas/model.schema'
+import type { ProjectDTO } from '@shared/schemas/project.schema'
+import type { ToolDecision } from '@shared/tools/tool-policy'
+import { randomUUID } from 'crypto'
 import * as attachmentService from '../../features/attachment/attachment.repository'
 import * as chatService from '../../features/chat/chat.repository'
 import { getLatestSnapshot } from '../../features/compaction/compaction.repository'

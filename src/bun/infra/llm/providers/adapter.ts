@@ -1,6 +1,6 @@
+import type { Effort } from '@shared/models/effort'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 import type { LanguageModel, Tool } from 'ai'
-import type { Effort } from '../../../../shared-contracts/models/effort'
-import type { ModelDTO } from '../../../../shared-contracts/schemas/model.schema'
 
 export type ComposerRequest = {
   thinking: boolean

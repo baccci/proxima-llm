@@ -1,4 +1,4 @@
-import { PartKind } from '../../../shared-contracts/schemas/message.schema'
+import { PartKind } from '@shared/schemas/message.schema'
 import { sqlite } from './client'
 
 // Add a column only if the table lacks it: SQLite has no idempotent ADD COLUMN.

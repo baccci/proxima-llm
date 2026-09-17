@@ -1,7 +1,7 @@
+import { compareEffort, Effort } from '@shared/models/effort'
+import { ProviderId } from '@shared/providers/registry'
+import type { ModelCapabilities } from '@shared/schemas/model.schema'
 import { z } from 'zod'
-import { compareEffort, Effort } from '../../../shared-contracts/models/effort'
-import { ProviderId } from '../../../shared-contracts/providers/registry'
-import type { ModelCapabilities } from '../../../shared-contracts/schemas/model.schema'
 import { ModelSource } from '../../infra/db/model-source'
 import { log } from '../../infra/logging/logger'
 import {

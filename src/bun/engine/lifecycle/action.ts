@@ -1,8 +1,8 @@
-import { ACTION_TIER, type ActionTier } from '../../../shared-contracts/lifecycle/action-tier'
-import type { SoundId } from '../../../shared-contracts/lifecycle/sound'
-import type { StreamChunk } from '../../../shared-contracts/rpc/app-rpc.types'
-import type { MessageDTO } from '../../../shared-contracts/schemas/message.schema'
-import type { ModelDTO } from '../../../shared-contracts/schemas/model.schema'
+import { ACTION_TIER, type ActionTier } from '@shared/lifecycle/action-tier'
+import type { SoundId } from '@shared/lifecycle/sound'
+import type { StreamChunk } from '@shared/rpc/app-rpc.types'
+import type { MessageDTO } from '@shared/schemas/message.schema'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 import { LIFECYCLE_STAGE } from './stages'
 
 // The power-tier vocabulary is lifted to shared-contracts (the config surface names a tier).

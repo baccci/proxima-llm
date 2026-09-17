@@ -1,4 +1,21 @@
+import type { BunPlugin } from 'bun'
 import type { ElectrobunConfig } from 'electrobun'
+
+// Electrobun's CLI is a precompiled binary carrying its own Bun, and that bundler does not read
+// tsconfig paths. So @shared resolves for typecheck and tests but would fail the real build,
+// and the alias has to be resolved by hand here. Run `bunx electrobun build` after changing an
+// import in src/bun; the other gates cannot see this break.
+const sharedAlias: BunPlugin = {
+  name: 'shared-alias',
+  setup(build) {
+    build.onResolve({ filter: /^@shared\// }, (args) => ({
+      path: Bun.resolveSync(
+        `./${args.path.replace('@shared/', 'src/shared-contracts/')}`,
+        __dirname,
+      ),
+    }))
+  },
+}
 
 export default {
   app: {
@@ -9,6 +26,7 @@ export default {
   build: {
     bun: {
       entrypoint: 'src/bun/index.ts',
+      plugins: [sharedAlias],
     },
     copy: {
       'dist/index.html': 'views/mainview/index.html',

@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import type { AttachmentKind } from '../../../shared-contracts/schemas/attachment.schema'
+import type { AttachmentKind } from '@shared/schemas/attachment.schema'
 import {
   type MessageDTO,
   type MessagePart,
   MessageRole,
   PartKind,
-} from '../../../shared-contracts/schemas/message.schema'
+} from '@shared/schemas/message.schema'
 import type { CompactionSnapshot } from '../../features/compaction/compaction.repository'
 import { type ResolveAttachment, toCoreMessages } from './build-prompt'
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ToolDecision, ToolPolicy } from '../../../shared-contracts/tools/tool-policy'
+import { ToolDecision, ToolPolicy } from '@shared/tools/tool-policy'
 import { blockedToolResult, decideToolGate, GATE_ACTION, GATE_BLOCK_REASON } from './gate-decision'
 
 type Input = Parameters<typeof decideToolGate>[0]

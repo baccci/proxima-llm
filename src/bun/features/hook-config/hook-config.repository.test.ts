@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
-import { HOOK_ACTION_ID } from '../../../shared-contracts/lifecycle/hook-catalog'
+import { HOOK_ACTION_ID } from '@shared/lifecycle/hook-catalog'
 
 let store: Record<string, unknown> = {}
 mock.module('../../infra/db/settings-store', () => ({

@@ -1,4 +1,4 @@
-import type { ProviderId } from '../../../shared-contracts/providers/registry'
+import type { ProviderId } from '@shared/providers/registry'
 import { getSettings } from '../settings/settings.repository'
 import { listModels } from './model.repository'
 import { selectTitleModel } from './select-title-model'

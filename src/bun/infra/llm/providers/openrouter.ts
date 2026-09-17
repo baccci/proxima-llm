@@ -1,6 +1,6 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
+import type { ModelDTO } from '@shared/schemas/model.schema'
 import type { LanguageModel } from 'ai'
-import type { ModelDTO } from '../../../../shared-contracts/schemas/model.schema'
 import type { ComposerRequest, ProviderAdapter } from './adapter'
 
 export class OpenRouterAdapter implements ProviderAdapter {

@@ -1,6 +1,4 @@
-import { randomUUID } from 'crypto'
-import { and, asc, desc, eq, inArray, lt, or } from 'drizzle-orm'
-import { AttachmentKind } from '../../../shared-contracts/schemas/attachment.schema'
+import { AttachmentKind } from '@shared/schemas/attachment.schema'
 import {
   ChatComposerState,
   type ChatCursor,
@@ -8,21 +6,23 @@ import {
   type ChatPage,
   type CreateChatInput,
   DEFAULT_CHAT_TITLE,
-} from '../../../shared-contracts/schemas/chat.schema'
+} from '@shared/schemas/chat.schema'
 import {
   type ChatSearchHit,
   SearchHitKind,
   SNIPPET_MARK_CLOSE,
   SNIPPET_MARK_OPEN,
-} from '../../../shared-contracts/schemas/chat-search.schema'
-import type { SendMessageInput } from '../../../shared-contracts/schemas/message.schema'
+} from '@shared/schemas/chat-search.schema'
+import type { SendMessageInput } from '@shared/schemas/message.schema'
 import {
   MessageDTO,
   type MessagePart,
   MessageRole,
   PartKind,
   type StopReason,
-} from '../../../shared-contracts/schemas/message.schema'
+} from '@shared/schemas/message.schema'
+import { randomUUID } from 'crypto'
+import { and, asc, desc, eq, inArray, lt, or } from 'drizzle-orm'
 import { db, sqlite } from '../../infra/db/client'
 import { chats, messages } from '../../infra/db/schema'
 import * as attachmentService from '../attachment/attachment.repository'
