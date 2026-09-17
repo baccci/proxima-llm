@@ -12,11 +12,11 @@ import { resolveIconColor } from '@/entities/project/icon'
 import { resolvePalette } from '@/entities/project/palette'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { ProjectAppearancePicker } from '@/features/projects/components/project-appearance-picker'
-import { useProjects } from '@/features/projects/hooks/use-projects'
 import { getProjectIcon } from '@/features/projects/lib/project-icon'
 import { projects as projectsApi } from '@/features/projects/projects.api'
 import { useSidebarStore } from '@/features/sidebar/store/sidebar.store'
 import { useIsDark } from '@/hooks/use-is-dark'
+import { useProjects } from '@/hooks/use-projects'
 
 type CreateProjectFields = {
   name: string

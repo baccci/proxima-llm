@@ -6,7 +6,7 @@ import { flattenChatPages } from '@/features/chat/helpers/flatten-chat-pages'
 import { useChats, usePinnedChats } from '@/features/chat/hooks/use-chats'
 import { useLoadMoreOnScroll } from '@/features/chat/hooks/use-load-more-on-scroll'
 import { useChatStore } from '@/features/chat/store/chat.store'
-import { useProjects } from '@/features/projects/hooks/use-projects'
+import { useProjects } from '@/hooks/use-projects'
 
 // Initial estimate only. Each row is measured after mount (measureElement below), so the
 // virtualizer positions rows by their real rendered height rather than a guessed constant.

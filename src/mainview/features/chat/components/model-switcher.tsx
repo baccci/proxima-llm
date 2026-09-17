@@ -21,7 +21,7 @@ import { TooltipWrapper } from '@/components/tooltip'
 import { groupByFamily } from '@/entities/model/capabilities'
 import { shortModelName } from '@/entities/model/short-name'
 import { MARKETPLACE_MODAL_ID } from '@/features/models/components/marketplace.constants'
-import { useModels } from '@/features/models/hooks/use-models'
+import { useModels } from '@/hooks/use-models'
 
 type ModelSwitcherProps = {
   modelId: string | null
