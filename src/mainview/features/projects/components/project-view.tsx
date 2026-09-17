@@ -13,6 +13,7 @@ import { useChats } from '@/features/chat/hooks/use-chats'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { projects as projectsApi } from '@/features/projects/projects.api'
 import { useProjects } from '@/hooks/use-projects'
+import { useLayoutStore } from '@/store/layout.store'
 import { FilesCard } from './files-card'
 import { MemoriesCard } from './memories-card'
 import { ProjectAppearancePicker } from './project-appearance-picker'
@@ -124,7 +125,7 @@ function EditProjectForm({ project, onClose }: EditProjectFormProps) {
 export function ProjectView({ projectId }: ProjectViewProps) {
   const { data: projects = [] } = useProjects()
   const chatsQuery = useChats(projectId)
-  const sidebarOpen = useChatStore((s) => s.sidebarOpen)
+  const sidebarOpen = useLayoutStore((s) => s.sidebarOpen)
   const selectChat = useChatStore((s) => s.selectChat)
   const openAllChats = useChatStore((s) => s.openAllChats)
 

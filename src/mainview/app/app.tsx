@@ -2,9 +2,9 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { IconPanelLeftClose } from '@/components/icons/icon-panel-left-close'
 import { IconPanelLeftOpen } from '@/components/icons/icon-panel-left-open'
 import { TooltipProvider, TooltipWrapper } from '@/components/tooltip'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { DevPanel } from '@/features/devtools/components/dev-panel'
 import { queryClient } from '@/lib/query-client'
+import { useLayoutStore } from '@/store/layout.store'
 import { MainPane } from './layout/main-pane'
 import { Sidebar } from './layout/sidebar'
 import { useApplyTheme } from './use-apply-theme'
@@ -23,8 +23,8 @@ export function App() {
 function AppShell() {
   useApplyTheme()
   useWebkitTabFocus()
-  const sidebarOpen = useChatStore((s) => s.sidebarOpen)
-  const toggleSidebar = useChatStore((s) => s.toggleSidebar)
+  const sidebarOpen = useLayoutStore((s) => s.sidebarOpen)
+  const toggleSidebar = useLayoutStore((s) => s.toggleSidebar)
   const toggleLabel = sidebarOpen ? 'Collapse sidebar' : 'Open sidebar'
 
   return (

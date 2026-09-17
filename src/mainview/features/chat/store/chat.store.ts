@@ -93,7 +93,6 @@ type ChatUIState = {
   // Chat id currently running a manual (non-stream) compaction, so the message
   // list can show the "Compacting…" label outside the stream pipeline.
   compactingChatId: string | null
-  sidebarOpen: boolean
   focusModeOpen: boolean
   focusModeExchangeIndex: number
   focusModeShowPrompt: boolean
@@ -121,7 +120,6 @@ type ChatUIState = {
   finishStreaming: () => void
   setStreamingError: (error: string) => void
   failStreaming: (error: string) => void
-  toggleSidebar: () => void
   setFocusModeOpen: (open: boolean) => void
   setFocusModeExchangeIndex: (i: number) => void
   setFocusModeShowPrompt: (show: boolean) => void
@@ -134,7 +132,6 @@ export const useChatStore = create<ChatUIState>((set) => ({
   thinkingExpanded: {},
   streaming: null,
   compactingChatId: null,
-  sidebarOpen: true,
   focusModeOpen: false,
   focusModeExchangeIndex: 0,
   focusModeShowPrompt: false,
@@ -292,7 +289,6 @@ export const useChatStore = create<ChatUIState>((set) => ({
   failStreaming: (error) =>
     set({ streaming: { ...blankStreaming(crypto.randomUUID(), ''), done: true, error } }),
 
-  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setFocusModeOpen: (open) => set({ focusModeOpen: open }),
   setFocusModeExchangeIndex: (i) => set({ focusModeExchangeIndex: i }),
   setFocusModeShowPrompt: (show) => set({ focusModeShowPrompt: show }),
