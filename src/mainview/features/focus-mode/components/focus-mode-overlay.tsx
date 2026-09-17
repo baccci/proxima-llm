@@ -1,7 +1,7 @@
 import { clamp } from '@utils/clamp'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
-import { jumpInto } from '@/features/chat/lib/on-control-navigate'
+import { jumpInto } from '@/features/chat/lib/jump-into-stream'
 import { type StreamingMessage, useChatStore } from '@/features/chat/store/chat.store'
 import type { Exchange } from '../entities/group-into-exchanges'
 import { computeFontWeight, computeLineHeight } from '../helpers/typography'

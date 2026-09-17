@@ -14,7 +14,7 @@ streaming while you are reading.
 
 **Depends on:** the `chat` feature (`chat.store` for the live streaming message; the
 `use-messages` read hook; `message-part-renderer`, `thinking-block`, and the `message-parts`
-helpers; `on-control-navigate.jumpInto`), the root `navigation.store` (`selectedChatId`), the
+helpers; `jump-into-stream.jumpInto`), the root `navigation.store` (`selectedChatId`), the
 shared `message.schema` (`MessageDTO` / `MessageRole`), shared-root utils (`clamp`, `cn`), and
 the shared `use-mount-effect` hook. It is mounted by `app/layout/main-pane`.
 
@@ -58,7 +58,7 @@ The shape within the feature is `entities/helpers → hooks → store → compon
   (the streaming message, the renderers, `useMessages`) are intentional: focus mode is a way of
   looking at a chat, not a sibling domain. See
   [conventions/architecture.md](../conventions/architecture.md).
-- **Other features enter through `open(atExchange)`.** The chat header and `on-control-navigate`
+- **Other features enter through `open(atExchange)`.** The chat header and `app/on-control-navigate`
   both start focus mode at a chosen exchange, so the store owns that sequence instead of each
   caller setting two fields in the right order.
 - **`useLayoutEffect` is deliberate** in `use-fit-typography`: the fit depends on the real

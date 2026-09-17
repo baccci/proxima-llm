@@ -285,12 +285,18 @@ Electrobun ships a typed, two-direction RPC, so there is no custom IPC router. T
 - `webview.messages` are bun-to-renderer **pushes**: fire-and-forget, no reply. This is how the
   main process tells the window something changed on its own, streaming chunks being the busiest case.
 
-There are five push channels: `streamChunk` (the live reply), `chatsUpdated`, `modelsUpdated`,
-`memoryChanged`, and `controlNavigate` (the control server steering the window). None of them can
+There are six push channels: `streamChunk` (the live reply), `chatsUpdated`, `modelsUpdated`,
+`memoryChanged`, `playSound`, and `controlNavigate` (the control server steering the window). None of them can
 reach the window object directly, because that object does not exist yet when the RPC file loads. So
 the RPC file leaves empty **slots** and small setter functions, and startup fills them in. Handing a
 module its dependencies from the outside like this is called dependency injection, and it is the
 pattern that keeps the dependency direction one-way across the whole main process.
+
+The renderer end of `controlNavigate` needs the same trick for a different reason. Acting on that
+push spans navigation, chat and focus mode at once, but `lib/rpc.client` sits at the shared root
+and must not name a feature. So it exposes `subscribeToControlNavigate`, the mirror of the
+`subscribeToStream` it already had for stream chunks, and `main.tsx` subscribes
+`app/on-control-navigate` to it at startup. Pushes are received by the root and acted on by `app/`.
 
 The RPC connection is typed but not runtime-validated, and the only caller is the app's own window,
 so ordinary database reads trust that typing. A handler parses its input only when the value reaches

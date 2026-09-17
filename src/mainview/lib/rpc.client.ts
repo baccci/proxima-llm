@@ -2,7 +2,6 @@ import type { AppRPC, StreamChunk } from '@shared/rpc/app-rpc.types'
 import { STREAM_CHUNK_KIND } from '@shared/rpc/stream-chunk'
 import { MemoryScope } from '@shared/schemas/memory-slice.schema'
 import Electrobun, { Electroview } from 'electrobun/view'
-import { onControlNavigate } from '@/features/chat/lib/on-control-navigate'
 import { queryClient } from './query-client'
 import { queryKeys } from './query-keys'
 import { playSound } from './sound-player'
@@ -10,8 +9,15 @@ import { playSound } from './sound-player'
 // Abort an RPC request to the bun process that has not answered within this window.
 const RPC_MAX_REQUEST_MS = 60_000
 
+export type ControlNavigatePayload = AppRPC['webview']['messages']['controlNavigate']
+
 // Internal pub/sub for stream chunks: each streamId maps to its set of callbacks.
 const streamSubscribers = new Map<string, Set<(chunk: StreamChunk) => void>>()
+
+// The same pub/sub for control-navigate pushes. Acting on one spans navigation, chat and
+// focus mode, which is app/'s call to make, not this transport's, so the policy subscribes
+// from there instead of being imported down into here.
+const controlNavigateSubscribers = new Set<(payload: ControlNavigatePayload) => void>()
 
 export const rpc = Electroview.defineRPC<AppRPC>({
   maxRequestTime: RPC_MAX_REQUEST_MS,
@@ -38,7 +44,7 @@ export const rpc = Electroview.defineRPC<AppRPC>({
         }
       },
       controlNavigate: (payload) => {
-        onControlNavigate(payload)
+        controlNavigateSubscribers.forEach((cb) => cb(payload))
       },
       playSound: ({ sound }) => {
         // A Web Audio failure must never escape into Electrobun's message dispatch.
@@ -72,4 +78,11 @@ export function subscribeToStream(streamId: string, cb: (chunk: StreamChunk) => 
   }
   streamSubscribers.get(streamId)?.add(cb)
   return () => streamSubscribers.get(streamId)?.delete(cb)
+}
+
+export function subscribeToControlNavigate(
+  cb: (payload: ControlNavigatePayload) => void,
+): () => void {
+  controlNavigateSubscribers.add(cb)
+  return () => controlNavigateSubscribers.delete(cb)
 }

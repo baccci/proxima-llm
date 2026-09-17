@@ -28,7 +28,6 @@ directly.
 |---|---|
 | `components/sidebar-chat-list.tsx` | Date-grouped chat list (a `ChatRow` per chat). Empty state when there are no chats. |
 | `components/sidebar-pinned-chats.tsx` | Collapsible "Pinned" section; renders nothing when no chat is pinned. |
-| `components/chat-row.tsx` | One chat row: the select button, the hover/menu-reveal actions, and the inline rename input (`ChatRowRename`). |
 | `components/sidebar-projects.tsx` | Collapsible "Projects" section, the create-project dialog (`CreateProjectDialog` + `CreateProjectForm`), and `ProjectPill`. |
 | `components/sidebar-footer.tsx` | Models and Settings launcher buttons (shared `FooterButton`). |
 | `store/sidebar.store.ts` | UI-only collapse flags: `projectsCollapsed`, `pinnedCollapsed`. Not persisted. |

@@ -33,12 +33,13 @@ reuses this one's streaming message and `useMessages`, so its docs live in
 | `components/message-bubble.tsx` | Role dispatch (memoized): `UserMessage` (bubble plus hover actions, or the inline `UserMessageEditor`) versus `AssistantMessage` (reasoning, text, sources, usage, actions, stop-reason). |
 | `components/message-part-renderer.tsx` | Renders one `MessagePart` by kind: text to `Markdown`, image/file to lazy attachment renderers, tool-call to `ToolCallBlock`; reasoning, tool-result, and source render `null` (shown by their own blocks). |
 | `components/{thinking-block,tool-call-block,sources-block,message-actions,attachment-chip}.tsx` | The per-part blocks: the collapsible reasoning trace; a tool call across its three states (awaiting-approval / pending / resolved) with the inline approval card; web-search sources; the retry/edit/copy hover row; an attachment chip. |
+| `components/chat-row.tsx` | One chat row, rendered by the sidebar and the project view: the select button, the hover/menu-reveal actions, and the inline rename input (`ChatRowRename`). |
 | `components/message-input/` (`message-input.tsx` plus `constants.ts`) | The in-chat composer: a server-backed `ChatDTO`, the model pinned via `chat.update`, the context ring plus manual compaction. |
 | `components/composer-body.tsx` plus `welcome-composer.tsx` | The new-chat composer: local draft state, default-model computation, `chat.create` then send. `WelcomeComposer` is its empty-state wrapper. |
 | `components/{composer-add-menu,composer-attachment-row,composer-button,model-switcher}.tsx` | The shared composer periphery: the "+" menu (attach / think / browse / effort), the pending-attachment chip row, the shared send/stop button, the model dropdown. |
 | `store/chat.store.ts` | The hot Zustand store, and only what streams: the live `streaming` message (mutated on every token), `compactingChatId`, and `thinkingExpanded`. What the shell is showing lives in the root `navigation.store`. |
 | `hooks/*` | Query reads (`useChats`, `useMessages`, `useCompaction`), stream and action hooks (`useStreamingMessage`, `useMessageActions`, `useCompactNow`, `usePendingAttachments`), and two named DOM hooks (`useAutoResizeTextarea`, `useAutoScroll`). |
-| `lib/*` | The streaming glue: `attach-stream` (subscribe to a bun stream, drive the store), `send-turn` (the shared submit tail), `on-control-navigate` plus `active-chat-reporter` (control-server integration), `reset-stream-on-navigation` (drop the live stream when the open chat changes), `copy-message`, `tool-summary`. |
+| `lib/*` | The streaming glue: `attach-stream` (subscribe to a bun stream, drive the store), `send-turn` (the shared submit tail), `active-chat-reporter` (control-server integration), `jump-into-stream` (open a chat on its already-running stream, shared with focus mode), `reset-stream-on-navigation` (drop the live stream when the open chat changes), `copy-message`, `tool-summary`. |
 | `entities/` · `helpers/` | `entities/`: `chat-title` (the Untitled fallback), `context-usage` (token-window math). `helpers/`: `message-parts` (part extractors), `composer-capabilities`, `reconcile-composer`, `send-key`. |
 | `chat.api.ts` · `attachment.api.ts` | Chat CRUD plus the optimistic user message and cache invalidations; the `useAttachment` query. |
 
@@ -57,8 +58,9 @@ Two composers, one tail. `MessageInput` (an existing chat) and `ComposerBody` (a
 different heads, server-backed versus local draft, `chat.update` versus `chat.create`, and share the
 periphery and the `sendTurn` tail. Tool approval round-trips out of band: the approval card calls
 `resolveToolApproval` on its own RPC, and the decision comes back as a later stream chunk. External
-prompts (the control server) enter through `on-control-navigate`, which selects the chat and attaches
-to the already-running stream.
+prompts (the control server) enter through `app/on-control-navigate`, which selects the chat and
+attaches to the already-running stream. That policy lives in `app/` because it spans three
+features; the chat-side half of it is `lib/jump-into-stream`.
 
 ## Key decisions
 

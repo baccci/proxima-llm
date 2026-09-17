@@ -8,6 +8,10 @@ type PendingIncoming = {
   assistantMessageId: string
 }
 
+// Sentinel for `open(atExchange)`. The overlay clamps the index to the last exchange it
+// has, so asking for this one always lands on the newest.
+export const NEWEST_EXCHANGE = Number.MAX_SAFE_INTEGER
+
 type FocusModeState = {
   isOpen: boolean
   exchangeIndex: number
