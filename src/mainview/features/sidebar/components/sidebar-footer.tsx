@@ -2,8 +2,8 @@ import type React from 'react'
 import { IconRobotFace } from '@/components/icons/icon-robot-face'
 import { IconSettings } from '@/components/icons/icon-settings'
 import { modal } from '@/components/modal/modal-store'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { MARKETPLACE_MODAL_ID } from '@/features/models/components/marketplace.constants'
+import { SETTINGS_MODAL_ID } from '@/features/settings/constants/modal'
 
 type FooterButtonProps = {
   icon: React.ReactNode
@@ -24,8 +24,6 @@ function FooterButton({ icon, label, onClick }: FooterButtonProps) {
 }
 
 export function SidebarFooter() {
-  const setSettingsOpen = useChatStore((s) => s.setSettingsOpen)
-
   return (
     <div className="p-2 border-t border-border shrink-0">
       <FooterButton
@@ -36,7 +34,7 @@ export function SidebarFooter() {
       <FooterButton
         icon={<IconSettings width={15} className="shrink-0" />}
         label="Settings"
-        onClick={() => setSettingsOpen(true)}
+        onClick={() => modal.open(SETTINGS_MODAL_ID)}
       />
     </div>
   )

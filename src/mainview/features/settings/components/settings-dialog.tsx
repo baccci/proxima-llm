@@ -7,9 +7,9 @@ import { IconPalette } from '@/components/icons/icon-palette'
 import { IconSlidersHorizontal } from '@/components/icons/icon-sliders-horizontal'
 import { IconWrench } from '@/components/icons/icon-wrench'
 import { IconX } from '@/components/icons/icon-x'
-import { Modal } from '@/components/modal'
+import { Modal, modal } from '@/components/modal'
 import { ModalNavBody, ModalNavItem } from '@/components/modal/modal-nav'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { SETTINGS_MODAL_ID } from '../constants/modal'
 import { TABS, type Tab } from '../constants/tabs'
 import { AdvancedSection } from './advanced-section'
 import { AppearanceSection } from './appearance-section'
@@ -57,24 +57,17 @@ const TABS_ARR: { id: Tab; label: string; icon: React.ReactNode; panel: React.Re
 ]
 
 export function SettingsDialog() {
-  const settingsOpen = useChatStore((s) => s.settingsOpen)
-  const setSettingsOpen = useChatStore((s) => s.setSettingsOpen)
   const [tab, setTab] = React.useState<Tab>(TABS.APPEARANCE)
 
   return (
-    <Modal
-      isOpen={settingsOpen}
-      onClose={() => setSettingsOpen(false)}
-      label="Settings"
-      overlayClassName="bg-black/50"
-    >
+    <Modal id={SETTINGS_MODAL_ID} label="Settings" overlayClassName="bg-black/50">
       <Modal.Content className="w-172 rounded-xl border border-border bg-panel shadow-modal">
         <div className="flex items-start justify-between px-5 pt-5 pb-4">
           <h2 className="text-md font-semibold text-foreground">Settings</h2>
           <button
             type="button"
             aria-label="Close"
-            onClick={() => setSettingsOpen(false)}
+            onClick={() => modal.close(SETTINGS_MODAL_ID)}
             className="ml-4 rounded-lg p-1 text-subtle hover:text-foreground hover:bg-surface-hover transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
           >
             <IconX width={16} />

@@ -43,7 +43,7 @@ OpenRouter proves it, but each new provider is still real work in one place (see
 | UI | React + TypeScript | Standard, typed end to end. |
 | Styling | TailwindCSS | Utility classes next to the markup. |
 | Animation | Motion (formerly Framer Motion) | Sidebar, message-in, thinking-block expand. |
-| UI state | Zustand | A small store per feature, no global blob. |
+| UI state | Zustand | A small store per feature, plus navigation and layout at the root. No global blob. |
 | Server state | TanStack Query | Owns caching and refetching for everything read over RPC. |
 | Forms | React Hook Form | Every form in the renderer. |
 | Validation | Zod | Every DTO and every dangerous input, checked at the boundary. |
@@ -176,14 +176,18 @@ src/
    ├─ components/        # Shared UI primitives and the modal system.
    ├─ hooks/             # Cross-feature hooks.
    ├─ lib/               # App infrastructure singletons: the RPC client, query client, markdown, highlighter.
+   ├─ store/             # App-level UI state no single feature owns: navigation, shell layout.
    └─ utils/             # Pure, stateless helpers.
 ```
 
 **Location encodes scope.** A file's folder tells you who may import it. Anything at a root level
-(`components/`, `hooks/`, `lib/`, `utils/`, `entities/`) is **shared**, and any feature or `app/`
-may use it. Anything under `features/<x>/` is **scoped to feature x**, and only x and `app/` may
-use it. A feature reaching into a sibling feature is a smell: lift the shared piece up to the root
-instead, and let `app/` hold the cross-feature glue.
+(`components/`, `hooks/`, `lib/`, `store/`, `utils/`, `entities/`) is **shared**, and any feature or
+`app/` may use it. Anything under `features/<x>/` is **scoped to feature x**, and only x and `app/`
+may use it. A feature reaching into a sibling feature is usually a smell: lift the shared piece up
+to the root instead, and let `app/` hold the cross-feature glue. Three directories are not peers
+and are read differently (`sidebar` and `focus-mode` are views onto chat, `devtools` is
+deliberately omniscient); see
+[conventions/architecture.md](conventions/architecture.md).
 
 ```
 shared-contracts             ←  bun, mainview   (both processes)
@@ -321,11 +325,13 @@ state:
 - **Forms go through React Hook Form.**
 - **UI-only state goes in Zustand,** one store per feature, read through per-field selectors.
 
-Only three features actually keep a store: `chat` (the hot one, changing on every streaming token),
-`sidebar` (section collapse flags), and `devtools`. The rest (`projects`, `settings`, `models`,
-`memory`, `focus-mode`) are storeless: their server data lives in query hooks, and what little UI
-state they need rides an existing store or local component state. The reasoning, including why a
-selector-less store read is a performance trap on the hot `chat` store, is in
+Four features keep a store: `chat` (the hot one, holding the live stream and changing on every
+streaming token), `focus-mode`, `sidebar` (section collapse flags), and `devtools`. Two more stores
+sit at the renderer root for state no single feature owns: `navigation` (which chat, project or
+list the shell is showing) and `layout` (whether the sidebar is shown). The rest (`projects`,
+`settings`, `models`, `memory`) are storeless: their server data lives in query hooks, and what
+little UI state they need is local component state. The reasoning, including why a selector-less
+store read is a performance trap on the hot `chat` store, is in
 [conventions/data-and-state.md](conventions/data-and-state.md).
 
 ## Where to go next

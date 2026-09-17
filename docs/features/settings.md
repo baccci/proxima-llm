@@ -14,12 +14,12 @@ and diagnostics/log actions).
 primitives, `hooks/{use-mount-effect,use-is-dark}`, `utils/tailwind-class-merge`); shared-contracts
 (`schemas/settings.schema`, `providers/registry`, `tools/{tool-policy,tool-catalog}`, `models/pricing`,
 `schemas/model.schema`, `schemas/memory-slice.schema`); the models feature (`useModels`,
-`models.api.syncModels`); the memory feature (`MemorySliceList`); and the chat feature (`chat.store`
-holds the modal's open flag).
+`models.api.syncModels`); and the memory feature (`MemorySliceList`).
 
 ## Structure
 
-The standard feature shape. There is no `store` (the modal's open flag rides `chat.store`) and no
+The standard feature shape. There is no `store` (the dialog registers with the shared modal store
+under `SETTINGS_MODAL_ID`, so the sidebar footer opens it without importing the dialog) and no
 `entities` or `helpers` (the domain types live in shared-contracts; small pure helpers stay inline in
 their component file).
 

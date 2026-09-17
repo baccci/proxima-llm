@@ -2,14 +2,15 @@ import { AllChatsView } from '@/features/chat/components/chat-list/all-chats-vie
 import { SearchPalette } from '@/features/chat/components/chat-search/search-palette'
 import { ChatView } from '@/features/chat/components/chat-view'
 import { useSearchShortcut } from '@/features/chat/hooks/use-search-shortcut'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { FocusModeOverlay } from '@/features/focus-mode/components/focus-mode-overlay'
+import { useFocusModeStore } from '@/features/focus-mode/store/focus-mode.store'
 import { ModelsMarketplace } from '@/features/models/components/models-marketplace'
 import { ProjectView } from '@/features/projects/components/project-view'
 import { SettingsDialog } from '@/features/settings/components/settings-dialog'
+import { useNavigationStore } from '@/store/navigation.store'
 
 export function MainPane() {
-  const focusModeOpen = useChatStore((s) => s.focusModeOpen)
+  const focusModeOpen = useFocusModeStore((s) => s.isOpen)
   useSearchShortcut()
 
   return (
@@ -26,9 +27,9 @@ export function MainPane() {
 // The single main-content surface. The All-chats view takes precedence, then a project
 // (when no chat is open under it), otherwise the chat view.
 function MainContent() {
-  const viewingAllChats = useChatStore((s) => s.viewingAllChats)
-  const selectedProjectId = useChatStore((s) => s.selectedProjectId)
-  const selectedChatId = useChatStore((s) => s.selectedChatId)
+  const viewingAllChats = useNavigationStore((s) => s.viewingAllChats)
+  const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
+  const selectedChatId = useNavigationStore((s) => s.selectedChatId)
 
   if (viewingAllChats) {
     return <AllChatsView scope={viewingAllChats.projectId} />

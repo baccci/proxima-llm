@@ -8,8 +8,8 @@ import { Spinner } from '@/components/spinner'
 import { SEARCH_MIN_QUERY_LENGTH, SEARCH_MODAL_ID } from '@/features/chat/constants'
 import { splitSnippet } from '@/features/chat/helpers/split-snippet'
 import { useSearchChats } from '@/features/chat/hooks/use-search-chats'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { useProjects } from '@/hooks/use-projects'
+import { useNavigationStore } from '@/store/navigation.store'
 
 // Keys that move the selection, mapped to how far they move it.
 const MOVE_KEYS: Record<string, number> = {
@@ -45,9 +45,9 @@ type SearchPaletteBodyProps = {
 
 function SearchPaletteBody({ inputRef }: SearchPaletteBodyProps) {
   const { close } = useModalState(SEARCH_MODAL_ID)
-  const openChatAtMessage = useChatStore((s) => s.openChatAtMessage)
-  const selectedProjectId = useChatStore((s) => s.selectedProjectId)
-  const viewingAllChats = useChatStore((s) => s.viewingAllChats)
+  const openChatAtMessage = useNavigationStore((s) => s.openChatAtMessage)
+  const selectedProjectId = useNavigationStore((s) => s.selectedProjectId)
+  const viewingAllChats = useNavigationStore((s) => s.viewingAllChats)
   const { data: projects = [] } = useProjects()
 
   // Opening from inside a project scopes the search to it, and the pill below clears

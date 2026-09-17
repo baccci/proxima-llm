@@ -6,11 +6,13 @@ import './global.css'
 import { App } from './app/app'
 import { ErrorBoundary } from './components/error-boundary'
 import { initActiveChatReporter } from './features/chat/lib/active-chat-reporter'
+import { initStreamResetOnNavigation } from './features/chat/lib/reset-stream-on-navigation'
 import { installClientLogger } from './lib/client-logger'
 import { electroview } from './lib/rpc.client'
 
 installClientLogger()
 initActiveChatReporter()
+initStreamResetOnNavigation()
 
 document.addEventListener(
   'keydown',

@@ -1,12 +1,12 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { flattenChatPages } from '@utils/flatten-chat-pages'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { ChatRow } from '@/features/chat/components/chat-row'
-import { flattenChatPages } from '@/features/chat/helpers/flatten-chat-pages'
 import { useChats, usePinnedChats } from '@/features/chat/hooks/use-chats'
 import { useLoadMoreOnScroll } from '@/features/chat/hooks/use-load-more-on-scroll'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { useProjects } from '@/hooks/use-projects'
+import { useNavigationStore } from '@/store/navigation.store'
 
 // Initial estimate only. Each row is measured after mount (measureElement below), so the
 // virtualizer positions rows by their real rendered height rather than a guessed constant.
@@ -22,8 +22,8 @@ type AllChatsViewProps = {
 }
 
 export function AllChatsView({ scope }: AllChatsViewProps) {
-  const selectedChatId = useChatStore((s) => s.selectedChatId)
-  const selectChat = useChatStore((s) => s.selectChat)
+  const selectedChatId = useNavigationStore((s) => s.selectedChatId)
+  const selectChat = useNavigationStore((s) => s.selectChat)
 
   const { data: projects = [] } = useProjects()
   const { data: pinned = [] } = usePinnedChats(scope)

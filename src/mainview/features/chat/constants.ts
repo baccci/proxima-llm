@@ -1,7 +1,9 @@
-// Provisional TEST values. Dev has only a handful of chats, so a small cap and page
-// size actually exercise the sidebar cap, the See-all view, and infinite scroll.
-// Revisit before shipping.
-export const SIDEBAR_CHAT_LIMIT = 15
+// Chats a capped list shows before it hands off to See all. Both the sidebar and a
+// project's page use it.
+// Provisional TEST values, here and in CHATS_PAGE_SIZE. Dev has only a handful of chats,
+// so a small cap and page size actually exercise the cap, the See-all view, and infinite
+// scroll. Revisit before shipping.
+export const CHAT_LIST_PREVIEW_LIMIT = 15
 export const CHATS_PAGE_SIZE = 25
 
 // Identifies the search palette to the modal store. It lives here rather than beside the

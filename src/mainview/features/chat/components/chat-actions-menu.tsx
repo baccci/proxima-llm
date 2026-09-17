@@ -18,8 +18,8 @@ import { IconPinOff } from '@/components/icons/icon-pin-off'
 import { IconTrash } from '@/components/icons/icon-trash'
 import { chat } from '@/features/chat/chat.api'
 import { chatTitle } from '@/features/chat/entities/chat-title'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { useMountEffect } from '@/hooks/use-mount-effect'
+import { useNavigationStore } from '@/store/navigation.store'
 
 type ChatActionsMenuProps = {
   chatItem: ChatDTO
@@ -38,8 +38,8 @@ export function ChatActionsMenu({
   triggerClassName,
   triggerSize = 14,
 }: ChatActionsMenuProps) {
-  const selectChat = useChatStore((s) => s.selectChat)
-  const selectedChatId = useChatStore((s) => s.selectedChatId)
+  const selectChat = useNavigationStore((s) => s.selectChat)
+  const selectedChatId = useNavigationStore((s) => s.selectedChatId)
   const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [renamingDialog, setRenamingDialog] = React.useState(false)
 

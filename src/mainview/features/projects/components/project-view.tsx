@@ -1,4 +1,5 @@
 import type { ProjectDTO } from '@shared/schemas/project.schema'
+import { flattenChatPages } from '@utils/flatten-chat-pages'
 import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { useForm } from 'react-hook-form'
@@ -7,12 +8,12 @@ import { DialogContent, DialogRoot } from '@/components/dialog'
 import { IconPencil } from '@/components/icons/icon-pencil'
 import { Input } from '@/components/input'
 import { ComposerBody } from '@/features/chat/components/composer-body'
-import { SIDEBAR_CHAT_LIMIT } from '@/features/chat/constants'
-import { flattenChatPages } from '@/features/chat/helpers/flatten-chat-pages'
+import { CHAT_LIST_PREVIEW_LIMIT } from '@/features/chat/constants'
 import { useChats } from '@/features/chat/hooks/use-chats'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { projects as projectsApi } from '@/features/projects/projects.api'
 import { useProjects } from '@/hooks/use-projects'
+import { useLayoutStore } from '@/store/layout.store'
+import { useNavigationStore } from '@/store/navigation.store'
 import { FilesCard } from './files-card'
 import { MemoriesCard } from './memories-card'
 import { ProjectAppearancePicker } from './project-appearance-picker'
@@ -124,14 +125,14 @@ function EditProjectForm({ project, onClose }: EditProjectFormProps) {
 export function ProjectView({ projectId }: ProjectViewProps) {
   const { data: projects = [] } = useProjects()
   const chatsQuery = useChats(projectId)
-  const sidebarOpen = useChatStore((s) => s.sidebarOpen)
-  const selectChat = useChatStore((s) => s.selectChat)
-  const openAllChats = useChatStore((s) => s.openAllChats)
+  const sidebarOpen = useLayoutStore((s) => s.sidebarOpen)
+  const selectChat = useNavigationStore((s) => s.selectChat)
+  const openAllChats = useNavigationStore((s) => s.openAllChats)
 
   // Capped preview; the full project chat list (with its pinned) lives in the All-chats view.
   const loaded = flattenChatPages(chatsQuery.data)
-  const chats = loaded.slice(0, SIDEBAR_CHAT_LIMIT)
-  const showSeeAll = chatsQuery.hasNextPage || loaded.length > SIDEBAR_CHAT_LIMIT
+  const chats = loaded.slice(0, CHAT_LIST_PREVIEW_LIMIT)
+  const showSeeAll = chatsQuery.hasNextPage || loaded.length > CHAT_LIST_PREVIEW_LIMIT
 
   const project = projects.find((p) => p.id === projectId)
 

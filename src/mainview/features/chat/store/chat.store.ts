@@ -28,20 +28,6 @@ export type StreamingMessage = {
   error: string | null
 }
 
-// A message the message list should land on once its chat is open, set when a search
-// hit is picked. Cleared by any other navigation, so returning to the chat later opens
-// it normally at the newest message.
-type PendingScroll = {
-  chatId: string
-  messageId: string
-}
-
-type PendingIncoming = {
-  chatId: string
-  streamId: string
-  assistantMessageId: string
-}
-
 // An empty streaming message. startStreaming seeds a live one; failStreaming
 // seeds a done-with-error one on top of the same scaffold.
 function blankStreaming(id: string, streamId: string): StreamingMessage {
@@ -86,29 +72,12 @@ function upsertToolCall(
 }
 
 type ChatUIState = {
-  selectedChatId: string | null
-  selectedProjectId: string | null
   thinkingExpanded: Record<string, boolean>
   streaming: StreamingMessage | null
   // Chat id currently running a manual (non-stream) compaction, so the message
   // list can show the "Compacting…" label outside the stream pipeline.
   compactingChatId: string | null
-  settingsOpen: boolean
-  sidebarOpen: boolean
-  focusModeOpen: boolean
-  focusModeExchangeIndex: number
-  focusModeShowPrompt: boolean
-  pendingIncoming: PendingIncoming | null
-  pendingScroll: PendingScroll | null
-  // The full-page All-chats view, scoped global (projectId null) or to a project.
-  // Null means the view is closed. Selecting a chat or project clears it.
-  viewingAllChats: { projectId: string | null } | null
-
-  selectChat: (id: string | null) => void
-  openChatAtMessage: (chatId: string, messageId: string | null) => void
-  selectProject: (id: string) => void
-  openAllChats: (projectId: string | null) => void
-  closeAllChats: () => void
+  resetForChatChange: () => void
   setThinkingExpanded: (messageId: string, expanded: boolean) => void
   startStreaming: (streamId: string, assistantMessageId: string) => void
   appendTextDelta: (delta: string) => void
@@ -122,58 +91,16 @@ type ChatUIState = {
   finishStreaming: () => void
   setStreamingError: (error: string) => void
   failStreaming: (error: string) => void
-  setSettingsOpen: (open: boolean) => void
-  toggleSidebar: () => void
-  setFocusModeOpen: (open: boolean) => void
-  setFocusModeExchangeIndex: (i: number) => void
-  setFocusModeShowPrompt: (show: boolean) => void
-  setPendingIncoming: (p: PendingIncoming | null) => void
 }
 
 export const useChatStore = create<ChatUIState>((set) => ({
-  selectedChatId: null,
-  selectedProjectId: null,
   thinkingExpanded: {},
   streaming: null,
   compactingChatId: null,
-  settingsOpen: false,
-  sidebarOpen: true,
-  focusModeOpen: false,
-  focusModeExchangeIndex: 0,
-  focusModeShowPrompt: false,
-  pendingIncoming: null,
-  pendingScroll: null,
-  viewingAllChats: null,
 
-  selectChat: (id) =>
-    set({
-      selectedChatId: id,
-      streaming: null,
-      pendingIncoming: null,
-      pendingScroll: null,
-      viewingAllChats: null,
-    }),
-  // Open a chat from a search hit. A title hit carries no message, so it opens the chat
-  // the ordinary way at the newest message.
-  openChatAtMessage: (chatId, messageId) =>
-    set({
-      selectedChatId: chatId,
-      streaming: null,
-      pendingIncoming: null,
-      pendingScroll: messageId === null ? null : { chatId, messageId },
-      viewingAllChats: null,
-    }),
-  selectProject: (id) =>
-    set({
-      selectedProjectId: id,
-      selectedChatId: null,
-      streaming: null,
-      pendingIncoming: null,
-      pendingScroll: null,
-      viewingAllChats: null,
-    }),
-  openAllChats: (projectId) => set({ viewingAllChats: { projectId } }),
-  closeAllChats: () => set({ viewingAllChats: null }),
+  // Called when navigation opens a different chat: the live stream belongs to the
+  // chat being left.
+  resetForChatChange: () => set({ streaming: null }),
 
   setThinkingExpanded: (messageId, expanded) =>
     set((s) => ({ thinkingExpanded: { ...s.thinkingExpanded, [messageId]: expanded } })),
@@ -294,13 +221,6 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   failStreaming: (error) =>
     set({ streaming: { ...blankStreaming(crypto.randomUUID(), ''), done: true, error } }),
-
-  setSettingsOpen: (open) => set({ settingsOpen: open }),
-  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-  setFocusModeOpen: (open) => set({ focusModeOpen: open }),
-  setFocusModeExchangeIndex: (i) => set({ focusModeExchangeIndex: i }),
-  setFocusModeShowPrompt: (show) => set({ focusModeShowPrompt: show }),
-  setPendingIncoming: (p) => set({ pendingIncoming: p }),
 }))
 
 export function streamingToParts(msg: StreamingMessage): MessagePart[] {

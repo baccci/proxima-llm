@@ -14,13 +14,14 @@ the project, the project's chats list, and two cards, Memories and Files. The ap
 primitives and `components/icons/*`, `entities/project/{icon,palette}`, `hooks/use-is-dark`,
 `utils/{tailwind-class-merge,error-message}`); shared-contracts
 (`schemas/{project,project-file,memory-slice}.schema`); the memory feature (`MemorySliceList`,
-`useMemorySlices`); and the chat feature (`ComposerBody`, `useChats`, and `chat.store` for
-`sidebarOpen` / `selectChat`).
+`useMemorySlices`); the chat feature (`ComposerBody`, `useChats`, `CHAT_LIST_PREVIEW_LIMIT`); and
+the root stores (`layout.store` for `sidebarOpen`, `navigation.store` for `selectChat` /
+`openAllChats`).
 
 ## Structure
 
-The standard feature shape minus `store` and `services`: UI state rides `chat.store`, and there is no
-domain-service layer (writes are thin api wrappers, reads are query hooks). Domain logic for a
+The standard feature shape minus `store` and `services`: the UI state it reads belongs to the shell,
+not to projects, so it comes from the root stores, and there is no domain-service layer (writes are thin api wrappers, reads are query hooks). Domain logic for a
 project's identity (icon keys, palette resolution) lives at the shared root in `entities/project/`.
 
 | Path | Responsibility |

@@ -1,8 +1,8 @@
 import type { ChatDTO } from '@shared/schemas/chat.schema'
 import { ScrollArea } from '@/components/scroll-area'
 import { ChatRow } from '@/features/chat/components/chat-row'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { groupChatsByDate } from '@/features/sidebar/entities/helpers'
+import { useNavigationStore } from '@/store/navigation.store'
 
 type SidebarChatListProps = {
   chats: ChatDTO[]
@@ -10,10 +10,10 @@ type SidebarChatListProps = {
 }
 
 export function SidebarChatList({ chats, showSeeAll }: SidebarChatListProps) {
-  const selectedChatId = useChatStore((s) => s.selectedChatId)
-  const selectChat = useChatStore((s) => s.selectChat)
+  const selectedChatId = useNavigationStore((s) => s.selectedChatId)
+  const selectChat = useNavigationStore((s) => s.selectChat)
   const groups = groupChatsByDate(chats)
-  const openAllChats = useChatStore((s) => s.openAllChats)
+  const openAllChats = useNavigationStore((s) => s.openAllChats)
 
   if (groups.length === 0) {
     return <div className="px-4 py-3 text-xs text-subtle italic">No chats yet</div>

@@ -15,8 +15,8 @@ theme switcher (light / dark / system) that writes real settings.
 `utils/{clamp,tailwind-class-merge,error-message}`, `lib/{query-keys,rpc.client}`) and
 shared-contracts (`dev/dev-override-keys`, `schemas/settings.schema`). It also reads from
 sibling features on purpose: `settings` (`use-settings`, `settings.api`), `chat`
-(`context-usage`, `use-chats`, `use-messages`, `chat.store`), and `models` (`use-models`). See
-Key decisions.
+(`context-usage`, `use-chats`, `use-messages`), and `models` (`use-models`), plus the root
+`navigation.store` for the open chat. See Key decisions.
 
 ## Structure
 

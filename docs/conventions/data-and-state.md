@@ -13,6 +13,20 @@ caching, refetching, and invalidation, and it is the part that knows whether dat
 and closed flags, the in-flight stream cache. A store is not the source of truth for server
 data. It may cache server data, but freshness is the query layer's job, not the store's.
 
+**A store belongs to whoever owns the state, which is not always a feature.** What the shell
+is showing (`store/navigation.store.ts`) and whether it shows the sidebar
+(`store/layout.store.ts`) belong to the app, not to any one feature, so they live in the root
+`store/`. Ask who owns a field before filing it. A flag that five features read out of a sixth
+feature's store is in the wrong place, and a root store that starts collecting unrelated fields
+is the same mistake pointed the other way.
+
+**Cross-store coordination goes through a subscription, not a reach-down.** Where one store's
+change has to reset another's, the store being reset is the one that subscribes:
+`useNavigationStore.subscribe((state, prev) => ...)`, installed from `main.tsx`. That is how
+the chat feature drops its live stream when the open chat changes. A root store must never
+import a feature in order to reset it, and doing the reset at each call site instead loses the
+invariant as soon as someone adds a seventh call site.
+
 **Read a store through a selector, never by destructuring the whole thing.** Take each field
 with `useStore((s) => s.field)`. A selector-less `useStore()` hands back the entire state
 object, and because Zustand compares snapshots by identity (a fresh object after every `set`),

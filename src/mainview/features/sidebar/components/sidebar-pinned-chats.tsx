@@ -3,16 +3,16 @@ import { cn } from '@utils/tailwind-class-merge'
 import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from '@/components/collapsible'
 import { IconChevronRight } from '@/components/icons/icon-chevron-right'
 import { ChatRow } from '@/features/chat/components/chat-row'
-import { useChatStore } from '@/features/chat/store/chat.store'
 import { useSidebarStore } from '@/features/sidebar/store/sidebar.store'
+import { useNavigationStore } from '@/store/navigation.store'
 
 type SidebarPinnedChatsProps = {
   chats: ChatDTO[]
 }
 
 export function SidebarPinnedChats({ chats }: SidebarPinnedChatsProps) {
-  const selectedChatId = useChatStore((s) => s.selectedChatId)
-  const selectChat = useChatStore((s) => s.selectChat)
+  const selectedChatId = useNavigationStore((s) => s.selectedChatId)
+  const selectChat = useNavigationStore((s) => s.selectChat)
   const pinnedCollapsed = useSidebarStore((s) => s.pinnedCollapsed)
   const togglePinned = useSidebarStore((s) => s.togglePinned)
 

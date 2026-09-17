@@ -6,6 +6,7 @@ import {
   streamingToParts,
   useChatStore,
 } from '@/features/chat/store/chat.store'
+import { useNavigationStore } from '@/store/navigation.store'
 import { type Exchange, groupIntoExchanges } from '../entities/group-into-exchanges'
 
 function makeStreamingAssistant(
@@ -78,7 +79,7 @@ function mergeStreaming(
 
 /** The current chat's messages grouped into exchanges, with the live stream merged in. */
 export function useFocusModeExchanges(): Exchange[] {
-  const selectedChatId = useChatStore((s) => s.selectedChatId)
+  const selectedChatId = useNavigationStore((s) => s.selectedChatId)
   const streaming = useChatStore((s) => s.streaming)
   const { data: messages = [] } = useMessages(selectedChatId)
 
