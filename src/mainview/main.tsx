@@ -4,15 +4,17 @@ import '@fontsource-variable/geist'
 import '@fontsource-variable/geist-mono'
 import './global.css'
 import { App } from './app/app'
+import { onControlNavigate } from './app/on-control-navigate'
 import { ErrorBoundary } from './components/error-boundary'
 import { initActiveChatReporter } from './features/chat/lib/active-chat-reporter'
 import { initStreamResetOnNavigation } from './features/chat/lib/reset-stream-on-navigation'
 import { installClientLogger } from './lib/client-logger'
-import { electroview } from './lib/rpc.client'
+import { electroview, subscribeToControlNavigate } from './lib/rpc.client'
 
 installClientLogger()
 initActiveChatReporter()
 initStreamResetOnNavigation()
+subscribeToControlNavigate(onControlNavigate)
 
 document.addEventListener(
   'keydown',
