@@ -9,7 +9,7 @@ import { SEARCH_MIN_QUERY_LENGTH, SEARCH_MODAL_ID } from '@/features/chat/consta
 import { splitSnippet } from '@/features/chat/helpers/split-snippet'
 import { useSearchChats } from '@/features/chat/hooks/use-search-chats'
 import { useChatStore } from '@/features/chat/store/chat.store'
-import { useProjects } from '@/features/projects/hooks/use-projects'
+import { useProjects } from '@/hooks/use-projects'
 
 // Keys that move the selection, mapped to how far they move it.
 const MOVE_KEYS: Record<string, number> = {

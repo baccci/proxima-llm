@@ -17,10 +17,10 @@ import { IconChevronDown } from '@/components/icons/icon-chevron-down'
 import { IconRotateCcw } from '@/components/icons/icon-rotate-ccw'
 import { Spinner } from '@/components/spinner'
 import { Switch } from '@/components/switch'
-import { useModels } from '@/features/models/hooks/use-models'
 import { models } from '@/features/models/models.api'
 import { useSettings } from '@/features/settings/hooks/use-settings'
 import { settings } from '@/features/settings/settings.api'
+import { useModels } from '@/hooks/use-models'
 import type { ProviderId } from '../constants/providers'
 
 type TitleModelControlProps = {

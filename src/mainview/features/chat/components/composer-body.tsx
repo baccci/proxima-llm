@@ -17,8 +17,8 @@ import { usePendingAttachments } from '@/features/chat/hooks/use-pending-attachm
 import { useStreamingMessage } from '@/features/chat/hooks/use-streaming-message'
 import { sendTurn } from '@/features/chat/lib/send-turn'
 import { useChatStore } from '@/features/chat/store/chat.store'
-import { useModels } from '@/features/models/hooks/use-models'
 import { useApiKeyStatuses, useSettings } from '@/features/settings/hooks/use-settings'
+import { useModels } from '@/hooks/use-models'
 import { errorMessage } from '@/utils/error-message'
 import { ModelSwitcher } from './model-switcher'
 
