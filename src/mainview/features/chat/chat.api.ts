@@ -15,7 +15,7 @@ import {
 } from '@shared/schemas/message.schema'
 import type { InfiniteData } from '@tanstack/react-query'
 import { queryClient } from '@/lib/query-client'
-import { queryKeys } from '@/lib/query-keys'
+import { CHAT_SEARCH_SEGMENT, queryKeys } from '@/lib/query-keys'
 import { rpcRequest as req } from '@/lib/rpc.client'
 
 type OptimisticAttachment = { id: string; kind: AttachmentKind; mediaType: string }
@@ -52,25 +52,39 @@ function isChatDTO(v: unknown): v is ChatDTO {
   return typeof v === 'object' && v !== null && 'id' in v
 }
 
+// Search results sit under ['chats'] so a broad invalidation reaches them, but their rows
+// are search hits, not chats. The patcher below must skip them rather than try to merge a
+// chat edit into a shape that has no chat in it.
+function isChatSearchKey(key: readonly unknown[]): boolean {
+  return key[1] === CHAT_SEARCH_SEGMENT
+}
+
 // Optimistically merge a non-moving edit into every cached chat shape under ['chats']:
 // the paginated pages, the pinned arrays, and the single-chat detail. Each cache holds
-// a different shape, so the updater branches on which one it got.
+// a different shape, so the updater branches on which one it got. The following
+// invalidation is what brings search results back in line.
 function patchChatInPages(patch: ChatFieldPatch): void {
-  queryClient.setQueriesData<unknown>({ queryKey: queryKeys.chatsAll() }, (old: unknown) => {
-    if (isInfiniteChatData(old)) {
-      return {
-        ...old,
-        pages: old.pages.map((p) => ({ ...p, items: p.items.map((c) => patchOneChat(c, patch)) })),
+  queryClient.setQueriesData<unknown>(
+    { queryKey: queryKeys.chatsAll(), predicate: (q) => !isChatSearchKey(q.queryKey) },
+    (old: unknown) => {
+      if (isInfiniteChatData(old)) {
+        return {
+          ...old,
+          pages: old.pages.map((p) => ({
+            ...p,
+            items: p.items.map((c) => patchOneChat(c, patch)),
+          })),
+        }
       }
-    }
-    if (Array.isArray(old)) {
-      return old.map((c) => patchOneChat(c, patch))
-    }
-    if (isChatDTO(old)) {
-      return patchOneChat(old, patch)
-    }
-    return old
-  })
+      if (Array.isArray(old)) {
+        return old.map((c) => patchOneChat(c, patch))
+      }
+      if (isChatDTO(old)) {
+        return patchOneChat(old, patch)
+      }
+      return old
+    },
+  )
 }
 
 export const chat = {

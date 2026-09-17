@@ -1,6 +1,8 @@
 import { IconPlus } from '@/components/icons/icon-plus'
+import { IconSearch } from '@/components/icons/icon-search'
+import { modal } from '@/components/modal'
 import { chat } from '@/features/chat/chat.api'
-import { SIDEBAR_CHAT_LIMIT } from '@/features/chat/constants'
+import { SEARCH_MODAL_ID, SIDEBAR_CHAT_LIMIT } from '@/features/chat/constants'
 import { flattenChatPages } from '@/features/chat/helpers/flatten-chat-pages'
 import { useChats, usePinnedChats } from '@/features/chat/hooks/use-chats'
 import { useChatStore } from '@/features/chat/store/chat.store'
@@ -29,7 +31,7 @@ export function Sidebar() {
       {/* Native traffic lights appear here via hiddenInset + trafficLightOffset */}
       <div className="h-8 shrink-0 electrobun-webkit-app-region-drag" />
 
-      {/* New chat */}
+      {/* New chat and search */}
       <div className="px-2 pb-1 shrink-0">
         <button
           onClick={handleNewChat}
@@ -37,6 +39,16 @@ export function Sidebar() {
         >
           <IconPlus width={15} className="shrink-0" />
           <span>New chat</span>
+        </button>
+        <button
+          onClick={() => modal.open(SEARCH_MODAL_ID)}
+          className="group flex items-center gap-2 w-full px-2 h-8 rounded-lg text-sm text-muted hover:bg-surface-hover hover:text-foreground transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <IconSearch width={15} className="shrink-0" />
+          <span>Search chats</span>
+          <kbd className="ml-auto text-2xs text-subtle group-hover:text-muted transition-colors">
+            &#8984;K
+          </kbd>
         </button>
       </div>
 

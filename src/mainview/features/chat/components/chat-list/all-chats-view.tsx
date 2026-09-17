@@ -56,8 +56,9 @@ export function AllChatsView({ scope }: AllChatsViewProps) {
 
   return (
     <main className="flex flex-col flex-1 h-full overflow-hidden z-base px-12 max-w-250 mx-auto">
-      {/* Header / drag bar with the title. The search bar will slot in here later;
-          nothing is built for it yet. */}
+      {/* Header / drag bar with the title. Search is not inline here: it lives in the
+          command palette, so results stay their own list rather than a filter over the
+          paginated one below. */}
       <div
         className={cn('flex items-center gap-2 h-30 shrink-0 electrobun-webkit-app-region-drag')}
       >
