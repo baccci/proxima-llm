@@ -2,6 +2,7 @@ import type { ChatDTO } from '@shared/schemas/chat.schema'
 import { type MessageDTO, PartKind } from '@shared/schemas/message.schema'
 import { isSilentTool } from '@shared/tools/tool-catalog'
 import { ToolDecision } from '@shared/tools/tool-policy'
+import { cn } from '@utils/tailwind-class-merge'
 import React from 'react'
 import { IconChevronDown } from '@/components/icons/icon-chevron-down'
 import { useMessageVirtualizer } from '@/features/chat/hooks/use-message-virtualizer'
@@ -26,8 +27,13 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: MessageL
   // (store flag, no stream).
   const showCompacting = streaming?.compacting || compactingChatId === chatItem.id
 
+  // Set when a search hit is opened, so the list lands on that message and marks it.
+  // Scoped to this chat, since the store keeps it until the next navigation.
+  const pendingScroll = useChatStore((s) => s.pendingScroll)
+  const landOnMessageId = pendingScroll?.chatId === chatItem.id ? pendingScroll.messageId : null
+
   const { scrollRef, virtualizer, showScrollToBottom, handleScroll, scrollToBottom } =
-    useMessageVirtualizer({ messages, streamingText: streaming?.textParts })
+    useMessageVirtualizer({ messages, streamingText: streaming?.textParts, landOnMessageId })
 
   // The id of the last message covered by the rolling summary. Everything up to and
   // including it is sent to the model as a compact summary, so we render a divider
@@ -66,7 +72,10 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: MessageL
                   key={item.key}
                   data-index={item.index}
                   ref={virtualizer.measureElement}
-                  className="absolute top-0 left-0 w-full px-6"
+                  className={cn(
+                    'absolute top-0 left-0 w-full px-6',
+                    msg.id === landOnMessageId && 'rounded-xl animate-search-landing',
+                  )}
                   style={{ transform: `translateY(${item.start}px)` }}
                 >
                   <MessageBubble message={msg} chatItem={chatItem} />

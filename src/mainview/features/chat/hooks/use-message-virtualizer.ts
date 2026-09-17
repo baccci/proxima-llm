@@ -43,15 +43,27 @@ const SETTLE_EPSILON_PX = 1
 // Smallest per-frame move (px) so the chase never stalls to a crawl near the target.
 const MIN_STEP_PX = 1
 
+// How many times a landing on a far-off message re-scrolls while rows around it measure.
+// It normally settles in two or three, so the cap only guards against content that never
+// stops resizing.
+const LANDING_ATTEMPTS = 10
+
 type MessageVirtualizerDeps = {
   messages: MessageDTO[]
   streamingText: string | undefined
+  // A message to land on instead of the newest one, from a search hit. Null opens the
+  // chat the ordinary way.
+  landOnMessageId: string | null
 }
 
 // Owns the message-list virtualizer and its scroll side effects. Auto-scroll is an
 // irreducible imperative DOM effect, so the raw effects are quarantined here in a
 // single named hook. See docs/conventions/react.md.
-export function useMessageVirtualizer({ messages, streamingText }: MessageVirtualizerDeps) {
+export function useMessageVirtualizer({
+  messages,
+  streamingText,
+  landOnMessageId,
+}: MessageVirtualizerDeps) {
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const [showScrollToBottom, setShowScrollToBottom] = React.useState(false)
 
@@ -165,9 +177,49 @@ export function useMessageVirtualizer({ messages, streamingText }: MessageVirtua
     setShowScrollToBottom(distanceFromBottom() > STICK_TO_BOTTOM_PX)
   }
 
-  // Jump to the newest message the first time this chat's messages arrive. The list
-  // is keyed by chat id, so the hook remounts per chat and this fires once on open.
-  // A raf lets the scroll element and first estimates settle before we scroll.
+  // True while a landing is still correcting itself, so the follow-new-content effect
+  // below leaves the scroll position alone rather than yanking it to the bottom.
+  const landingRef = React.useRef(false)
+
+  // Land on a message that can sit far outside the rendered window. The virtualizer puts
+  // a row at the sum of the heights before it, and rows it has never mounted contribute
+  // estimates, so the first scroll lands near the target rather than on it. Landing
+  // mounts those rows, their measured heights replace the estimates, and the target
+  // shifts. Re-scrolling after each measurement pass converges, because every pass
+  // corrects the rows between the viewport and the target.
+  //
+  // align 'start' is deliberate. estimateMessageHeight under-guesses more often than it
+  // over-guesses, so rows above the target tend to grow, which pushes the target down.
+  // Landing it at the top of the viewport turns that drift into a move further into
+  // view, rather than off the top edge.
+  function landOnIndex(index: number) {
+    cancelAnimationFrame(rafRef.current)
+    landingRef.current = true
+
+    let attempts = 0
+    let lastTop = -1
+    const step = () => {
+      virtualizer.scrollToIndex(index, { align: 'start' })
+      attempts++
+
+      const top = scrollRef.current?.scrollTop ?? 0
+      const settled = Math.abs(top - lastTop) <= SETTLE_EPSILON_PX
+      if (settled || attempts >= LANDING_ATTEMPTS) {
+        landingRef.current = false
+        return
+      }
+
+      lastTop = top
+      rafRef.current = requestAnimationFrame(step)
+    }
+
+    rafRef.current = requestAnimationFrame(step)
+  }
+
+  // Open at the newest message the first time this chat's messages arrive, or at the one
+  // a search hit pointed to. The list is keyed by chat id, so the hook remounts per chat
+  // and this fires once on open. A raf lets the scroll element and first estimates settle
+  // before we scroll.
   const didInitRef = React.useRef(false)
   // biome-ignore lint/correctness/useExhaustiveDependencies: fires once when the first messages land
   React.useEffect(() => {
@@ -176,9 +228,18 @@ export function useMessageVirtualizer({ messages, streamingText }: MessageVirtua
     }
 
     didInitRef.current = true
-    requestAnimationFrame(() => {
-      virtualizer.scrollToIndex(messages.length - 1, { align: 'end' })
-    })
+    // A hit whose message is no longer in the chat (edited away, or truncated by a retry)
+    // falls back to the ordinary open at the newest message.
+    const landingIndex = landOnMessageId ? messages.findIndex((m) => m.id === landOnMessageId) : -1
+
+    if (landingIndex === -1) {
+      requestAnimationFrame(() => {
+        virtualizer.scrollToIndex(messages.length - 1, { align: 'end' })
+      })
+      return
+    }
+
+    requestAnimationFrame(() => landOnIndex(landingIndex))
   }, [messages.length])
 
   // Follow new content down while the user is near the bottom: streaming tokens grow
@@ -186,7 +247,9 @@ export function useMessageVirtualizer({ messages, streamingText }: MessageVirtua
   // after the virtual list, so scrollHeight already includes it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: streamingText + row count are the triggers; scroll reads a stable ref
   React.useEffect(() => {
-    if (distanceFromBottom() >= STICK_TO_BOTTOM_PX) {
+    // A landing owns the scroll position until it settles. Following new content here
+    // would fight it and drag the view to the bottom instead.
+    if (landingRef.current || distanceFromBottom() >= STICK_TO_BOTTOM_PX) {
       return
     }
 
