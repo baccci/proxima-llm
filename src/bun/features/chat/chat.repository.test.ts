@@ -1,6 +1,16 @@
 import { Database } from 'bun:sqlite'
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
+import {
+  SearchHitKind,
+  SNIPPET_MARK_CLOSE,
+  SNIPPET_MARK_OPEN,
+} from '../../../shared-contracts/schemas/chat-search.schema'
+import {
+  type MessagePart,
+  MessageRole,
+  PartKind,
+} from '../../../shared-contracts/schemas/message.schema'
 import * as schema from '../../infra/db/schema'
 
 // Isolated in-memory DB for the repo under test. Mocking infra/db/client swaps the
@@ -19,7 +29,7 @@ const { setupSchema } = await import('../../infra/db/migrate')
 setupSchema()
 
 const repo = await import('./chat.repository')
-const { chats, projects } = schema
+const { chats, messages, projects } = schema
 
 // Projects referenced by the project-scoped tests. Seeded once (beforeEach only
 // clears chats) so the chats.project_id foreign key resolves.
@@ -165,5 +175,184 @@ describe('getChat', () => {
 
   it('returns undefined for an unknown id', () => {
     expect(repo.getChat('missing')).toBeUndefined()
+  })
+})
+
+// Seed one message with the given parts. The FTS triggers index it on insert, so these
+// tests exercise the real index rather than a hand-populated one.
+function seedMessage(over: { id: string; chatId: string; parts: MessagePart[] }): void {
+  db.insert(messages)
+    .values({
+      id: over.id,
+      chatId: over.chatId,
+      role: MessageRole.enum.user,
+      parts: over.parts,
+      createdAt: seedDate,
+    })
+    .run()
+}
+
+function textPart(text: string): MessagePart {
+  return { type: PartKind.enum.text, text }
+}
+
+// Strip the snippet sentinels back out, so an assertion can read the plain excerpt.
+function plainSnippet(snippet: string): string {
+  return snippet.split(SNIPPET_MARK_OPEN).join('').split(SNIPPET_MARK_CLOSE).join('')
+}
+
+describe('searchChats', () => {
+  it('finds a chat by its title and reports no message to land on', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Keychain port notes' })
+
+    const hits = repo.searchChats({ query: 'keychain', projectId: null, limit: 10 })
+
+    expect(hits).toHaveLength(1)
+    expect(hits[0].chatId).toBe('c1')
+    expect(hits[0].kind).toBe(SearchHitKind.enum.title)
+    expect(hits[0].messageId).toBeNull()
+  })
+
+  it('finds a chat by message text and points at the matching message', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Untitled' })
+    seedMessage({ id: 'm1', chatId: 'c1', parts: [textPart('nothing relevant here')] })
+    seedMessage({ id: 'm2', chatId: 'c1', parts: [textPart('we should port the keychain FFI')] })
+
+    const hits = repo.searchChats({ query: 'keychain', projectId: null, limit: 10 })
+
+    expect(hits).toHaveLength(1)
+    expect(hits[0].kind).toBe(SearchHitKind.enum.content)
+    expect(hits[0].messageId).toBe('m2')
+    expect(plainSnippet(hits[0].snippet)).toContain('keychain FFI')
+  })
+
+  it('wraps every matched term in the snippet sentinels', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Untitled' })
+    seedMessage({ id: 'm1', chatId: 'c1', parts: [textPart('the keychain is here')] })
+
+    const [hit] = repo.searchChats({ query: 'keychain', projectId: null, limit: 10 })
+
+    expect(hit.snippet).toContain(`${SNIPPET_MARK_OPEN}keychain${SNIPPET_MARK_CLOSE}`)
+  })
+
+  it('ranks a title hit above a content hit', () => {
+    seedChat({ id: 'by-content', lastMessageAt: minutesAgo(0), title: 'Untitled' })
+    seedMessage({ id: 'm1', chatId: 'by-content', parts: [textPart('keychain keychain keychain')] })
+    seedChat({ id: 'by-title', lastMessageAt: minutesAgo(5), title: 'Keychain notes' })
+
+    const hits = repo.searchChats({ query: 'keychain', projectId: null, limit: 10 })
+
+    expect(hits.map((h) => h.chatId)).toEqual(['by-title', 'by-content'])
+  })
+
+  it('returns one row per chat even when many of its messages match', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Untitled' })
+    for (let i = 0; i < 20; i++) {
+      seedMessage({ id: `m${i}`, chatId: 'c1', parts: [textPart('keychain mention')] })
+    }
+    seedChat({ id: 'c2', lastMessageAt: minutesAgo(1), title: 'Also untitled' })
+    seedMessage({ id: 'other', chatId: 'c2', parts: [textPart('keychain here too')] })
+
+    const hits = repo.searchChats({ query: 'keychain', projectId: null, limit: 10 })
+
+    expect(hits.map((h) => h.chatId).sort()).toEqual(['c1', 'c2'])
+  })
+
+  it('lists a chat once when both its title and its messages match', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Keychain notes' })
+    seedMessage({ id: 'm1', chatId: 'c1', parts: [textPart('keychain again')] })
+
+    const hits = repo.searchChats({ query: 'keychain', projectId: null, limit: 10 })
+
+    expect(hits).toHaveLength(1)
+    expect(hits[0].kind).toBe(SearchHitKind.enum.title)
+  })
+
+  it('ignores reasoning and tool call parts', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Untitled' })
+    seedMessage({
+      id: 'm1',
+      chatId: 'c1',
+      parts: [
+        { type: PartKind.enum.reasoning, text: 'internal keychain deliberation' },
+        { type: PartKind.enum['tool-call'], toolCallId: 't1', toolName: 'keychain', input: {} },
+      ],
+    })
+
+    expect(repo.searchChats({ query: 'keychain', projectId: null, limit: 10 })).toEqual([])
+  })
+
+  it('matches a prefix, so hits appear while the user is still typing', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Untitled' })
+    seedMessage({ id: 'm1', chatId: 'c1', parts: [textPart('the keychain module')] })
+
+    expect(repo.searchChats({ query: 'keych', projectId: null, limit: 10 })).toHaveLength(1)
+  })
+
+  it('folds accents, so an unaccented query finds accented text', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Untitled' })
+    seedMessage({ id: 'm1', chatId: 'c1', parts: [textPart('tomamos un café por la mañana')] })
+
+    expect(repo.searchChats({ query: 'cafe', projectId: null, limit: 10 })).toHaveLength(1)
+  })
+
+  it('scopes to a project when one is given', () => {
+    seedChat({ id: 'in-a', lastMessageAt: minutesAgo(0), title: 'Keychain in A', projectId: 'A' })
+    seedChat({ id: 'in-b', lastMessageAt: minutesAgo(1), title: 'Keychain in B', projectId: 'B' })
+
+    const scoped = repo.searchChats({ query: 'keychain', projectId: 'A', limit: 10 })
+    const global = repo.searchChats({ query: 'keychain', projectId: null, limit: 10 })
+
+    expect(scoped.map((h) => h.chatId)).toEqual(['in-a'])
+    expect(global.map((h) => h.chatId).sort()).toEqual(['in-a', 'in-b'])
+  })
+
+  it('treats a query with no searchable characters as no results', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Keychain notes' })
+
+    expect(repo.searchChats({ query: '   ', projectId: null, limit: 10 })).toEqual([])
+    expect(repo.searchChats({ query: '?!*()"', projectId: null, limit: 10 })).toEqual([])
+  })
+
+  it('survives FTS5 operator syntax in the query instead of throwing', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Keychain notes' })
+
+    expect(() =>
+      repo.searchChats({ query: 'keychain OR (unbalanced "', projectId: null, limit: 10 }),
+    ).not.toThrow()
+  })
+
+  it('requires every token to match', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Untitled' })
+    seedMessage({ id: 'm1', chatId: 'c1', parts: [textPart('the keychain module')] })
+
+    expect(repo.searchChats({ query: 'keychain module', projectId: null, limit: 10 })).toHaveLength(
+      1,
+    )
+    expect(repo.searchChats({ query: 'keychain absent', projectId: null, limit: 10 })).toEqual([])
+  })
+
+  it('follows a renamed title', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Untitled draft' })
+    repo.updateChat('c1', { title: 'Keychain notes' })
+
+    expect(repo.searchChats({ query: 'keychain', projectId: null, limit: 10 })).toHaveLength(1)
+    expect(repo.searchChats({ query: 'untitled', projectId: null, limit: 10 })).toEqual([])
+  })
+
+  it('drops messages from the index when the chat is deleted', () => {
+    seedChat({ id: 'c1', lastMessageAt: minutesAgo(0), title: 'Untitled' })
+    seedMessage({ id: 'm1', chatId: 'c1', parts: [textPart('keychain content')] })
+    repo.deleteChat('c1')
+
+    expect(repo.searchChats({ query: 'keychain', projectId: null, limit: 10 })).toEqual([])
+  })
+
+  it('honours the limit', () => {
+    for (let i = 0; i < 6; i++) {
+      seedChat({ id: `c${i}`, lastMessageAt: minutesAgo(i), title: `Keychain note ${i}` })
+    }
+
+    expect(repo.searchChats({ query: 'keychain', projectId: null, limit: 3 })).toHaveLength(3)
   })
 })

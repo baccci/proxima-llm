@@ -1,6 +1,10 @@
 import type { ProviderId } from '@shared/providers/registry'
 import type { MemoryScope } from '@shared/schemas/memory-slice.schema'
 
+// Marks the search subtree under ['chats']. Its rows are search hits rather than chats,
+// so a cache walker that expects chat shapes has to be able to tell it apart.
+export const CHAT_SEARCH_SEGMENT = 'search'
+
 export const queryKeys = {
   models: () => ['models'] as const,
   projects: () => ['projects'] as const,
@@ -11,6 +15,9 @@ export const queryKeys = {
   // A single chat, also nested under ['chats'] so the same broad invalidation keeps it
   // fresh (e.g. when an auto-title lands) without a separate invalidation path.
   chat: (id: string | null) => ['chats', 'detail', id] as const,
+  // Search results, nested under ['chats'] so a chat edit sweeps stale hits too.
+  chatSearch: (projectId: string | null, query: string) =>
+    ['chats', CHAT_SEARCH_SEGMENT, projectId, query] as const,
   // Prefix key matching every chat list regardless of project, for broad invalidation.
   chatsAll: () => ['chats'] as const,
   messages: (chatId: string) => ['messages', chatId] as const,

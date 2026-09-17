@@ -1,3 +1,4 @@
+import { PartKind } from '../../../shared-contracts/schemas/message.schema'
 import { sqlite } from './client'
 
 // Add a column only if the table lacks it: SQLite has no idempotent ADD COLUMN.
@@ -19,6 +20,109 @@ function dropColumnIfPresent(table: string, column: string): void {
     return
   }
   sqlite.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`)
+}
+
+// Create a table only if it is absent, reporting whether this call is the one that made
+// it. Callers use that to run a one-time backfill on the boot that introduces the table.
+function createTableIfMissing(name: string, ddl: string): boolean {
+  const existing = sqlite
+    .query(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`)
+    .all(name) as { name: string }[]
+  if (existing.length > 0) {
+    return false
+  }
+
+  sqlite.exec(ddl)
+  return true
+}
+
+// The FTS5 full-text index behind chat search. Two tables, because a title hit has no
+// message to land on while a content hit does. The index is derived data: it can be
+// dropped and rebuilt from chats and messages at any time.
+//
+// Triggers keep it in sync rather than application code, so a write that bypasses the app
+// layer still leaves the index correct. Only text parts are indexed: reasoning is the
+// model's scratch work and would drown real hits, and tool call payloads are structure,
+// not prose. The tokenizer folds accents, so "cafe" finds "café".
+function setupSearchIndex(): void {
+  const chatsIndexCreated = createTableIfMissing(
+    'chats_fts',
+    `CREATE VIRTUAL TABLE chats_fts USING fts5(
+       title,
+       chat_id UNINDEXED,
+       tokenize = 'unicode61 remove_diacritics 2'
+     )`,
+  )
+
+  const messagesIndexCreated = createTableIfMissing(
+    'messages_fts',
+    `CREATE VIRTUAL TABLE messages_fts USING fts5(
+       body,
+       message_id UNINDEXED,
+       chat_id UNINDEXED,
+       tokenize = 'unicode61 remove_diacritics 2'
+     )`,
+  )
+
+  // Concatenated text of one message's parts, for use inside a trigger or a backfill.
+  // Yields NULL when the message carries no text part at all (a bare tool call), which
+  // the callers filter out so the index holds no empty rows.
+  const textPartsOf = (partsExpr: string) => `
+    SELECT group_concat(json_extract(value, '$.text'), ' ') AS body
+    FROM json_each(${partsExpr})
+    WHERE json_extract(value, '$.type') = '${PartKind.enum.text}'
+  `
+
+  sqlite.exec(`
+    CREATE TRIGGER IF NOT EXISTS chats_fts_insert AFTER INSERT ON chats BEGIN
+      INSERT INTO chats_fts(title, chat_id) VALUES (NEW.title, NEW.id);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS chats_fts_update AFTER UPDATE OF title ON chats BEGIN
+      DELETE FROM chats_fts WHERE chat_id = OLD.id;
+      INSERT INTO chats_fts(title, chat_id) VALUES (NEW.title, NEW.id);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS chats_fts_delete AFTER DELETE ON chats BEGIN
+      DELETE FROM chats_fts WHERE chat_id = OLD.id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
+      INSERT INTO messages_fts(body, message_id, chat_id)
+      SELECT body, NEW.id, NEW.chat_id
+      FROM (${textPartsOf('NEW.parts')} )
+      WHERE body IS NOT NULL AND body <> '';
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE OF parts ON messages BEGIN
+      DELETE FROM messages_fts WHERE message_id = OLD.id;
+      INSERT INTO messages_fts(body, message_id, chat_id)
+      SELECT body, NEW.id, NEW.chat_id
+      FROM (${textPartsOf('NEW.parts')} )
+      WHERE body IS NOT NULL AND body <> '';
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
+      DELETE FROM messages_fts WHERE message_id = OLD.id;
+    END;
+  `)
+
+  // Backfill databases that predate the index. Only on the boot that created the table,
+  // so later boots skip the scan entirely.
+  if (chatsIndexCreated) {
+    sqlite.exec(`INSERT INTO chats_fts(title, chat_id) SELECT title, id FROM chats`)
+  }
+
+  if (messagesIndexCreated) {
+    sqlite.exec(`
+      INSERT INTO messages_fts(body, message_id, chat_id)
+      SELECT body, id, chat_id FROM (
+        SELECT m.id AS id, m.chat_id AS chat_id, (${textPartsOf('m.parts')}) AS body
+        FROM messages m
+      )
+      WHERE body IS NOT NULL AND body <> ''
+    `)
+  }
 }
 
 export function setupSchema() {
@@ -150,4 +254,8 @@ export function setupSchema() {
   // Idempotent (after the first run no builtin rows remain), so a cheap no-op on later
   // boots. The seed only ever wrote Anthropic-provider rows, so no provider filter is needed.
   sqlite.exec(`UPDATE models SET source = 'anthropic' WHERE source = 'builtin'`)
+
+  // Runs last: the triggers and the backfill both read chats and messages, so every
+  // table and back-added column above is already in place by the time it runs.
+  setupSearchIndex()
 }

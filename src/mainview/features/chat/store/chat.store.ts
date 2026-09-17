@@ -28,6 +28,14 @@ export type StreamingMessage = {
   error: string | null
 }
 
+// A message the message list should land on once its chat is open, set when a search
+// hit is picked. Cleared by any other navigation, so returning to the chat later opens
+// it normally at the newest message.
+type PendingScroll = {
+  chatId: string
+  messageId: string
+}
+
 type PendingIncoming = {
   chatId: string
   streamId: string
@@ -91,11 +99,13 @@ type ChatUIState = {
   focusModeExchangeIndex: number
   focusModeShowPrompt: boolean
   pendingIncoming: PendingIncoming | null
+  pendingScroll: PendingScroll | null
   // The full-page All-chats view, scoped global (projectId null) or to a project.
   // Null means the view is closed. Selecting a chat or project clears it.
   viewingAllChats: { projectId: string | null } | null
 
   selectChat: (id: string | null) => void
+  openChatAtMessage: (chatId: string, messageId: string | null) => void
   selectProject: (id: string) => void
   openAllChats: (projectId: string | null) => void
   closeAllChats: () => void
@@ -132,16 +142,34 @@ export const useChatStore = create<ChatUIState>((set) => ({
   focusModeExchangeIndex: 0,
   focusModeShowPrompt: false,
   pendingIncoming: null,
+  pendingScroll: null,
   viewingAllChats: null,
 
   selectChat: (id) =>
-    set({ selectedChatId: id, streaming: null, pendingIncoming: null, viewingAllChats: null }),
+    set({
+      selectedChatId: id,
+      streaming: null,
+      pendingIncoming: null,
+      pendingScroll: null,
+      viewingAllChats: null,
+    }),
+  // Open a chat from a search hit. A title hit carries no message, so it opens the chat
+  // the ordinary way at the newest message.
+  openChatAtMessage: (chatId, messageId) =>
+    set({
+      selectedChatId: chatId,
+      streaming: null,
+      pendingIncoming: null,
+      pendingScroll: messageId === null ? null : { chatId, messageId },
+      viewingAllChats: null,
+    }),
   selectProject: (id) =>
     set({
       selectedProjectId: id,
       selectedChatId: null,
       streaming: null,
       pendingIncoming: null,
+      pendingScroll: null,
       viewingAllChats: null,
     }),
   openAllChats: (projectId) => set({ viewingAllChats: { projectId } }),

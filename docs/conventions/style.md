@@ -5,9 +5,10 @@ it up by reading a couple of files: how code is spaced, named, and shaped. This 
 the smaller set of conventions that are either easy to get wrong or worth a short
 explanation. When you are unsure, match the surrounding code.
 
-Biome takes care of the mechanical layer for you: formatting, import order, quotes,
-semicolons, and nested ternaries. Run `bunx biome check --write` before you finish. This
-page does not repeat anything Biome already fixes.
+Biome takes care of the mechanical layer for you: formatting, import order, single
+quotes, semicolons (none, in every folder, `src/bun/**` included), and nested ternaries.
+Run `bunx biome check --write` before you finish. This page does not repeat anything
+Biome already fixes.
 
 ## The ones that fight your instinct
 
@@ -27,10 +28,6 @@ declaration merging.
 its own braced block on its own line. A bare `if (x) return` reads fine today, but the
 day someone adds a second line under it and forgets the braces, the bug is quiet and
 annoying. One extra line buys that away.
-
-**No semicolons and single quotes, except in `src/bun/**`, which keeps semicolons.** The
-Bun side follows a different setting on purpose. Biome enforces both, so in practice you
-just match the folder you are working in.
 
 **Comments are written for the next person reading the code.** Plain language, since that
 reader may not be a fluent English speaker. No em dashes, and a colon only when it really

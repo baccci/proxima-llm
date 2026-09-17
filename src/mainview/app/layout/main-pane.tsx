@@ -1,5 +1,7 @@
 import { AllChatsView } from '@/features/chat/components/chat-list/all-chats-view'
+import { SearchPalette } from '@/features/chat/components/chat-search/search-palette'
 import { ChatView } from '@/features/chat/components/chat-view'
+import { useSearchShortcut } from '@/features/chat/hooks/use-search-shortcut'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { FocusModeOverlay } from '@/features/focus-mode/components/focus-mode-overlay'
 import { ModelsMarketplace } from '@/features/models/components/models-marketplace'
@@ -8,10 +10,12 @@ import { SettingsDialog } from '@/features/settings/components/settings-dialog'
 
 export function MainPane() {
   const focusModeOpen = useChatStore((s) => s.focusModeOpen)
+  useSearchShortcut()
 
   return (
     <>
       <MainContent />
+      <SearchPalette />
       <SettingsDialog />
       <ModelsMarketplace />
       {focusModeOpen && <FocusModeOverlay />}

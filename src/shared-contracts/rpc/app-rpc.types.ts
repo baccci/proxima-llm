@@ -10,6 +10,7 @@ import type {
   ChatPage,
   CreateChatInput,
 } from '../schemas/chat.schema'
+import type { ChatSearchHit, SearchChatsInput } from '../schemas/chat-search.schema'
 import type {
   DeleteMemorySliceInput,
   ListMemorySlicesInput,
@@ -78,6 +79,7 @@ export type AppRPC = {
         response: ChatDTO
       }
       deleteChat: { params: { id: string }; response: void }
+      searchChats: { params: SearchChatsInput; response: ChatSearchHit[] }
 
       // Messages
       listMessages: { params: { chatId: string }; response: MessageDTO[] }

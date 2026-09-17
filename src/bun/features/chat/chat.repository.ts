@@ -9,6 +9,12 @@ import {
   type CreateChatInput,
   DEFAULT_CHAT_TITLE,
 } from '../../../shared-contracts/schemas/chat.schema'
+import {
+  type ChatSearchHit,
+  SearchHitKind,
+  SNIPPET_MARK_CLOSE,
+  SNIPPET_MARK_OPEN,
+} from '../../../shared-contracts/schemas/chat-search.schema'
 import type { SendMessageInput } from '../../../shared-contracts/schemas/message.schema'
 import {
   MessageDTO,
@@ -17,9 +23,10 @@ import {
   PartKind,
   type StopReason,
 } from '../../../shared-contracts/schemas/message.schema'
-import { db } from '../../infra/db/client'
+import { db, sqlite } from '../../infra/db/client'
 import { chats, messages } from '../../infra/db/schema'
 import * as attachmentService from '../attachment/attachment.repository'
+import { toFtsQuery } from './fts-query'
 
 // Composer JSON can be absent or partial (older rows, optional input); parse fills defaults.
 function parseComposer(raw: unknown): ChatComposerState {
@@ -129,6 +136,150 @@ export function listAllChats(projectId: string | null): ChatDTO[] {
     .orderBy(desc(chats.lastMessageAt))
     .all()
     .map(chatRowToDTO)
+}
+
+// How many tokens of surrounding text each snippet carries. FTS5 caps this at 64; a
+// short window keeps a result row to one line while still showing why it matched.
+const SNIPPET_TOKENS = 12
+
+// Stands in for the text trimmed off either end of a snippet.
+const SNIPPET_ELLIPSIS = '\u2026'
+
+type SearchChatsParams = {
+  query: string
+  projectId: string | null
+  limit: number
+}
+
+type TitleHitRow = {
+  chatId: string
+  projectId: string | null
+  title: string
+  snippet: string
+  lastMessageAt: number
+}
+
+type ContentHitRow = TitleHitRow & { messageId: string }
+
+// Search chat titles and message text. Title hits rank above content hits, because a
+// chat named after the thing you typed is a stronger signal than a passing mention
+// inside one. Within each group FTS5 orders by relevance: its `rank` column is bm25,
+// which is negative and more negative the better the match, so plain ascending order
+// puts the best first.
+//
+// One row per chat, carrying its best-matching message, so a chat that mentions the term
+// fifty times cannot crowd out every other chat in the list.
+export function searchChats({ query, projectId, limit }: SearchChatsParams): ChatSearchHit[] {
+  const match = toFtsQuery(query)
+  if (match === null) {
+    return []
+  }
+
+  // The project filter is app-controlled, never user text, so composing it into the SQL
+  // is safe. Both queries take the same trailing parameters in the same order.
+  const projectFilter = projectId === null ? '' : 'AND c.project_id = ?'
+  const scopeParams = projectId === null ? [] : [projectId]
+
+  const titleRows = sqlite
+    .query(
+      `SELECT t.chat_id AS chatId, c.project_id AS projectId, c.title AS title,
+              c.last_message_at AS lastMessageAt,
+              snippet(chats_fts, 0, ?, ?, ?, ?) AS snippet
+       FROM chats_fts t
+       JOIN chats c ON c.id = t.chat_id
+       WHERE chats_fts MATCH ? ${projectFilter}
+       ORDER BY t.rank
+       LIMIT ?`,
+    )
+    .all(
+      SNIPPET_MARK_OPEN,
+      SNIPPET_MARK_CLOSE,
+      SNIPPET_ELLIPSIS,
+      SNIPPET_TOKENS,
+      match,
+      ...scopeParams,
+      limit,
+    ) as TitleHitRow[]
+
+  // Best-scoring message per chat. min(rank) with bare columns alongside it is the
+  // SQLite idiom for "the row that holds the minimum", and it is the only shape that
+  // works here: bm25() and snippet() are both rejected inside an aggregate or a window,
+  // so the snippets are fetched separately below.
+  const contentRows = sqlite
+    .query(
+      `SELECT f.chat_id AS chatId, f.message_id AS messageId, c.project_id AS projectId,
+              c.title AS title, c.last_message_at AS lastMessageAt, min(f.rank) AS rank
+       FROM messages_fts f
+       JOIN chats c ON c.id = f.chat_id
+       WHERE messages_fts MATCH ? ${projectFilter}
+       GROUP BY f.chat_id
+       ORDER BY rank
+       LIMIT ?`,
+    )
+    .all(match, ...scopeParams, limit) as (ContentHitRow & { rank: number })[]
+
+  const snippets = snippetsForMessages(
+    match,
+    contentRows.map((row) => row.messageId),
+  )
+
+  const hits: ChatSearchHit[] = titleRows.map((row) => ({
+    chatId: row.chatId,
+    projectId: row.projectId,
+    title: row.title,
+    kind: SearchHitKind.enum.title,
+    messageId: null,
+    snippet: row.snippet,
+    lastMessageAt: new Date(row.lastMessageAt).toISOString(),
+  }))
+
+  const titled = new Set(hits.map((hit) => hit.chatId))
+
+  for (const row of contentRows) {
+    // A chat already listed for its title does not earn a second row for its content.
+    if (titled.has(row.chatId)) {
+      continue
+    }
+
+    hits.push({
+      chatId: row.chatId,
+      projectId: row.projectId,
+      title: row.title,
+      kind: SearchHitKind.enum.content,
+      messageId: row.messageId,
+      snippet: snippets.get(row.messageId) ?? '',
+      lastMessageAt: new Date(row.lastMessageAt).toISOString(),
+    })
+  }
+
+  return hits.slice(0, limit)
+}
+
+// Snippets for an already-chosen set of messages. Separate from the ranking query above
+// because FTS5 refuses snippet() in an aggregate context, and the ranking has to group
+// by chat to keep one row per chat.
+function snippetsForMessages(match: string, messageIds: string[]): Map<string, string> {
+  if (messageIds.length === 0) {
+    return new Map()
+  }
+
+  const placeholders = messageIds.map(() => '?').join(', ')
+  const rows = sqlite
+    .query(
+      `SELECT message_id AS messageId, snippet(messages_fts, 0, ?, ?, ?, ?) AS snippet
+       FROM messages_fts
+       WHERE messages_fts MATCH ? AND message_id IN (${placeholders})`,
+    )
+    .all(
+      SNIPPET_MARK_OPEN,
+      SNIPPET_MARK_CLOSE,
+      SNIPPET_ELLIPSIS,
+      SNIPPET_TOKENS,
+      match,
+      ...messageIds,
+    ) as { messageId: string; snippet: string }[]
+
+  return new Map(rows.map((row) => [row.messageId, row.snippet]))
 }
 
 export function createChat(input: CreateChatInput): ChatDTO {

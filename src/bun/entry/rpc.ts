@@ -2,6 +2,7 @@ import { BrowserView, type RPCSchema, Utils } from 'electrobun/bun'
 import { ProviderId } from '../../shared-contracts/providers/registry'
 import type { AppRPC } from '../../shared-contracts/rpc/app-rpc.types'
 import { SaveAttachmentInput } from '../../shared-contracts/schemas/attachment.schema'
+import { SearchChatsInput } from '../../shared-contracts/schemas/chat-search.schema'
 import type { MemoryScope } from '../../shared-contracts/schemas/memory-slice.schema'
 import { RetryMessageInput, SendMessageInput } from '../../shared-contracts/schemas/message.schema'
 import { AddProjectFileInput } from '../../shared-contracts/schemas/project-file.schema'
@@ -144,6 +145,7 @@ export function createRPC() {
         deleteChat: ({ id }) => {
           chatService.deleteChat(id)
         },
+        searchChats: (input) => chatService.searchChats(SearchChatsInput.parse(input)),
 
         // Messages
         listMessages: ({ chatId }) => chatService.listMessages(chatId),
