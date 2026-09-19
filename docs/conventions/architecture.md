@@ -19,17 +19,35 @@ it belongs in `utils/`.
 `utils/`, `entities/`, `store/`) is shared, and any feature or `app/` may import it. Anything
 under `features/<x>/` is scoped to feature x, and only x and `app/` may import it. A feature
 reaching into a sibling feature is usually a smell: lift the shared piece up to the root
-instead. The exceptions are the three named below, and nothing else.
+instead. The exceptions are the ones named below, and nothing else.
 
 **Not every `features/` directory is a peer.** The rule above reads every one of them as an
-independent vertical slice. Three of ours are not, and forcing the rule onto them makes the
+independent vertical slice. Four of ours are not, and forcing the rule onto them makes the
 code worse:
 
-- **A view onto another feature.** `sidebar` and `focus-mode` are ways of looking at chats,
-  not rival domains. `sidebar` rendering chat's `ChatRow`, and `focus-mode` rendering its
-  `MessagePartRenderer` and `ThinkingBlock`, is honest coupling. Duplicating those renderers
-  would be worse, and hoisting them into root `components/` would dress chat-specific
-  rendering up as generic UI. Leave them.
+- **A view onto another feature.** `sidebar`, `focus-mode` and `chat-find` are ways of
+  looking at chats, not rival domains. `sidebar` rendering chat's `ChatRow`, and
+  `focus-mode` rendering its `MessagePartRenderer` and `ThinkingBlock`, is honest coupling.
+  Duplicating those renderers would be worse, and hoisting them into root `components/`
+  would dress chat-specific rendering up as generic UI. Leave them.
+
+  `chat-find` inverts the usual shape and is worth reading twice. It imports **nothing**
+  from `chat`: it takes the messages as an argument and paints into a container it is
+  handed, so it is a leaf. All the coupling runs the other way, from `chat` into it.
+  `chat-view` mounts the bar and computes the results, and `message-list` imports find's
+  painter hook and its row attribute, because highlighting has to happen where the scroll
+  container and the mounted virtual rows are, and those exist only inside `message-list`.
+  `message-part-renderer` imports find's text attribute for the same reason: the painter
+  must walk exactly the text the data pass scanned, and only the renderer knows which
+  element that is. Those imports are the deliberate part. Hoisting the painter to root
+  `components/` would dress find-specific range bucketing up as generic UI, and letting it
+  scan from `document` would mean watching the whole body for mutations. What keeps this
+  safe is the direction, not the size: `chat` reaches into find for the bar, its three
+  hooks, the two attributes, the results type and the painted match rect, and reads
+  `isOpen` off its store to decide whether to mount the bar, while `chat-find` reaches back
+  for nothing at all. So the invariant to preserve is the asymmetry. One more import this
+  way is ordinary; the first import the other way, from `chat-find` into `chat`, is the
+  thing to reject, because it is what would turn a leaf into a cycle.
 - **`devtools` is deliberately omniscient.** A debug panel inspects the app by design, so it
   reads whatever it needs to. Reshaping `getContextUsage` or `useMessages` into "shared"
   modules to serve a debug tool would corrupt the architecture to satisfy a grep. Leave it.

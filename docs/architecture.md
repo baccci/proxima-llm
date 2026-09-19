@@ -169,9 +169,9 @@ src/
 │
 └─ mainview/             # Renderer (WebKit webview).
    ├─ app/               # Composition root and layout. May import anything below.
-   ├─ features/          # Feature-scoped UI: chat, projects, models, settings, sidebar,
-   │                     #   memory, focus-mode, devtools. Each owns its components, hooks,
-   │                     #   store, services, entities, helpers, as needed.
+   ├─ features/          # Feature-scoped UI: chat, chat-find, projects, models, settings,
+   │                     #   sidebar, memory, focus-mode, devtools. Each owns its components,
+   │                     #   hooks, store, services, entities, helpers, as needed.
    ├─ entities/          # Shared domain pieces used by two or more features (model, project, provider).
    ├─ components/        # Shared UI primitives and the modal system.
    ├─ hooks/             # Cross-feature hooks.
@@ -184,9 +184,9 @@ src/
 (`components/`, `hooks/`, `lib/`, `store/`, `utils/`, `entities/`) is **shared**, and any feature or
 `app/` may use it. Anything under `features/<x>/` is **scoped to feature x**, and only x and `app/`
 may use it. A feature reaching into a sibling feature is usually a smell: lift the shared piece up
-to the root instead, and let `app/` hold the cross-feature glue. Three directories are not peers
-and are read differently (`sidebar` and `focus-mode` are views onto chat, `devtools` is
-deliberately omniscient); see
+to the root instead, and let `app/` hold the cross-feature glue. Four directories are not peers
+and are read differently (`sidebar`, `focus-mode` and `chat-find` are views onto chat, `devtools`
+is deliberately omniscient); see
 [conventions/architecture.md](conventions/architecture.md).
 
 ```
@@ -331,8 +331,9 @@ state:
 - **Forms go through React Hook Form.**
 - **UI-only state goes in Zustand,** one store per feature, read through per-field selectors.
 
-Four features keep a store: `chat` (the hot one, holding the live stream and changing on every
-streaming token), `focus-mode`, `sidebar` (section collapse flags), and `devtools`. Two more stores
+Five features keep a store: `chat` (the hot one, holding the live stream and changing on every
+streaming token), `focus-mode`, `chat-find` (the find query and which match is current), `sidebar`
+(section collapse flags), and `devtools`. Two more stores
 sit at the renderer root for state no single feature owns: `navigation` (which chat, project or
 list the shell is showing) and `layout` (whether the sidebar is shown). The rest (`projects`,
 `settings`, `models`, `memory`) are storeless: their server data lives in query hooks, and what
@@ -346,8 +347,8 @@ store read is a performance trap on the hot `chat` store, is in
   [react](conventions/react.md), [data-and-state](conventions/data-and-state.md),
   [architecture](conventions/architecture.md) (where a file goes), and
   [webkit-quirks](conventions/webkit-quirks.md).
-- **[features/](features/)** — one doc per user-facing feature: chat, projects, settings, sidebar,
-  models, focus-mode, devtools.
+- **[features/](features/)** — one doc per user-facing feature: chat, chat-find, projects,
+  settings, sidebar, models, focus-mode, devtools.
 - **[reference/](reference/)** — the deep dives this overview points at: the RPC door, the chat-stream
   layer, the stream engine, the database, models, memory, tools, compaction, the lifecycle and hook
   dispatch, attachments, the control server, and the infra singletons.
