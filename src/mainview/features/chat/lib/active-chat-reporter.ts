@@ -1,4 +1,4 @@
-import { electroview } from '@/lib/rpc.client'
+import { rpcRequest } from '@/lib/rpc.client'
 import { useNavigationStore } from '@/store/navigation.store'
 
 /**
@@ -8,7 +8,9 @@ import { useNavigationStore } from '@/store/navigation.store'
 export function initActiveChatReporter(): void {
   useNavigationStore.subscribe((state, prev) => {
     if (state.selectedChatId !== prev.selectedChatId) {
-      electroview.rpc?.request.setActiveChat({ chatId: state.selectedChatId }).catch(() => {})
+      rpcRequest()
+        .setActiveChat({ chatId: state.selectedChatId })
+        .catch(() => {})
     }
   })
 }

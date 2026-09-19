@@ -1,12 +1,12 @@
 import type { ToolPolicy } from '@shared/tools/tool-policy'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-keys'
-import { electroview, rpcRequest } from '@/lib/rpc.client'
+import { rpcRequest } from '@/lib/rpc.client'
 
 export function useToolPolicies() {
   return useQuery({
     queryKey: queryKeys.toolPolicies(),
-    queryFn: () => electroview.rpc?.request.listToolPolicies({}),
+    queryFn: () => rpcRequest().listToolPolicies({}),
   })
 }
 

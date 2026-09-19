@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { electroview, rpcRequest as req } from '@/lib/rpc.client'
+import { rpcRequest as req } from '@/lib/rpc.client'
 
 export const attachmentQueryKey = (id: string) => ['attachment', id] as const
 
@@ -14,7 +14,7 @@ export async function uploadAttachment(
 export function useAttachment(id: string) {
   return useQuery({
     queryKey: attachmentQueryKey(id),
-    queryFn: () => electroview.rpc?.request.getAttachment({ id }),
+    queryFn: () => req().getAttachment({ id }),
     staleTime: Infinity,
   })
 }

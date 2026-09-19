@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-keys'
-import { electroview } from '@/lib/rpc.client'
+import { rpcRequest } from '@/lib/rpc.client'
 
 export function useCompaction(chatId: string | null) {
   return useQuery({
     queryKey: queryKeys.compaction(chatId ?? ''),
-    queryFn: () => electroview.rpc?.request.getCompactionInfo({ chatId: chatId! }),
+    queryFn: () => rpcRequest().getCompactionInfo({ chatId: chatId! }),
     enabled: !!chatId,
   })
 }

@@ -56,7 +56,7 @@ marketplace and the provider title-model resync call it there.
   depends on the models feature through `useModels`.
 - **The api objects hold writes and actions only; reads are hooks.** Five imperative-read mirrors
   (`settings.get`, `getApiKeyStatus`, `listControlTokens`, `logs.getInfo`, `logs.logClientError`) had
-  zero callers once the read hooks and direct `electroview` reads took over, and were removed.
+  zero callers once the read hooks and direct `rpcRequest()` reads took over, and were removed.
 - **The tool-policy vocabulary is the `ToolPolicy` schema.** The `'allow' | 'ask' | 'deny'` union was
   hand-written in two files; both now use the schema. The segmented control keeps its allow/ask/deny
   display order, so the tokens are named individually (`ToolPolicy.enum.*`) rather than mapped from

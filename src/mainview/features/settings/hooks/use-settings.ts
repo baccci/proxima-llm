@@ -1,19 +1,19 @@
 import { ProviderId } from '@shared/providers/registry'
 import { useQuery } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-keys'
-import { electroview } from '@/lib/rpc.client'
+import { rpcRequest } from '@/lib/rpc.client'
 
 export function useSettings() {
   return useQuery({
     queryKey: queryKeys.settings(),
-    queryFn: () => electroview.rpc?.request.getSettings({}),
+    queryFn: () => rpcRequest().getSettings({}),
   })
 }
 
 export function useApiKeyStatus(provider: ProviderId) {
   return useQuery({
     queryKey: queryKeys.apiKey(provider),
-    queryFn: () => electroview.rpc?.request.hasApiKey({ provider }),
+    queryFn: () => rpcRequest().hasApiKey({ provider }),
   })
 }
 

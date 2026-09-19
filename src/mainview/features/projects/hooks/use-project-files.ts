@@ -1,12 +1,12 @@
 import type { AddProjectFileInput } from '@shared/schemas/project-file.schema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-keys'
-import { electroview, rpcRequest } from '@/lib/rpc.client'
+import { rpcRequest } from '@/lib/rpc.client'
 
 export function useProjectFiles(projectId: string) {
   return useQuery({
     queryKey: queryKeys.projectFiles(projectId),
-    queryFn: () => electroview.rpc?.request.listProjectFiles({ projectId }),
+    queryFn: () => rpcRequest().listProjectFiles({ projectId }),
   })
 }
 
