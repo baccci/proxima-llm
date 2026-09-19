@@ -78,6 +78,15 @@ because it splits into two layers that cannot be merged:
   a match. Requires WebKit 17.2+; where the registry is missing, find still counts and jumps
   and only the paint is absent. The landing reads the `Range`s the painter built rather than the
   registry it hands them to, so scrolling onto a match keeps working even there.
+- **`package.json` overrides lightningcss to 1.33.0, because of those two `::highlight()` rules.**
+  1.32.0 does not know the Custom Highlight API selector, so every build printed four warnings about
+  it: two from Tailwind's optimize pass and two from Vite's minify step, which share one hoisted
+  copy. The rules were passed through unchanged either way, so this was noise and not breakage, but
+  there was no switch to turn it off. 1.33.0 parses the selector and warns about nothing. The
+  override is the only lever available, because `@tailwindcss/node` pins lightningcss exactly, 4.3.3
+  included, so upgrading Tailwind cannot reach it. The single difference it makes to the built CSS
+  is `.rounded-full`: its `calc(infinity * 1px)` now clamps to `2147483647px` rather than
+  `3.40282e38px`, and both sit far past the half-the-box ceiling browsers put on `border-radius`.
 - **The landing aims at the match, not at the message row holding it.** `pendingScroll`, which
   the Cmd+K search landing uses, is a one-shot consumed at mount by the virtualizer's
   `didInitRef` and cleared by any navigation: the wrong shape for repeated jumps inside a list
