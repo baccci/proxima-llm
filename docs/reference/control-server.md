@@ -41,7 +41,8 @@ It is off by default and locked to your own machine. Four layers, outermost firs
    reach it, only programs on *this* machine.
 2. **Host and origin checks.** Every request must have a `Host` of `127.0.0.1` or `localhost` and (if it
    sends an `Origin`) a matching one. This is belt-and-suspenders on top of the bind, and it blocks a
-   malicious web page from quietly POSTing to `localhost` in the background.
+   malicious web page from quietly POSTing to `localhost` in the background. The one exception is the
+   Vite dev server's origin, allowed only while the dev browser bridge is open.
 3. **A bearer token on everything except pairing.** No valid token, `401`.
 4. **Pairing to get that token.** You generate a short code inside the app; the external client trades the
    code for a long-lived token once. Codes live in memory only, expire after 5 minutes, and are
@@ -50,7 +51,7 @@ It is off by default and locked to your own machine. Four layers, outermost firs
 It is opt-in: the server only starts if `controlServerEnabled` is set (from Settings, or auto-started at
 boot if it was on last time). See `index.ts` boot and `rpc.ts` `updateSettings` (which toggles it live).
 
-## The pieces (six files)
+## The pieces (eight files)
 
 The folder is split one concern per file:
 
@@ -62,10 +63,18 @@ The folder is split one concern per file:
 | [`sse.ts`](../../src/bun/entry/control-server/sse.ts) | The **SSE writer**. `streamCompletionsResponse` runs a stream and dribbles each chunk back to the caller as Server-Sent Events, closing on `done`/`error`. |
 | [`routes.ts`](../../src/bun/entry/control-server/routes.ts) | The **switchboard**. `handleRequest` guards, then matches method and path to what each endpoint does. |
 | [`server.ts`](../../src/bun/entry/control-server/server.ts) | The **power switch**. `startControlServer` / `stopControlServer` stand up Bun's HTTP server and wire the WebSocket upgrade. |
+| [`cors.ts`](../../src/bun/entry/control-server/cors.ts) | The **doorman for browsers**. Decides which `Origin` may call at all, and which gets the headers that let it read the reply. |
+| [`rpc-dispatch.ts`](../../src/bun/entry/control-server/rpc-dispatch.ts) | The **name-to-handler lookup** behind `POST /rpc`: read the envelope, find the method, call it, report the outcome. Knows nothing about HTTP. |
+| [`bridge-mode.ts`](../../src/bun/entry/control-server/bridge-mode.ts) | One fact: whether the dev browser bridge is open. `routes.ts`, `server.ts` and `index.ts` all read it. |
 
-One-way imports: `server.ts` to `routes.ts` to (`http.ts`, `events.ts`, `auth.ts`, `sse.ts`). `broadcast`
-lives in `events.ts` (not `server.ts`) specifically so `routes.ts` can call it without a `routes` and
-`server` import cycle.
+One-way imports: `server.ts` to `routes.ts` to (`http.ts`, `events.ts`, `auth.ts`, `sse.ts`, `cors.ts`,
+`rpc-dispatch.ts`). `broadcast` lives in `events.ts` (not `server.ts`) specifically so `routes.ts` can call
+it without a `routes` and `server` import cycle.
+
+Two of these are deliberately leaves that import nothing from the folder, `cors.ts` and `rpc-dispatch.ts`.
+Both hold a decision worth testing on its own, and keeping them clear of `http.ts` (which reaches the
+database through `auth.ts`) is what lets their tests run against the real functions instead of a mocked
+database.
 
 ## The endpoints
 
@@ -77,6 +86,33 @@ lives in `events.ts` (not `server.ts`) specifically so `routes.ts` can call it w
 | `POST /prompt` | yes | Send a message; the reply streams **into the app**. Returns `202 { chatId, streamId }` right away. |
 | `POST /completions` | yes | Send a message; the reply streams **back to the caller** as SSE (and still runs in-app). |
 | `WS /events` | yes | Open a listen-only socket; receive a lifecycle ping for every stream. |
+| `POST /rpc` | **dev only** | The window's whole RPC surface, by method name. Exists only under `HMR=1`. |
+| `WS /bridge` | **dev only** | Listen-only socket carrying the six renderer pushes. Exists only under `HMR=1`. |
+
+### The two dev-only endpoints
+
+These two exist so the renderer can run in an ordinary browser tab against the running app, for real
+devtools, for testing outside WebKit, and to export the rendered design. They are **not** part of the
+public control-server API and never appear in a shipped build.
+
+`POST /rpc` takes `{ method, params }`, looks the method up in the RPC layer's own handler table, and
+answers `{ result }`. `WS /bridge` carries the other direction: every push the desktop window receives is
+broadcast to it as `{ channel, payload }`, so both renderers watch the same run.
+
+Neither asks for a token, which is a deliberate trade and the reason for the gate. Three things hold the
+line:
+
+1. **`HMR=1` or nothing.** Both are absent from a release build even with the control server switched on,
+   so enabling the server from Settings never exposes them.
+2. **One allowed browser origin.** `POST /rpc` answers a browser only from `http://localhost:5173`, the
+   Vite dev server. A page on any other origin is refused before a handler runs, not merely stopped from
+   reading the reply.
+3. **Loopback only**, like everything else here.
+
+A WebSocket handshake is not subject to CORS, so for `/bridge` the dev gate is the whole of the
+protection. That is the reason it is a separate socket from `/events` rather than a second message type on
+it: `/events` is a documented, authenticated API with its own external clients, and they must not start
+receiving the renderer's traffic.
 
 ## How a request flows (`POST /prompt`, start to finish)
 
@@ -150,6 +186,12 @@ Request bodies arrive as untyped JSON and are parsed with zod (`PairBody` / `Pro
 a malformed shape returns `400` before any logic runs, then `resolvePromptRequest` does the semantic checks
 (text present, model exists/enabled/keyed, chat resolves). Bad input is rejected at the door, not trusted
 downstream.
+
+`POST /rpc` is the exception, and it is one on purpose. Its envelope is parsed, so a body with no method
+name is a `400`, but the `params` inside go to the handler untouched. That is the same trust the app's own
+window gets, and it is only defensible because the route is dev-only and the caller is the app's own
+renderer code. Parsing at that door would mean a schema for all ~45 handlers. If the bridge ever stopped
+being dev-only, that work would come first.
 
 ## Links
 

@@ -59,8 +59,9 @@ such as `SendMessageInput`, has no schema and therefore no possible gate; that i
 
 1. **Renderer calls.** `Electroview.defineRPC<AppRPC>` (`mainview/lib/rpc.client.ts`) stamps the contract on
    the client. `rpcRequest().listModels({})` autocompletes params and knows the reply is `ModelDTO[]`.
-2. **Bun answers.** `BrowserView.defineRPC<AppRPCTyped>` (`bun/rpc.ts`) stamps the same contract on the
-   handlers. A handler that returns the wrong shape will not compile.
+2. **Bun answers.** `rpcRequestHandlers` (`bun/entry/rpc.ts`) stamps the same contract on the handlers, and
+   `createRPC()` hands that table to `BrowserView.defineRPC<AppRPCTyped>`. A handler that returns the wrong
+   shape will not compile, and a handler that is missing entirely will not either.
 3. **Adding a feature.** Add the call to `AppRPC` **first**; both sides go red until you write the bun
    handler and call it from the renderer. The contract is the checklist.
 

@@ -1,6 +1,7 @@
 import { log } from '../../infra/logging/logger'
 import { toErrorMessage } from '../../utils/to-error'
-import { clearWsClients, type WsData, wsHandlers } from './events'
+import { BROWSER_BRIDGE_ENABLED } from './bridge-mode'
+import { clearWsClients, WS_CHANNEL, type WsChannel, type WsData, wsHandlers } from './events'
 import { authenticate, err } from './http'
 import { handleRequest } from './routes'
 
@@ -24,13 +25,17 @@ export function startControlServer(port: number): void {
           return new Response('Unauthorized', { status: 401 })
         }
 
-        const upgraded = srv.upgrade(req, { data: { authenticated: true } })
-        if (upgraded) {
-          return undefined
-        }
-
-        return new Response('Upgrade failed', { status: 500 })
+        return upgradeOrFail(srv, req, WS_CHANNEL.events, true)
       }
+
+      // The dev browser bridge's push channel, carrying what the desktop window gets.
+      // Unauthenticated for the same reason POST /rpc is, and gone outside dev for the
+      // same reason too. A WebSocket handshake is not subject to CORS, so the dev gate
+      // is the whole of the protection here.
+      if (url.pathname === '/bridge' && BROWSER_BRIDGE_ENABLED) {
+        return upgradeOrFail(srv, req, WS_CHANNEL.bridge, false)
+      }
+
       return handleRequest(req).catch((e) => {
         const message = toErrorMessage(e)
         log.error('[control-server] Unhandled fetch error', e)
@@ -51,4 +56,18 @@ export function stopControlServer(): void {
   server = null
   clearWsClients()
   console.log('Control server stopped')
+}
+
+function upgradeOrFail(
+  srv: Bun.Server<WsData>,
+  req: Request,
+  channel: WsChannel,
+  authenticated: boolean,
+): Response | undefined {
+  const upgraded = srv.upgrade(req, { data: { authenticated, channel } })
+  if (upgraded) {
+    return undefined
+  }
+
+  return new Response('Upgrade failed', { status: 500 })
 }

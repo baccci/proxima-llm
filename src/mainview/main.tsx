@@ -10,7 +10,7 @@ import { initActiveChatReporter } from './features/chat/lib/active-chat-reporter
 import { initStreamResetOnNavigation } from './features/chat/lib/reset-stream-on-navigation'
 import { initFindResetOnNavigation } from './features/chat-find/lib/reset-find-on-navigation'
 import { installClientLogger } from './lib/client-logger'
-import { electroview, subscribeToControlNavigate } from './lib/rpc.client'
+import { rpcRequest, subscribeToControlNavigate } from './lib/rpc.client'
 
 installClientLogger()
 initActiveChatReporter()
@@ -23,7 +23,7 @@ document.addEventListener(
   (e) => {
     if (e.metaKey && e.key === 'q') {
       e.preventDefault()
-      electroview.rpc?.request.quit({})
+      rpcRequest().quit({})
     }
   },
   { capture: true },

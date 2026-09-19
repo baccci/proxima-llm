@@ -1,12 +1,12 @@
 import type { MemoryScope, UpsertMemorySliceInput } from '@shared/schemas/memory-slice.schema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-keys'
-import { electroview, rpcRequest } from '@/lib/rpc.client'
+import { rpcRequest } from '@/lib/rpc.client'
 
 export function useMemorySlices(scope: MemoryScope, projectId: string | null) {
   return useQuery({
     queryKey: queryKeys.memorySlices(scope, projectId),
-    queryFn: () => electroview.rpc?.request.listMemorySlices({ scope, projectId }),
+    queryFn: () => rpcRequest().listMemorySlices({ scope, projectId }),
   })
 }
 

@@ -41,6 +41,14 @@ type AppRPCTyped = {
   webview: RPCSchema<AppRPC['webview']>
 }
 
+type BunRequests = AppRPC['bun']['requests']
+
+type RpcRequestHandlers = {
+  [M in keyof BunRequests]: (
+    params: BunRequests[M]['params'],
+  ) => Awaited<BunRequests[M]['response']> | Promise<Awaited<BunRequests[M]['response']>>
+}
+
 // Max wall-clock a single RPC handler may run before the bridge times out.
 const RPC_MAX_REQUEST_MS = 60_000
 // Dev tools gate: the launch env TWEAK=1 enables them; every dev handler is a
@@ -90,221 +98,223 @@ export function setControlServerFns(start: (port: number) => void, stop: () => v
   _stopServer = stop
 }
 
+// Every request handler the app exposes, independent of how a caller reaches it.
+// Electrobun marks each key optional, so a handler could go missing and still compile;
+// RpcRequestHandlers requires all of them, and the table proves it implements AppRPC.
+export const rpcRequestHandlers: RpcRequestHandlers = {
+  // Models
+  listModels: () => modelService.listModels(),
+  updateModel: ({ id, ...patch }) => modelService.updateModel(id, patch),
+
+  // Projects
+  listProjects: () => projectService.listProjects(),
+  createProject: (input) => projectService.createProject(input),
+  updateProject: ({ id, ...patch }) => projectService.updateProject(id, patch),
+  deleteProject: ({ id }) => {
+    projectService.deleteProject(id)
+  },
+
+  // Memory slices
+  listMemorySlices: ({ scope, projectId }) => memoryService.listSlices(scope, projectId),
+  upsertMemorySlice: (input) => {
+    const result = memoryService.upsertSlice(input)
+    memoryNotify.notifyMemoryChanged(input.scope, input.projectId ?? null)
+    return result
+  },
+  deleteMemorySlice: ({ id }) => {
+    const deleted = memoryService.deleteSlice(id)
+    if (deleted) {
+      memoryNotify.notifyMemoryChanged(deleted.scope, deleted.projectId)
+    }
+  },
+  getMemorySummary: ({ projectId }) => ({
+    summary: projectService.getMemorySummary(projectId),
+  }),
+
+  // Project files
+  listProjectFiles: ({ projectId }) => projectFileService.listProjectFiles(projectId),
+  addProjectFile: (input) => projectFileService.saveProjectFile(AddProjectFileInput.parse(input)),
+  readProjectFile: ({ projectId, fileId }) =>
+    projectFileService.readProjectFileText(projectId, fileId),
+  deleteProjectFile: ({ id }) => {
+    projectFileService.deleteProjectFile(id)
+  },
+
+  // Chats
+  listChats: ({ projectId, cursor, limit }) => chatService.listChats({ projectId, cursor, limit }),
+  listPinnedChats: ({ projectId }) => chatService.listPinnedChats({ projectId }),
+  // Repo returns undefined for a missing chat; the wire contract is null.
+  getChat: ({ id }) => chatService.getChat(id) ?? null,
+  createChat: (input) => chatService.createChat(input),
+  updateChat: ({ id, ...patch }) => chatService.updateChat(id, patch),
+  deleteChat: ({ id }) => {
+    chatService.deleteChat(id)
+  },
+  searchChats: (input) => chatService.searchChats(SearchChatsInput.parse(input)),
+
+  // Messages
+  listMessages: ({ chatId }) => chatService.listMessages(chatId),
+  getCompactionInfo: ({ chatId }) => {
+    const snapshot = getLatestSnapshot(chatId)
+    if (!snapshot) {
+      return null
+    }
+
+    return {
+      coveredThroughAt: snapshot.coveredThroughAt,
+      displayThroughAt: snapshot.displayThroughAt,
+    }
+  },
+  compactNow: ({ chatId }) => compactionService.compactChatNow(chatId),
+
+  sendMessage: (input) => {
+    return startChatStream(SendMessageInput.parse(input))
+  },
+
+  retryFromMessage: (input) => retryChatStream(RetryMessageInput.parse(input)),
+
+  cancelStream: ({ streamId }) => {
+    cancelStream(streamId)
+  },
+
+  resolveToolApproval: ({ streamId, toolCallId, decision, remember }) => {
+    resolveApproval(streamId, toolCallId, decision, remember)
+  },
+
+  setActiveChat: ({ chatId }) => {
+    activeChatId = chatId
+  },
+
+  // Tool policies
+  listToolPolicies: () => toolPermissionService.listPoliciesDetailed(),
+
+  setToolPolicy: ({ toolName, policy }) => {
+    toolPermissionService.setPolicy(toolName, policy)
+  },
+
+  // Lifecycle hooks
+  listHooks: () => hookConfigRepo.listDetailed(),
+
+  setHook: ({ actionId, enabled }) => {
+    hookConfigRepo.setEnabled(actionId, enabled)
+    rebuildRegistry(hookConfigRepo.load())
+  },
+
+  // Force a re-sync of every syncable provider. Each is guarded so one provider's
+  // fetch failure can't abort the other's sync.
+  syncModels: async () => {
+    await Promise.all([
+      syncOpenRouterModels(pushModelsUpdated, true).catch((err) =>
+        log.error('OpenRouter sync failed (non-fatal)', err),
+      ),
+      syncAnthropicModels(pushModelsUpdated, true).catch((err) =>
+        log.error('Anthropic sync failed (non-fatal)', err),
+      ),
+    ])
+  },
+  getModelSyncInfo: () => ({
+    anthropic: getAnthropicLastSyncTimestamp(),
+    openrouter: getLastSyncTimestamp(),
+  }),
+
+  // Logs
+  getLogInfo: () => logsService.getLogInfo(),
+  openLogsFolder: () => {
+    logsService.openLogsFolder()
+  },
+  openLogFile: () => {
+    logsService.openLogFile()
+  },
+  clearLogs: () => {
+    logsService.clearLogs()
+  },
+  logClientError: (input) => {
+    logsService.logClientError(input)
+  },
+
+  // App
+  quit: () => {
+    Utils.quit()
+  },
+
+  // Dev tools: no-ops unless DEV_TOOLS_ENABLED
+  devSetOverride: ({ key, value }) => {
+    if (DEV_TOOLS_ENABLED) {
+      devOverridesService.setOverride(key, value)
+    }
+  },
+  devForceCompact: async ({ chatId }) => {
+    if (!DEV_TOOLS_ENABLED) {
+      return
+    }
+
+    await compactionService.forceCompactChat(chatId)
+  },
+
+  // Attachments
+  uploadAttachment: (input) => attachmentService.saveAttachment(SaveAttachmentInput.parse(input)),
+
+  getAttachment: (input) => attachmentService.getAttachmentView(input.id),
+
+  // Settings
+  getSettings: () => settingsService.getSettings(),
+  updateSettings: (input) => {
+    const prev = settingsService.getSettings()
+    settingsService.updateSettings(input)
+
+    // Flipping the control-server toggle starts or stops the network server live.
+    const controlServerToggled =
+      input.controlServerEnabled !== undefined &&
+      input.controlServerEnabled !== prev.controlServerEnabled
+    if (!controlServerToggled) {
+      return
+    }
+
+    const next = settingsService.getSettings()
+    if (next.controlServerEnabled) {
+      _startServer?.(next.controlServerPort)
+      return
+    }
+
+    _stopServer?.()
+  },
+  // Webview sends provider as a raw wire string; narrow it to the known
+  // provider set before it reaches the keychain.
+  setApiKey: ({ provider, key }) => {
+    const parsed = ProviderId.parse(provider)
+    keychain.setApiKey(parsed, key)
+    // A saved Anthropic key unlocks its /v1/models sync (OpenRouter's catalog is
+    // unauthenticated and needs no such kick), so refresh the catalog promptly instead
+    // of waiting for the next boot.
+    if (parsed === ProviderId.enum.anthropic) {
+      syncAnthropicModels(pushModelsUpdated, true).catch((err) =>
+        log.error('Anthropic sync after key save failed (non-fatal)', err),
+      )
+    }
+  },
+  hasApiKey: ({ provider }) => ({
+    configured: keychain.hasApiKey(ProviderId.parse(provider)),
+  }),
+  // Deletes only the stored key. Synced model rows, sync markers, and title pins
+  // are left as-is: an Anthropic catalog goes dead without a key but stays listed,
+  // and OpenRouter's keyless catalog keeps syncing.
+  removeApiKey: ({ provider }) => {
+    keychain.removeApiKey(ProviderId.parse(provider))
+  },
+
+  // Control server
+  generatePairingCode: () => controlAuth.generatePairingCode(),
+  listControlTokens: () => controlAuth.listTokens(),
+  revokeControlToken: ({ token }) => {
+    controlAuth.revokeToken(token)
+  },
+}
+
 export function createRPC() {
   return BrowserView.defineRPC<AppRPCTyped>({
     maxRequestTime: RPC_MAX_REQUEST_MS,
     handlers: {
-      requests: {
-        // Models
-        listModels: () => modelService.listModels(),
-        updateModel: ({ id, ...patch }) => modelService.updateModel(id, patch),
-
-        // Projects
-        listProjects: () => projectService.listProjects(),
-        createProject: (input) => projectService.createProject(input),
-        updateProject: ({ id, ...patch }) => projectService.updateProject(id, patch),
-        deleteProject: ({ id }) => {
-          projectService.deleteProject(id)
-        },
-
-        // Memory slices
-        listMemorySlices: ({ scope, projectId }) => memoryService.listSlices(scope, projectId),
-        upsertMemorySlice: (input) => {
-          const result = memoryService.upsertSlice(input)
-          memoryNotify.notifyMemoryChanged(input.scope, input.projectId ?? null)
-          return result
-        },
-        deleteMemorySlice: ({ id }) => {
-          const deleted = memoryService.deleteSlice(id)
-          if (deleted) {
-            memoryNotify.notifyMemoryChanged(deleted.scope, deleted.projectId)
-          }
-        },
-        getMemorySummary: ({ projectId }) => ({
-          summary: projectService.getMemorySummary(projectId),
-        }),
-
-        // Project files
-        listProjectFiles: ({ projectId }) => projectFileService.listProjectFiles(projectId),
-        addProjectFile: (input) =>
-          projectFileService.saveProjectFile(AddProjectFileInput.parse(input)),
-        readProjectFile: ({ projectId, fileId }) =>
-          projectFileService.readProjectFileText(projectId, fileId),
-        deleteProjectFile: ({ id }) => {
-          projectFileService.deleteProjectFile(id)
-        },
-
-        // Chats
-        listChats: ({ projectId, cursor, limit }) =>
-          chatService.listChats({ projectId, cursor, limit }),
-        listPinnedChats: ({ projectId }) => chatService.listPinnedChats({ projectId }),
-        // Repo returns undefined for a missing chat; the wire contract is null.
-        getChat: ({ id }) => chatService.getChat(id) ?? null,
-        createChat: (input) => chatService.createChat(input),
-        updateChat: ({ id, ...patch }) => chatService.updateChat(id, patch),
-        deleteChat: ({ id }) => {
-          chatService.deleteChat(id)
-        },
-        searchChats: (input) => chatService.searchChats(SearchChatsInput.parse(input)),
-
-        // Messages
-        listMessages: ({ chatId }) => chatService.listMessages(chatId),
-        getCompactionInfo: ({ chatId }) => {
-          const snapshot = getLatestSnapshot(chatId)
-          if (!snapshot) {
-            return null
-          }
-
-          return {
-            coveredThroughAt: snapshot.coveredThroughAt,
-            displayThroughAt: snapshot.displayThroughAt,
-          }
-        },
-        compactNow: ({ chatId }) => compactionService.compactChatNow(chatId),
-
-        sendMessage: (input) => {
-          return startChatStream(SendMessageInput.parse(input))
-        },
-
-        retryFromMessage: (input) => retryChatStream(RetryMessageInput.parse(input)),
-
-        cancelStream: ({ streamId }) => {
-          cancelStream(streamId)
-        },
-
-        resolveToolApproval: ({ streamId, toolCallId, decision, remember }) => {
-          resolveApproval(streamId, toolCallId, decision, remember)
-        },
-
-        setActiveChat: ({ chatId }) => {
-          activeChatId = chatId
-        },
-
-        // Tool policies
-        listToolPolicies: () => toolPermissionService.listPoliciesDetailed(),
-
-        setToolPolicy: ({ toolName, policy }) => {
-          toolPermissionService.setPolicy(toolName, policy)
-        },
-
-        // Lifecycle hooks
-        listHooks: () => hookConfigRepo.listDetailed(),
-
-        setHook: ({ actionId, enabled }) => {
-          hookConfigRepo.setEnabled(actionId, enabled)
-          rebuildRegistry(hookConfigRepo.load())
-        },
-
-        // Force a re-sync of every syncable provider. Each is guarded so one provider's
-        // fetch failure can't abort the other's sync.
-        syncModels: async () => {
-          await Promise.all([
-            syncOpenRouterModels(pushModelsUpdated, true).catch((err) =>
-              log.error('OpenRouter sync failed (non-fatal)', err),
-            ),
-            syncAnthropicModels(pushModelsUpdated, true).catch((err) =>
-              log.error('Anthropic sync failed (non-fatal)', err),
-            ),
-          ])
-        },
-        getModelSyncInfo: () => ({
-          anthropic: getAnthropicLastSyncTimestamp(),
-          openrouter: getLastSyncTimestamp(),
-        }),
-
-        // Logs
-        getLogInfo: () => logsService.getLogInfo(),
-        openLogsFolder: () => {
-          logsService.openLogsFolder()
-        },
-        openLogFile: () => {
-          logsService.openLogFile()
-        },
-        clearLogs: () => {
-          logsService.clearLogs()
-        },
-        logClientError: (input) => {
-          logsService.logClientError(input)
-        },
-
-        // App
-        quit: () => {
-          Utils.quit()
-        },
-
-        // Dev tools: no-ops unless DEV_TOOLS_ENABLED
-        devSetOverride: ({ key, value }) => {
-          if (DEV_TOOLS_ENABLED) {
-            devOverridesService.setOverride(key, value)
-          }
-        },
-        devForceCompact: async ({ chatId }) => {
-          if (!DEV_TOOLS_ENABLED) {
-            return
-          }
-
-          await compactionService.forceCompactChat(chatId)
-        },
-
-        // Attachments
-        uploadAttachment: (input) =>
-          attachmentService.saveAttachment(SaveAttachmentInput.parse(input)),
-
-        getAttachment: (input) => attachmentService.getAttachmentView(input.id),
-
-        // Settings
-        getSettings: () => settingsService.getSettings(),
-        updateSettings: (input) => {
-          const prev = settingsService.getSettings()
-          settingsService.updateSettings(input)
-
-          // Flipping the control-server toggle starts or stops the network server live.
-          const controlServerToggled =
-            input.controlServerEnabled !== undefined &&
-            input.controlServerEnabled !== prev.controlServerEnabled
-          if (!controlServerToggled) {
-            return
-          }
-
-          const next = settingsService.getSettings()
-          if (next.controlServerEnabled) {
-            _startServer?.(next.controlServerPort)
-            return
-          }
-
-          _stopServer?.()
-        },
-        // Webview sends provider as a raw wire string; narrow it to the known
-        // provider set before it reaches the keychain.
-        setApiKey: ({ provider, key }) => {
-          const parsed = ProviderId.parse(provider)
-          keychain.setApiKey(parsed, key)
-          // A saved Anthropic key unlocks its /v1/models sync (OpenRouter's catalog is
-          // unauthenticated and needs no such kick), so refresh the catalog promptly instead
-          // of waiting for the next boot.
-          if (parsed === ProviderId.enum.anthropic) {
-            syncAnthropicModels(pushModelsUpdated, true).catch((err) =>
-              log.error('Anthropic sync after key save failed (non-fatal)', err),
-            )
-          }
-        },
-        hasApiKey: ({ provider }) => ({
-          configured: keychain.hasApiKey(ProviderId.parse(provider)),
-        }),
-        // Deletes only the stored key. Synced model rows, sync markers, and title pins
-        // are left as-is: an Anthropic catalog goes dead without a key but stays listed,
-        // and OpenRouter's keyless catalog keeps syncing.
-        removeApiKey: ({ provider }) => {
-          keychain.removeApiKey(ProviderId.parse(provider))
-        },
-
-        // Control server
-        generatePairingCode: () => controlAuth.generatePairingCode(),
-        listControlTokens: () => controlAuth.listTokens(),
-        revokeControlToken: ({ token }) => {
-          controlAuth.revokeToken(token)
-        },
-      },
+      requests: rpcRequestHandlers,
       messages: {},
     },
   })

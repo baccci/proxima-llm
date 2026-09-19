@@ -29,9 +29,25 @@ entry adapters. They differ only in who is on the outside and how they connect.
 
 ## One file, on purpose
 
-The control server was split into six small files, one job each. `rpc.ts` is left as a single file, and
+The control server was split into small files, one job each. `rpc.ts` is left as a single file, and
 that is the same rule at work, not a contradiction. Its one job is routing: match each request to the code
 that handles it. Splitting a list of one-line handlers would scatter that single job for no gain.
+
+## The table and the door are separate
+
+The handlers live in an exported object, `rpcRequestHandlers`, and `createRPC()` is a short function that
+hands that object to Electrobun. The split matters because it separates **what the app can do** from **how
+Electrobun delivers it**. The table is a plain object of plain functions: nothing in it knows it is being
+reached over a bridge, and the one Electrobun-specific call inside it is `quit`.
+
+That is what lets a second caller reuse it. The control server's dev-only `POST /rpc` looks a method up in
+this same table and calls it, so the browser bridge gets the entire RPC surface without a second
+implementation to keep in step. It also serves the cross-platform goal: a future host that is not
+Electrobun would replace `createRPC()`, not the table.
+
+The table is typed by `RpcRequestHandlers`, a mapped type over the `AppRPC` contract where **every method
+is required**. Electrobun's own handler type marks each key optional, so a handler could quietly go missing
+and still compile. Requiring them makes the table prove it implements the whole contract.
 
 ## The handler map
 
@@ -89,6 +105,12 @@ The control server's start and stop pair is wired the same way, through `setCont
 the `updateSettings` handler turn the server on or off live when you flip its setting, without `rpc.ts`
 ever importing the server.
 
+Every one of those six goes through a single function in `index.ts`, `pushToRenderers`, which sends to the
+window **and** broadcasts to any dev browser bridge listening on the control server's `/bridge` socket. Both
+renderers therefore see the same run at the same time. Funnelling all six through one function is what makes
+that true by construction: a seventh channel added later cannot forget the bridge, because there is only one
+place that sends.
+
 ## What gets checked at the door, and why
 
 Untrusted data that enters the app should be checked against a **schema** right at the entry point, before
@@ -126,6 +148,10 @@ engine. Trust the typed connection for ordinary database work.
 - **Dev tools are off unless launched with `TWEAK=1`.** The `devSetOverride` and `devForceCompact` handlers
   do nothing without that launch flag. The flag is read once when the file loads, so changing it needs a
   restart.
+- **A dev browser can call these handlers too.** With `HMR=1`, the control server exposes `POST /rpc`, which
+  looks up a method in `rpcRequestHandlers` and calls it with no token. It is reachable only from
+  `http://localhost:5173` and only in dev, but while you are running `bun run dev:hmr` the handler you are
+  editing is reachable over plain HTTP. That includes `quit`.
 - **The empty `messages: {}` is deliberate.** Electrobun's RPC has a separate channel for pushes, but the
   app does not use it. Every push goes through the injected `send` functions instead, as described above.
 

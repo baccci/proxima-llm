@@ -1,9 +1,13 @@
 import { dlopen, FFIType } from 'bun:ffi'
+import type { AppRPC } from '@shared/rpc/app-rpc.types'
+import type { BridgePush } from '@shared/rpc/bridge-push.types'
 import { ApplicationMenu, BrowserWindow, Updater } from 'electrobun/bun'
 import { join } from 'path'
 import { setSendChatsUpdated, setSendToWebview } from './engine/chat-stream/chat-stream.service'
 import { dispatchStage, rebuildRegistry } from './engine/lifecycle/dispatch'
 import { LIFECYCLE_STAGE } from './engine/lifecycle/stages'
+import { BROWSER_BRIDGE_ENABLED } from './entry/control-server/bridge-mode'
+import { broadcastToBridge } from './entry/control-server/events'
 import { startControlServer, stopControlServer } from './entry/control-server/server'
 import {
   createRPC,
@@ -25,6 +29,8 @@ import { log } from './infra/logging/logger'
 
 log.init()
 log.installGlobalHandlers()
+
+type WebviewMessages = AppRPC['webview']['messages']
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
@@ -140,26 +146,42 @@ ApplicationMenu.setApplicationMenu([
 
 // Wire bun → webview push: streaming chunks, model/chat updates, memory changes,
 // and control navigation. Each bridges an engine or feature notifier to a webview
-// RPC send on the main window.
+// RPC send on the main window, and to any dev browser bridge listening alongside it.
 function wireWebviewPush(): void {
   setSendToWebview((msg) => {
-    mainWindow.webview.rpc?.send.streamChunk(msg)
+    pushToRenderers('streamChunk', msg)
   })
   setSendModelsUpdated(() => {
-    mainWindow.webview.rpc?.send.modelsUpdated({})
+    pushToRenderers('modelsUpdated', {})
   })
   setSendChatsUpdated(() => {
-    mainWindow.webview.rpc?.send.chatsUpdated({})
+    pushToRenderers('chatsUpdated', {})
   })
   setSendMemoryChanged((scope, projectId) => {
-    mainWindow.webview.rpc?.send.memoryChanged({ scope, projectId })
+    pushToRenderers('memoryChanged', { scope, projectId })
   })
   setSendControlNavigate((msg) => {
-    mainWindow.webview.rpc?.send.controlNavigate(msg)
+    pushToRenderers('controlNavigate', msg)
   })
   setSendPlaySound((sound) => {
-    mainWindow.webview.rpc?.send.playSound({ sound })
+    pushToRenderers('playSound', { sound })
   })
+}
+
+// One push, every renderer that is listening. The desktop window always is; a browser
+// tab is too while the dev bridge is open, which is why both can watch the same run.
+function pushToRenderers<C extends keyof WebviewMessages>(
+  channel: C,
+  payload: WebviewMessages[C],
+): void {
+  // Indexing the send proxy by a generic channel collapses its six signatures into an
+  // intersection that no payload satisfies. The parameters above already pair channel
+  // with payload, so narrow it back to the one signature that applies.
+  const send = mainWindow.webview.rpc?.send[channel] as
+    | ((payload: WebviewMessages[C]) => void)
+    | undefined
+  send?.(payload)
+  broadcastToBridge({ channel, payload } as BridgePush)
 }
 
 wireWebviewPush()
@@ -180,9 +202,11 @@ setMemoryRegenHook((projectId) => {
 // Register control server start/stop with rpc.ts so updateSettings can toggle it
 setControlServerFns(startControlServer, stopControlServer)
 
-// Auto-start control server if previously enabled
+// Auto-start the control server when settings ask for it, and always under the dev
+// browser bridge: that same server carries the bridge, so running from source has to
+// bring it up whether or not the user ever switched it on.
 const initSettings = settingsService.getSettings()
-if (initSettings.controlServerEnabled) {
+if (initSettings.controlServerEnabled || BROWSER_BRIDGE_ENABLED) {
   startControlServer(initSettings.controlServerPort)
 }
 

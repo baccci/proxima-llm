@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-keys'
-import { electroview, rpcRequest } from '@/lib/rpc.client'
+import { rpcRequest } from '@/lib/rpc.client'
 
 export function useHooks() {
   return useQuery({
     queryKey: queryKeys.hooks(),
-    queryFn: () => electroview.rpc?.request.listHooks({}),
+    queryFn: () => rpcRequest().listHooks({}),
   })
 }
 
