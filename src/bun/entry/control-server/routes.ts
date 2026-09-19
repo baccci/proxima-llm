@@ -6,10 +6,13 @@ import * as settingsService from '../../features/settings/settings.repository'
 import * as keychain from '../../infra/keychain'
 import { log } from '../../infra/logging/logger'
 import { toErrorMessage } from '../../utils/to-error'
-import { getActiveChatId, pushControlNavigate } from '../rpc'
+import { getActiveChatId, pushControlNavigate, rpcRequestHandlers } from '../rpc'
 import * as auth from './auth'
+import { BROWSER_BRIDGE_ENABLED } from './bridge-mode'
+import { corsHeadersFor, isOriginAllowed } from './cors'
 import { broadcast, LIFECYCLE_KIND } from './events'
 import { authenticate, err, json } from './http'
+import { dispatchRpcCall } from './rpc-dispatch'
 import { streamCompletionsResponse } from './sse'
 
 const PairBody = z.object({
@@ -116,6 +119,19 @@ function resolvePromptRequest(raw: unknown): ResolveOk | ResolveErr {
 }
 
 export async function handleRequest(req: Request): Promise<Response> {
+  const origin = req.headers.get('origin')
+  const response = await routeRequest(req, origin)
+
+  // The grant goes on every reply rather than on one route, because a browser needs it
+  // to read any of them. Callers that send no Origin get no extra headers.
+  for (const [key, value] of Object.entries(corsHeadersFor(origin, BROWSER_BRIDGE_ENABLED))) {
+    response.headers.set(key, value)
+  }
+
+  return response
+}
+
+async function routeRequest(req: Request, origin: string | null): Promise<Response> {
   try {
     const url = new URL(req.url)
     const { pathname } = url
@@ -126,10 +142,31 @@ export async function handleRequest(req: Request): Promise<Response> {
       return err('Forbidden', 403)
     }
 
-    // Reject cross-origin requests
-    const origin = req.headers.get('origin')
-    if (origin && origin !== `http://${host}`) {
+    // Reject cross-origin requests, bar the dev server while the bridge is enabled
+    if (!isOriginAllowed(origin, host, BROWSER_BRIDGE_ENABLED)) {
       return err('Forbidden', 403)
+    }
+
+    // --- OPTIONS (CORS preflight) ---
+    // A JSON POST from a browser is preflighted, and the origin check above has already
+    // decided whether this caller is welcome, so there is nothing left to answer with.
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { status: 204 })
+    }
+
+    // --- POST /rpc (unauthenticated, dev-only) ---
+    // The browser bridge: the renderer's own RPC surface, reachable over HTTP so the
+    // real frontend can run in a plain browser tab against this same process.
+    if (pathname === '/rpc' && req.method === 'POST' && BROWSER_BRIDGE_ENABLED) {
+      const dispatched = await dispatchRpcCall(
+        await req.json().catch(() => null),
+        rpcRequestHandlers,
+      )
+      if (!dispatched.ok) {
+        return err(dispatched.message, dispatched.status)
+      }
+
+      return json(dispatched.payload)
     }
 
     // --- POST /pair (unauthenticated) ---
