@@ -78,6 +78,16 @@ Electrobun gives the app two operating-system processes that cannot see each oth
 │  • Typed RPC client                                                  │
 │  • UI only: never touches the DB, disk, or API keys directly         │
 └──────────────────────────────────────────────────────────────────────┘
+
+                              ▲ HTTP + WebSocket, dev only
+                              ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  DEV BROWSER (Chrome), optional, never shipped                       │
+│  ──────────────────────────────────────────────────────────────────  │
+│  • The same renderer code, served by Vite, in a plain tab            │
+│  • The same RPC client, swapped onto the control server              │
+│  • For real devtools, non-WebKit testing, and design export          │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 The split is the load-bearing idea of the whole app. A few rules follow from it:
@@ -88,6 +98,13 @@ The split is the load-bearing idea of the whole app. A few rules follow from it:
 - LLM streaming runs in the main process, so a webview reload does not kill an in-flight reply.
   The reply keeps generating and still saves, even though the live typing is lost to the UI until
   the reload settles.
+
+The third box is a development convenience, not a product. Running `bun run dev:hmr` opens a
+second door on the control server so the renderer can also run in an ordinary browser tab against
+the live main process. It exists because Proxima ships on WebKit, whose inspector is awkward to
+attach and whose quirks are hard to isolate. **Chrome is the debugging and export surface; WebKit
+stays the truth surface**, so a change that looks right in the browser is not done until the
+desktop window agrees. See [the control server](#the-control-server).
 
 ## How a message flows, end to end
 
@@ -299,7 +316,10 @@ and must not name a feature. So it exposes `subscribeToControlNavigate`, the mir
 `app/on-control-navigate` to it at startup. Pushes are received by the root and acted on by `app/`.
 
 The RPC connection is typed but not runtime-validated, and the only caller is the app's own window,
-so ordinary database reads trust that typing. A handler parses its input only when the value reaches
+so ordinary database reads trust that typing. In dev the browser bridge adds a second caller, but it
+is the same renderer code speaking the same contract from the same machine, so the assumption holds.
+Exposing that surface any further would mean parsing every handler's input, which is why the bridge
+is gated to dev rather than made a setting. A handler parses its input only when the value reaches
 somewhere more dangerous than a database row: the file system, the keychain, a fixed set of allowed
 values, or the engine. The full handler map and the parse rules are in
 [reference/entry-rpc.md](reference/entry-rpc.md).
@@ -312,6 +332,13 @@ the window. It is the same "receive a request, call the core, reply" idea as `rp
 in who is on the outside and how they connect. It is off unless enabled in settings, and it is paired
 with a token so a random program cannot connect. See [reference/control-server.md](reference/control-server.md)
 and the wire format in [reference/control-server-api.md](reference/control-server-api.md).
+
+In development it carries a third caller too. The **browser bridge** is `POST /rpc` plus a `/bridge`
+socket, which together expose the window's own RPC surface to a plain browser tab, so the renderer
+can run in Chrome against the running app. Both appear only when the process was launched with
+`HMR=1`, which is what `bun run dev:hmr` sets; on a release build they do not exist at all, even
+with the control server switched on. That gate is what lets them skip the pairing token without
+widening what a shipped app exposes, and it is what keeps the trust rule below true.
 
 ## Secrets
 

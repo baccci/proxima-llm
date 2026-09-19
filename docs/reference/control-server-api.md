@@ -328,6 +328,16 @@ const pending = await fetch(`${BASE}/prompt`, {
 
 ---
 
+## Not part of this API: the dev browser bridge
+
+Running the app from source with `bun run dev:hmr` adds `POST /rpc` and a `WS /bridge` socket to this same
+server. They exist so Proxima's own renderer can run in an ordinary browser tab against the live app, they
+take no token, and they are **absent from any release build**.
+
+They are deliberately not specified here. They carry the app's internal RPC contract, which changes freely
+with the UI and is not a promise to anyone outside. Do not build a client against them. Everything above is
+the stable surface. See [control-server.md](control-server.md) for how the two are kept apart.
+
 ## Limitations (v1)
 
 These are intentional for the current pre-alpha version:
