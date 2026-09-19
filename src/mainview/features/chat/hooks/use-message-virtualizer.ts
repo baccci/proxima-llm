@@ -2,6 +2,7 @@ import type { MessageDTO } from '@shared/schemas/message.schema'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import React from 'react'
 import { estimateMessageHeight } from '@/features/chat/helpers/estimate-message-height'
+import { landingScrollDelta } from '@/features/chat/helpers/landing-scroll-delta'
 
 // Distance from the bottom (px) within which the user counts as "at the bottom":
 // close enough that the view keeps following new content as a reply streams in.
@@ -43,6 +44,16 @@ const SETTLE_EPSILON_PX = 1
 // Smallest per-frame move (px) so the chase never stalls to a crawl near the target.
 const MIN_STEP_PX = 1
 
+// Where a find landing parks the match when it has to move: a third of the way down the band
+// the header leaves clear, so the lines leading into the match stay readable and the ones
+// after it are on screen too. An edge landing, which aiming at the row's top produced, puts
+// the match half under the header or half off the bottom.
+const FIND_LANDING_FRACTION = 1 / 3
+
+// Frames a find landing gets to converge: a few to mount the row, a few more while the rows
+// above it measure and shift the match under it. It normally settles in two or three.
+const FIND_LANDING_ATTEMPTS = 12
+
 // How many times a landing on a far-off message re-scrolls while rows around it measure.
 // It normally settles in two or three, so the cap only guards against content that never
 // stops resizing.
@@ -54,6 +65,16 @@ type MessageVirtualizerDeps = {
   // A message to land on instead of the newest one, from a search hit. Null opens the
   // chat the ordinary way.
   landOnMessageId: string | null
+  // The message holding the current in-chat find match, and which match it is. The index is
+  // here because two matches inside one message share an id, so the id alone would not change
+  // on the step between them and the landing would never re-fire.
+  findMessageId: string | null
+  findMatchIndex: number
+  // Where the current find match is painted on screen, or null while it is not painted at
+  // all. Supplied by the caller rather than read from the find feature here, so this hook
+  // stays a scrolling mechanism: it lands on a rect, and does not have to know that the rect
+  // comes from a highlight registry.
+  getFindMatchRect: () => DOMRect | null
 }
 
 // Owns the message-list virtualizer and its scroll side effects. Auto-scroll is an
@@ -63,6 +84,9 @@ export function useMessageVirtualizer({
   messages,
   streamingText,
   landOnMessageId,
+  findMessageId,
+  findMatchIndex,
+  getFindMatchRect,
 }: MessageVirtualizerDeps) {
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const [showScrollToBottom, setShowScrollToBottom] = React.useState(false)
@@ -241,6 +265,112 @@ export function useMessageVirtualizer({
 
     requestAnimationFrame(() => landOnIndex(landingIndex))
   }, [messages.length])
+
+  // Land on the find match itself, rather than on the message row holding it. A match can sit
+  // thousands of pixels into a long message, so the row's top is simply the wrong place, and
+  // two matches inside one message share a row, so aiming at the row does not move at all on
+  // the step between them.
+  //
+  // One loop covers both halves of the job, because both converge on the same test. While the
+  // match is not painted its row is outside the mounted window, so the row is scrolled in the
+  // way a search landing does and the loop looks again next frame. Once it is painted the
+  // scroll is corrected onto the match. Rows above keep measuring as they mount and push the
+  // match around while that happens, and re-reading the rect every frame absorbs that drift,
+  // which is the job landOnIndex does for a landing that has no match to aim at.
+  function landOnFindMatch(index: number) {
+    cancelAnimationFrame(rafRef.current)
+    landingRef.current = true
+
+    let attempts = 0
+
+    function settle() {
+      landingRef.current = false
+    }
+
+    function again() {
+      if (attempts >= FIND_LANDING_ATTEMPTS) {
+        settle()
+        return
+      }
+
+      rafRef.current = requestAnimationFrame(step)
+    }
+
+    function step() {
+      attempts++
+      const el = scrollRef.current
+      if (!el) {
+        settle()
+        return
+      }
+
+      // Nothing painted: the row is not mounted, so there is no match to measure yet. Bring
+      // the row into the window and look again once the painter has caught up.
+      const rect = getFindMatchRect()
+      if (!rect) {
+        virtualizer.scrollToIndex(index, { align: 'start' })
+        again()
+        return
+      }
+
+      const delta = landingScrollDelta({
+        match: rect,
+        view: el.getBoundingClientRect(),
+        topInset: LIST_PADDING_START,
+        fraction: FIND_LANDING_FRACTION,
+      })
+
+      // Already comfortably in view. Stopping without writing a scroll position is the point:
+      // stepping onto a match that is on screen already should leave the page where it is
+      // rather than throw the reader's eye across it.
+      if (delta === 0) {
+        settle()
+        return
+      }
+
+      const before = el.scrollTop
+      el.scrollTop += delta
+      // The browser clamps at either end of the list, where the match cannot reach the target
+      // however many frames are spent on it.
+      if (el.scrollTop === before) {
+        settle()
+        return
+      }
+
+      again()
+    }
+
+    rafRef.current = requestAnimationFrame(step)
+  }
+
+  // Land on the current find match whenever it moves. Same family as the landing above: a
+  // derived value pushed onto scroll position, which React does not model as state.
+  //
+  // landOnFindMatch starts on the next frame, which it has to. The painter's effect is
+  // registered after this one, so at this point the registry still holds the match just
+  // stepped away from; every effect in the commit has flushed by the time the frame runs.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the match is the trigger; landing reads stable refs
+  React.useEffect(() => {
+    if (!findMessageId) {
+      return
+    }
+
+    // A match whose message is gone (edited away, or truncated by a retry) has nowhere to
+    // land, and the next query will rebuild the list anyway.
+    const index = messages.findIndex((m) => m.id === findMessageId)
+    if (index === -1) {
+      return
+    }
+
+    landOnFindMatch(index)
+
+    // Closing find clears the highlights, so a loop still in flight would find no rect and
+    // spend its remaining frames scrolling the row of a match that is no longer current.
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      landingRef.current = false
+    }
+  }, [findMessageId, findMatchIndex])
 
   // Follow new content down while the user is near the bottom: streaming tokens grow
   // the footer and a finished turn appends a row. The streaming bubble is a real node

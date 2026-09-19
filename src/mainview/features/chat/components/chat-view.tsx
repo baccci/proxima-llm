@@ -7,6 +7,10 @@ import { getContextUsage } from '@/features/chat/entities/context-usage'
 import { useChat } from '@/features/chat/hooks/use-chats'
 import { useCompaction } from '@/features/chat/hooks/use-compaction'
 import { useMessages } from '@/features/chat/hooks/use-messages'
+import { FindBar } from '@/features/chat-find/components/find-bar'
+import { useFindMatches } from '@/features/chat-find/hooks/use-find-matches'
+import { useFindShortcut } from '@/features/chat-find/hooks/use-find-shortcut'
+import { useChatFindStore } from '@/features/chat-find/store/chat-find.store'
 import { useDevtoolsStore } from '@/features/devtools/store/devtools.store'
 import { groupIntoExchanges } from '@/features/focus-mode/entities/group-into-exchanges'
 import { useFocusModeStore } from '@/features/focus-mode/store/focus-mode.store'
@@ -28,6 +32,12 @@ export function ChatView() {
   const { data: messages = [] } = useMessages(selectedChatId)
   const { data: compaction } = useCompaction(selectedChatId)
   const { data: allModels = [] } = useModels()
+
+  // In-chat find. Computed once here and handed to both the bar and the message list, so
+  // the counter the user reads and the highlights they see come from the same pass.
+  const findOpen = useChatFindStore((s) => s.isOpen)
+  const find = useFindMatches(messages)
+  useFindShortcut({ total: find.matches.length, enabled: !!chat })
 
   const project = projects.find((p) => p.id === chat?.projectId)
   const model = allModels.find((m) => m.id === chat?.modelId)
@@ -126,12 +136,15 @@ export function ChatView() {
         </div>
       </div>
 
+      {findOpen && <FindBar total={find.matches.length} activeIndex={find.activeIndex} />}
+
       {/* Messages */}
       <MessageList
         key={selectedChatId}
         messages={messages}
         chatItem={chat}
         compactedThroughAt={compaction?.displayThroughAt}
+        find={find}
       />
 
       {/* Input */}

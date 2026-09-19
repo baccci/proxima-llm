@@ -4,6 +4,7 @@ import { formatBytes } from '@utils/format-bytes'
 import { IconFileText } from '@/components/icons/icon-file-text'
 import { useAttachment } from '@/features/chat/attachment.api'
 import { ToolCallBlock } from '@/features/chat/components/tool-call-block'
+import { FIND_TEXT_ATTRIBUTE } from '@/features/chat-find/constants'
 import { Markdown } from '@/lib/markdown'
 
 type MessagePartRendererProps = {
@@ -20,7 +21,15 @@ export function MessagePartRenderer({
   allParts,
 }: MessagePartRendererProps) {
   if (part.type === PartKind.enum.text) {
-    return <Markdown content={part.text} streaming={streaming} className={textClassName} />
+    // The wrapper is what in-chat find paints inside, and it carries the class itself
+    // rather than handing it to Markdown, which would wrap the tree in a second div of its
+    // own. Spread rather than written out, so the attribute name has one home in
+    // chat-find/constants, where the painter's selector reads it.
+    return (
+      <div {...{ [FIND_TEXT_ATTRIBUTE]: '' }} className={textClassName}>
+        <Markdown content={part.text} streaming={streaming} />
+      </div>
+    )
   }
 
   if (part.type === PartKind.enum.reasoning) {

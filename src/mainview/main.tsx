@@ -8,12 +8,14 @@ import { onControlNavigate } from './app/on-control-navigate'
 import { ErrorBoundary } from './components/error-boundary'
 import { initActiveChatReporter } from './features/chat/lib/active-chat-reporter'
 import { initStreamResetOnNavigation } from './features/chat/lib/reset-stream-on-navigation'
+import { initFindResetOnNavigation } from './features/chat-find/lib/reset-find-on-navigation'
 import { installClientLogger } from './lib/client-logger'
 import { electroview, subscribeToControlNavigate } from './lib/rpc.client'
 
 installClientLogger()
 initActiveChatReporter()
 initStreamResetOnNavigation()
+initFindResetOnNavigation()
 subscribeToControlNavigate(onControlNavigate)
 
 document.addEventListener(

@@ -218,6 +218,11 @@
   --sh-input: 0 0 0 1px rgb(0 0 0 / 0.06), 0 2px 8px -4px rgb(0 0 0 / 0.1);
   --sh-modal: 0 4px 16px -4px rgb(0 0 0 / 0.1), 0 1px 4px rgb(0 0 0 / 0.06);
   --sh-pop: none;
+  /* In-chat find — amber rather than the iris accent, because a find match reads as
+     "the browser found this" and has to stay legible over the dark code card too. */
+  --find-match: rgb(254 188 46 / 0.45);
+  --find-active: #febc2e;
+  --find-active-fg: #161618;
 }
 
 .dark {
@@ -255,6 +260,29 @@
   --sh-input: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
   --sh-modal: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
   --sh-pop: 0 4px 16px -4px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.4);
+  /* Weaker wash on near-black, where the same amber would glare. */
+  --find-match: rgb(254 188 46 / 0.3);
+  --find-active: #febc2e;
+  --find-active-fg: #161618;
+}
+
+/* ─── In-chat find highlights ─────────────────────────────────────────────────
+   Painted through the CSS Custom Highlight API instead of being wrapped in markup,
+   so a match can be shown inside a Shiki code block without rewriting the HTML
+   Shiki injected. ::highlight() honours only a few properties (background-color,
+   color, text-decoration), which is why there is no radius or padding here.
+
+   The non-active rule sets background only, on purpose: overriding colour would
+   flatten a code block's syntax colours everywhere the query happens to match. The
+   active match does override it, because that one needs maximum contrast and there
+   is only ever one of it. The names must match chat-find/constants.ts. */
+::highlight(proxima-find) {
+  background-color: var(--find-match);
+}
+
+::highlight(proxima-find-active) {
+  background-color: var(--find-active);
+  color: var(--find-active-fg);
 }
 
 /* ─── Keyframes ───────────────────────────────────────────────────────────── */

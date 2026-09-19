@@ -7,6 +7,10 @@ import React from 'react'
 import { IconChevronDown } from '@/components/icons/icon-chevron-down'
 import { useMessageVirtualizer } from '@/features/chat/hooks/use-message-virtualizer'
 import { type StreamingMessage, useChatStore } from '@/features/chat/store/chat.store'
+import { FIND_ROW_ATTRIBUTE } from '@/features/chat-find/constants'
+import type { FindResults } from '@/features/chat-find/hooks/use-find-matches'
+import { usePaintFindHighlights } from '@/features/chat-find/hooks/use-paint-find-highlights'
+import { activeFindRect } from '@/features/chat-find/lib/find-highlight-registry'
 import { rpcRequest } from '@/lib/rpc.client'
 import { useNavigationStore } from '@/store/navigation.store'
 import { MessageBubble } from './message-bubble'
@@ -19,9 +23,13 @@ type MessageListProps = {
   messages: MessageDTO[]
   chatItem: ChatDTO
   compactedThroughAt?: string | null
+  // In-chat find results, computed once by the chat view and passed down. The list hosts
+  // the highlight painter because the painter needs the scroll container and the rows the
+  // virtualizer has mounted, both of which live here.
+  find: FindResults
 }
 
-export function MessageList({ messages, chatItem, compactedThroughAt }: MessageListProps) {
+export function MessageList({ messages, chatItem, compactedThroughAt, find }: MessageListProps) {
   const streaming = useChatStore((s) => s.streaming)
   const compactingChatId = useChatStore((s) => s.compactingChatId)
   // Label shows for both auto-compaction (stream chunk) and a manual ring click
@@ -33,8 +41,37 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: MessageL
   const pendingScroll = useNavigationStore((s) => s.pendingScroll)
   const landOnMessageId = pendingScroll?.chatId === chatItem.id ? pendingScroll.messageId : null
 
+  // The match the find bar is sitting on, so the list can land on it.
+  const activeMatch = find.matches[find.activeIndex]
+
   const { scrollRef, virtualizer, showScrollToBottom, handleScroll, scrollToBottom } =
-    useMessageVirtualizer({ messages, streamingText: streaming?.textParts, landOnMessageId })
+    useMessageVirtualizer({
+      messages,
+      streamingText: streaming?.textParts,
+      landOnMessageId,
+      findMessageId: activeMatch?.messageId ?? null,
+      findMatchIndex: find.activeIndex,
+      // The painter below registers the ranges this reads back, so the list scrolls onto the
+      // match itself rather than onto the row holding it. Handed over as a function so the
+      // virtualizer never has to know find exists beyond a rect to land on.
+      getFindMatchRect: activeFindRect,
+    })
+
+  const virtualItems = virtualizer.getVirtualItems()
+  // Which stretch of the chat is mounted right now. Scrolling changes it, which is what
+  // tells the painter to highlight the rows that just came into view.
+  const mountedKey =
+    virtualItems.length > 0
+      ? `${virtualItems[0].index}-${virtualItems[virtualItems.length - 1].index}`
+      : ''
+
+  usePaintFindHighlights({
+    scrollRef,
+    matches: find.matches,
+    activeIndex: find.activeIndex,
+    needle: find.needle,
+    mountedKey,
+  })
 
   // The id of the last message covered by the rolling summary. Everything up to and
   // including it is sent to the model as a compact summary, so we render a divider
@@ -66,12 +103,15 @@ export function MessageList({ messages, chatItem, compactedThroughAt }: MessageL
           {/* Virtualized history: only rows near the viewport mount, so only they
               parse markdown. This is what keeps opening a big chat cheap. */}
           <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
-            {virtualizer.getVirtualItems().map((item) => {
+            {virtualItems.map((item) => {
               const msg = messages[item.index]
               return (
                 <div
                   key={item.key}
                   data-index={item.index}
+                  // Spread rather than written out, so the attribute name has one home in
+                  // chat-find/constants, where the painter's selector reads it.
+                  {...{ [FIND_ROW_ATTRIBUTE]: msg.id }}
                   ref={virtualizer.measureElement}
                   className={cn(
                     'absolute top-0 left-0 w-full px-6',
