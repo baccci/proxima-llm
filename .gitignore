@@ -12,6 +12,15 @@ drizzle/
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+
+# Local databases
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
 
 # macOS
 .DS_Store
