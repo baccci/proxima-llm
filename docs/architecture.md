@@ -5,9 +5,9 @@ from the moment you press send. It stays at the high level on purpose. When you 
 of one piece, each section points at the reference doc that owns it.
 
 Proxima is a desktop chat app for talking to large language models. You keep chats, optionally
-grouped into projects, with attachments, thinking, memory, and tools. It is built for Anthropic
-models first, and the seams are cut so a second provider slots in without reworking the core.
-OpenRouter is already wired in as that second provider.
+grouped into projects, with attachments, thinking, memory, and tools. No provider is favored:
+each one plugs in behind the same seam, and adding one does not rework the core. Anthropic and
+OpenRouter are the two wired in today.
 
 ## What the app does
 
@@ -15,8 +15,8 @@ OpenRouter is already wired in as that second provider.
   left, the open chat on the right.
 - Many chats, optionally grouped into **projects** that carry their own system prompt, memory,
   and files.
-- Anthropic and OpenRouter models, with **thinking** and **attachments** (images and PDFs) when
-  the chosen model supports them.
+- Models from every connected provider (Anthropic and OpenRouter today), with **thinking** and
+  **attachments** (images and PDFs) when the chosen model supports them.
 - **Memory**: durable notes that survive across chats, both typed by you and written by the model
   through tools.
 - **Tools**: the model can call tools during a turn (memory, web search), each gated by a
@@ -31,8 +31,8 @@ OpenRouter is already wired in as that second provider.
 - Not multi-window, multi-account, or cloud-synced. One window, local storage.
 - Not a general web browser or a full IDE. It is a chat surface with a few power tools.
 
-Provider breadth is a design goal rather than a finished one. The provider seam exists and
-OpenRouter proves it, but each new provider is still real work in one place (see
+Provider breadth is a design goal rather than a finished one. The provider seam exists and two
+providers already share it, but each new provider is still real work in one place (see
 [LLM integration](#llm-integration)).
 
 ## Tech stack
@@ -49,7 +49,7 @@ OpenRouter proves it, but each new provider is still real work in one place (see
 | Validation | Zod | Every DTO and every dangerous input, checked at the boundary. |
 | Database | **SQLite via `bun:sqlite`** | Synchronous, zero-config, no native rebuild. |
 | ORM | **Drizzle** (`drizzle-orm`, `drizzle-zod`) | Pure TypeScript, schema as code, no query-engine binary. |
-| LLM SDK | **Vercel AI SDK** + `@ai-sdk/anthropic` + OpenRouter | One streaming interface for thinking, attachments, and tools across providers. |
+| LLM SDK | **Vercel AI SDK** + one adapter per provider (`@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`) | One streaming interface for thinking, attachments, and tools across providers. |
 | Markdown | `react-markdown` + `remark-gfm` + `shiki` | Streaming-friendly, themable, highlighting without a client JS engine. |
 | Secrets | OS keychain | Provider API keys never touch the database. macOS today, via a native binding. |
 | Logging | `pino` in the main process | Structured logs to disk and stdout. |
@@ -259,10 +259,10 @@ example in [reference/model.md](reference/model.md).
 ## LLM integration
 
 **The model catalog.** Models live in the `models` table so the picker renders instantly and the
-network never sits in the render path. A model enters the catalog from one of two **sources**:
-`builtin` (shipped in code, seeded on boot) or `openrouter` (the full catalog, synced in the
-background). The `source` column decides who may overwrite a row, so the seed and the sync never
-step on each other, and the user's enable toggle is always theirs. See
+network never sits in the render path. Each provider is a **source** (`anthropic` or
+`openrouter`) whose catalog is synced in the background from that provider's model list. The
+`source` column decides who may overwrite a row, so the syncs never step on each other, and the
+user's enable toggle is always theirs. See
 [reference/model.md](reference/model.md).
 
 **Streaming a turn** is split across two layers, and the split is deliberate. The
