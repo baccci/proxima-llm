@@ -12,6 +12,15 @@ drizzle/
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+
+# Local databases
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
 
 # macOS
 .DS_Store
@@ -30,10 +39,15 @@ drizzle/
 # Bun
 .bun-cache/
 
-# Eval artifacts
-evals/*.sqlite
+# Evals (local-only memory-behavior tests)
+/evals/
+/scripts/run-evals.ts
 
 # Claude context (local-only, untracked — read from disk, kept out of the repo)
 /CLAUDE.md
 /local-docs/
 /.claude/
+
+# Third-party agent skills (installed locally, not part of the app)
+/.agents/
+/skills-lock.json
