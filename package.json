@@ -2,6 +2,7 @@
   "name": "proxima",
   "version": "0.0.2-pre-alpha",
   "description": "Proxima desktop AI chat",
+  "license": "MIT",
   "scripts": {
     "start": "vite build && electrobun dev",
     "dev": "electrobun dev --watch",
