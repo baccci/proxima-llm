@@ -1,8 +1,6 @@
 # Proxima
 
-A desktop chat app for working with language models through your own API keys. No provider is
-favored: each one plugs in behind the same seam, and Anthropic and OpenRouter are supported today.
-Everything stays on your machine.
+A desktop chat app for working with language models through your own API keys. Everything stays on your machine.
 
 Proxima is pre-alpha and runs on macOS only.
 
@@ -47,14 +45,14 @@ bun run start
 `start` builds the renderer and opens the app. Add an API key in **Settings → Providers**, and the
 model list syncs from that provider.
 
-| Command | What it does |
-|---|---|
-| `bun run dev:hmr` | Runs the app with hot reload. Also serves the renderer at `localhost:5173`, so you can debug it in a browser against the running app. Dev only. |
-| `bun run build` | Builds the packaged app into `build/`. |
-| `bun test` | Runs the unit tests. |
-| `bun run typecheck` | Type-checks the project. |
-| `bunx biome check .` | Lints and checks formatting. |
-| `bun run eval` | Runs the memory-behavior tests in `evals/` against a real model. Needs an OpenRouter key saved in the app, and makes paid model calls. |
+| Command              | What it does                                                                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun run dev:hmr`    | Runs the app with hot reload. Also serves the renderer at `localhost:5173`, so you can debug it in a browser against the running app. Dev only. |
+| `bun run build`      | Builds the packaged app into `build/`.                                                                                                          |
+| `bun test`           | Runs the unit tests.                                                                                                                            |
+| `bun run typecheck`  | Type-checks the project.                                                                                                                        |
+| `bunx biome check .` | Lints and checks formatting.                                                                                                                    |
+| `bun run eval`       | Runs the memory-behavior tests in `evals/` against a real model. Needs an OpenRouter key saved in the app, and makes paid model calls.          |
 
 ## Where your data lives
 
