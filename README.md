@@ -52,7 +52,6 @@ model list syncs from that provider.
 | `bun test`           | Runs the unit tests.                                                                                                                            |
 | `bun run typecheck`  | Type-checks the project.                                                                                                                        |
 | `bunx biome check .` | Lints and checks formatting.                                                                                                                    |
-| `bun run eval`       | Runs the memory-behavior tests in `evals/` against a real model. Needs an OpenRouter key saved in the app, and makes paid model calls.          |
 
 ## Where your data lives
 

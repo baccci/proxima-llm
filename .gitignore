@@ -39,8 +39,9 @@ drizzle/
 # Bun
 .bun-cache/
 
-# Eval artifacts
-evals/*.sqlite
+# Evals (local-only memory-behavior tests)
+/evals/
+/scripts/run-evals.ts
 
 # Claude context (local-only, untracked — read from disk, kept out of the repo)
 /CLAUDE.md

@@ -14,8 +14,7 @@ Planned work for Proxima, roughly in order. Items marked *speculative* are ideas
 - Downloaded attachments lose their original filename. Needs a `name` column and a migration.
 - Control server: the connected-clients list does not refresh when a new client pairs.
 - Project icon color: opacity snaps to 100% when picking a new base color at 0%.
-- Memory: the model sometimes saves a note when it shouldn't. Tighten the memory instructions and
-  extend the memory evals.
+- Memory: the model sometimes saves a note when it shouldn't. Tighten the memory instructions.
 - Keychain: a failed key save is only logged, so the user later sees "no API key configured" with no
   cause. Surface the failure.
 

@@ -18,9 +18,7 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
-    "build:native": "clang -dynamiclib -framework Cocoa -o os/macos/native/libTrafficLights.dylib os/macos/native/traffic-lights.m -arch arm64 -arch x86_64",
-    "eval": "bun run scripts/run-evals.ts",
-    "eval:watch": "bun run scripts/run-evals.ts --watch"
+    "build:native": "clang -dynamiclib -framework Cocoa -o os/macos/native/libTrafficLights.dylib os/macos/native/traffic-lights.m -arch arm64 -arch x86_64"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.82",
